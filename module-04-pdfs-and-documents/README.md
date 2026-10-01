@@ -56,7 +56,7 @@ def pdf_page_count(path):
     return len(PdfReader(path).pages)
 
 
-def ask_pdf(path, question, *, model=SONNET, cache=False, max_tokens=1500, module="m4"):
+def ask_pdf(path, question, *, model=HAIKU, cache=False, max_tokens=1024, module="m4"):
     """Ask a question about a PDF. Returns the full reply (use text_of to read it)."""
     messages = [{"role": "user", "content": [pdf_block(path, cache), {"type": "text", "text": question}]}]
     return ask(messages=messages, system=DOC_RULE, model=model, max_tokens=max_tokens, module=module)
@@ -105,14 +105,14 @@ INVOICE_SCHEMA = {
 }
 
 
-def extract_pdf_fields(path, *, schema=INVOICE_SCHEMA, model=SONNET, module="m4"):
+def extract_pdf_fields(path, *, schema=INVOICE_SCHEMA, model=HAIKU, module="m4"):
     """Extract structured fields from a PDF. Missing fields come back as null."""
     tool = {"name": "record_fields", "description": "Record the fields found in the document.",
             "input_schema": schema}
     messages = [{"role": "user", "content": [
         pdf_block(path),
         {"type": "text", "text": "Extract the fields. Use null for anything not present; never guess."}]}]
-    resp = ask(messages=messages, system=DOC_RULE, model=model, max_tokens=4000, tools=[tool],
+    resp = ask(messages=messages, system=DOC_RULE, model=model, max_tokens=1024, tools=[tool],
                tool_choice={"type": "tool", "name": "record_fields"}, module=module)
     return tool_input(resp)
 ```
@@ -257,7 +257,7 @@ from claude_multimodal import ask_pdf, text_of
 
 p = sorted(Path("data/m4/pdfs").glob("*.pdf"))[0]
 for q in ["Who issued this?", "What is the due date?", "List the line items briefly."]:
-    r = ask_pdf(p, q, cache=True, max_tokens=300)
+    r = ask_pdf(p, q, cache=True, max_tokens=1024)
     u = r.usage
     print(f"Q: {q}\n   written to cache: {u.cache_creation_input_tokens}, "
           f"read from cache: {u.cache_read_input_tokens}, uncached input: {u.input_tokens}")

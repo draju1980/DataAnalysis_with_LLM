@@ -68,8 +68,8 @@ Prints a file name, a media type and a size.
 Append:
 
 ```python
-def ask_image(paths, question, *, schema=None, tool_name="record", model=SONNET,
-              max_side=1568, max_tokens=2048, module="m3"):
+def ask_image(paths, question, *, schema=None, tool_name="record", model=HAIKU,
+              max_side=1568, max_tokens=1024, module="m3"):
     """Ask about one or more images. With a schema, return structured fields (a dict)."""
     if isinstance(paths, (str, Path)):
         paths = [paths]
@@ -106,7 +106,7 @@ from claude_multimodal import ask, image_block
 p = sorted(Path("data/m3/charts").iterdir())[0]
 for side in (400, 1568):
     r = ask(messages=[{"role": "user", "content": [image_block(p, side),
-            {"type": "text", "text": "What is the chart title?"}]}], max_tokens=50, module="m3")
+            {"type": "text", "text": "What is the chart title?"}]}], max_tokens=1024, module="m3")
     print(f"max_side={side}: {r.usage.input_tokens} input tokens -> {r.content[0].text}")
 ```
 

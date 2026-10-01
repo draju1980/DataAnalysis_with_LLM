@@ -9,7 +9,7 @@
 
 - **The API.** Your code sends an HTTPS request with text (later also images and PDFs) and gets Claude's reply back as JSON.
 - **Tokens.** Claude reads text in chunks called tokens; 1,000 tokens is roughly 750 English words. You pay per token: input (what you send) and output (what Claude writes) have separate prices, and output costs more.
-- **Models.** Haiku is cheapest and fastest, for bulk simple work. Sonnet is stronger, for reasoning, images and writing queries. Start with Haiku and move up only when you've measured that you need to.
+- **Model.** The whole course uses one model, `claude-haiku-4-5-20251001` (Claude Haiku 4.5), with `max_tokens=1024` on every call. `max_tokens` is the longest reply Claude may write.
 - **Why a database.** Every later module saves Claude's results into MongoDB so you can check accuracy and cost with one query. The read-only user you create here is what makes it safe to let Claude write queries in Module 8.
 
 ---
@@ -137,7 +137,7 @@ This sends one tiny request straight to the API using the key in `.env`, with no
     --header "x-api-key: $key" \
     --header "anthropic-version: 2023-06-01" \
     --header "content-type: application/json" \
-    --data '{"model": "claude-haiku-4-5-20251001", "max_tokens": 50,
+    --data '{"model": "claude-haiku-4-5-20251001", "max_tokens": 1024,
       "messages": [{"role": "user", "content": "Hello, world"}]}'
 )
 ```
@@ -282,7 +282,7 @@ import anthropic
 client = anthropic.Anthropic()          # reads ANTHROPIC_API_KEY
 resp = client.messages.create(
     model="claude-haiku-4-5-20251001",
-    max_tokens=100,
+    max_tokens=1024,
     messages=[{"role": "user", "content": "hello"}],
 )
 print(resp.content[0].text)

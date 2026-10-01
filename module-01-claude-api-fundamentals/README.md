@@ -32,13 +32,11 @@ from pymongo import MongoClient
 
 load_dotenv()  # reads .env from the project root
 
-HAIKU = "claude-haiku-4-5-20251001"
-SONNET = "claude-sonnet-5-5"
+HAIKU = "claude-haiku-4-5-20251001"     # the one model used throughout the course
 
-# USD per million tokens: (input, output). Check Anthropic's pricing page and fill in.
+# USD per million tokens: (input, output). Check Anthropic's pricing page.
 PRICES = {
     HAIKU: (1.00, 5.00),
-    SONNET: (None, None),
 }
 
 client = anthropic.Anthropic(max_retries=4, timeout=120.0)
@@ -47,7 +45,7 @@ db_ro = MongoClient(os.environ["MONGODB_URI"]).course      # queries read with t
 ```
 
 - `max_retries=4`: the SDK already retries rate-limit (429), overload (529) and server errors with backoff. Don't write your own retry loop on top.
-- Open Anthropic's pricing page now and fill in both rows of `PRICES` (Sonnet's are blank on purpose).
+- Every call in the course uses `model="claude-haiku-4-5-20251001"` and `max_tokens=1024`. Check Haiku's price on Anthropic's pricing page and correct `PRICES` if it has changed.
 
 **Check:** `python -c "import claude_multimodal; print('ok')"` prints `ok`.
 
@@ -164,7 +162,7 @@ For long answers, streaming prints text as it's generated. Create `m01_stream.py
 from claude_multimodal import client, log_call, HAIKU
 
 with client.messages.stream(
-    model=HAIKU, max_tokens=600,
+    model=HAIKU, max_tokens=1024,
     messages=[{"role": "user", "content": "Explain how Kubernetes liveness and readiness probes differ, in 6 sentences."}],
 ) as stream:
     for text in stream.text_stream:
@@ -192,7 +190,7 @@ for t in (1.0, 0.0):
     print(f"--- temperature {t}")
     for _ in range(4):
         r = ask("Suggest one unusual name for a cat. Reply with the name only.",
-                temperature=t, max_tokens=20, module="m1")
+                temperature=t, max_tokens=1024, module="m1")
         print(text_of(r))
 ```
 
@@ -270,7 +268,7 @@ def tool_input(resp):
 
 
 def run_with_tools(history, tools, handlers, *, module, model=HAIKU, system=None,
-                   max_tokens=2048, max_rounds=10):
+                   max_tokens=1024, max_rounds=10):
     """Run Claude with tools until it answers. Returns (final reply, all replies)."""
     replies = []
     for _ in range(max_rounds):

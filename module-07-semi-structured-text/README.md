@@ -89,7 +89,7 @@ def extract_log_records(lines, first_line_no=1, model=HAIKU):
               "message continuing over several lines is ONE event. Use 'unknown' for a missing "
               "service. Put any other fields in attrs.\n"
               f"<log>\n{numbered}\n</log>")
-    resp = ask(prompt, system=DOC_RULE, model=model, max_tokens=12000, tools=[LOG_TOOL],
+    resp = ask(prompt, system=DOC_RULE, model=model, max_tokens=1024, tools=[LOG_TOOL],
                tool_choice={"type": "tool", "name": "record_events"}, module="m7")
     return tool_input(resp)["records"]
 ```
@@ -201,13 +201,13 @@ Fields inside `attrs` are queryable too, e.g. `{'attrs.namespace': 'prod'}`.
 Small files don't need extraction; send them whole. Append to `claude_multimodal.py`:
 
 ```python
-def ask_text_file(path, question, *, model=SONNET, max_chars=200_000):
+def ask_text_file(path, question, *, model=HAIKU, max_chars=200_000):
     """Answer a question about a small text file (YAML, XML, HTML, log…)."""
     text = Path(path).read_text(errors="replace")
     if len(text) > max_chars:
         raise ValueError(f"{path} is {len(text)} characters; pre-filter it with grep/jq/yq first")
     prompt = f'<file name="{Path(path).name}">\n{text}\n</file>\n\n{question}'
-    return text_of(ask(prompt, system=DOC_RULE, model=model, max_tokens=1500, module="m7"))
+    return text_of(ask(prompt, system=DOC_RULE, model=model, max_tokens=1024, module="m7"))
 ```
 
 Try it on the Compose file you wrote in Module 0:

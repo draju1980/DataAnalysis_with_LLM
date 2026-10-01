@@ -213,7 +213,7 @@ SQL_TOOL = {
 }
 
 
-def ask_data(con, question, tables, *, model=SONNET):
+def ask_data(con, question, tables, *, model=HAIKU):
     """Answer a question by letting Claude query the tables. Returns (answer, sql_list)."""
     schema = "\n\n".join(describe_table(con, t) for t in tables)
     system = ("You answer questions about data by querying it with the run_sql tool (DuckDB SQL). "

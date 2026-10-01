@@ -3,7 +3,7 @@
 [← Module 1](../module-01-claude-api-fundamentals/README.md) · [Syllabus](../README.md) · [Next: Module 3 →](../module-03-images/README.md)
 
 **You start with:** Module 1 done — `ask()`, `tool_input()`, `cost_of()`, `log_call()` in `claude_multimodal.py`.
-**You finish with:** `classify()`; a hand-labeled test set in MongoDB; an evaluation script you can rerun after any prompt change; a Haiku vs Sonnet report; and 500 texts classified with the Batches API at half price.
+**You finish with:** `classify()`; a hand-labeled test set in MongoDB; an evaluation script you can rerun after any prompt change; a comparison of two prompt versions; and 500 texts classified with the Batches API at half price.
 
 ## Key ideas (read once)
 
@@ -124,7 +124,7 @@ def classify(text, labels, *, model=HAIKU, prompt_version="v1", module="m2"):
     """Return (label, reply). The forced tool call guarantees a valid label."""
     tool = label_tool(labels)
     prompt = PROMPTS[prompt_version].format(labels=", ".join(labels), text=text)
-    resp = ask(prompt, model=model, max_tokens=100, tools=[tool],
+    resp = ask(prompt, model=model, max_tokens=1024, tools=[tool],
                tool_choice={"type": "tool", "name": tool["name"]}, module=module)
     return tool_input(resp)["label"], resp
 ```
@@ -144,16 +144,16 @@ Prints `negative` (or the matching label for your set).
 
 ## Step 6 — Write the evaluation script
 
-Create `m02_eval.py`. It runs one model and prompt version over all 100 labeled items and stores every prediction.
+Create `m02_eval.py`. It runs one prompt version over all 100 labeled items and stores every prediction.
 
 ```python
 import sys
 from datetime import datetime, timezone
-from claude_multimodal import classify, cost_of, db_rw, HAIKU, SONNET
+from claude_multimodal import classify, cost_of, db_rw, HAIKU
 from m02_config import LABELS
 
-model_name, prompt_version = sys.argv[1], sys.argv[2]        # e.g. haiku v1
-model = {"haiku": HAIKU, "sonnet": SONNET}[model_name]
+prompt_version = sys.argv[1]                                 # e.g. v1
+model, model_name = HAIKU, "haiku"
 run_id = f"{prompt_version}-{model_name}-{datetime.now(timezone.utc):%Y%m%dT%H%M%S}"
 
 db_rw.eval_results.create_index([("run_id", 1), ("item_id", 1)], unique=True)
@@ -166,10 +166,10 @@ for n, item in enumerate(db_rw.eval_items.find(), 1):
 print("\nfinished run", run_id)
 ```
 
-Run it with Haiku and prompt v1:
+Run it with prompt v1:
 
 ```bash
-python m02_eval.py haiku v1
+python m02_eval.py v1
 ```
 
 **Check:** prints `100/100` and `finished run v1-haiku-…`.
@@ -215,18 +215,7 @@ python m02_report.py <run_id from Step 6>
 
 **Check:** the first command shows one row with an accuracy and cost; the second also lists the mistakes. Read every mistake — some will be your labeling errors (fix them in `labels.csv` and rerun Step 4).
 
-## Step 8 — Compare with Sonnet
-
-Make sure Sonnet's price is filled in `PRICES` (Module 1, Step 1), then:
-
-```bash
-python m02_eval.py sonnet v1
-python m02_report.py
-```
-
-**Check:** the report now has two rows: Haiku v1 and Sonnet v1, each with accuracy and cost.
-
-## Step 9 — Improve the prompt and measure the change
+## Step 8 — Improve the prompt and measure the change
 
 Add a second prompt version with clear rules and examples. In `claude_multimodal.py`, add a `"v2"` entry inside `PROMPTS`:
 
@@ -240,34 +229,34 @@ Add a second prompt version with clear rules and examples. In `claude_multimodal
            "<review>\n{text}\n</review>"),
 ```
 
-Adjust the rules and examples to the mistakes you saw in Step 7. Then rerun with the cheaper model:
+Adjust the rules and examples to the mistakes you saw in Step 7. Then rerun:
 
 ```bash
-python m02_eval.py haiku v2
+python m02_eval.py v2
 python m02_report.py
 ```
 
 **Check:** a `v2` row appears. Whether accuracy went up or down, you now *know* — that's the point.
 
-## Step 10 — Classify all 600 with the Batches API
+## Step 9 — Classify all 600 with the Batches API
 
-Pick the best model and prompt from the report. Batches run in the background (usually minutes, up to 24 hours) at half price. Create `m02_batch.py`:
+Pick the best prompt version from the report. Batches run in the background (usually minutes, up to 24 hours) at half price. Create `m02_batch.py`:
 
 ```python
 import sys, time
 import pandas as pd
-from claude_multimodal import client, db_rw, label_tool, log_call, tool_input, PROMPTS, HAIKU, SONNET
+from claude_multimodal import client, db_rw, label_tool, log_call, tool_input, PROMPTS, HAIKU
 from m02_config import LABELS
 
-model = {"haiku": HAIKU, "sonnet": SONNET}[sys.argv[1]]
-prompt_version = sys.argv[2]
+model = HAIKU
+prompt_version = sys.argv[1]
 tool = label_tool(LABELS)
 
 df = pd.read_csv("data/m2/reviews.csv")
 requests = [{
     "custom_id": str(r.id),
     "params": {
-        "model": model, "max_tokens": 100, "tools": [tool],
+        "model": model, "max_tokens": 1024, "tools": [tool],
         "tool_choice": {"type": "tool", "name": tool["name"]},
         "messages": [{"role": "user", "content":
                       PROMPTS[prompt_version].format(labels=", ".join(LABELS), text=r.text)}],
@@ -288,17 +277,17 @@ for res in client.messages.batches.results(batch.id):
     db_rw.predictions.replace_one(
         {"_id": res.custom_id},
         {"_id": res.custom_id, "label": tool_input(msg)["label"],
-         "model": sys.argv[1], "prompt_version": prompt_version}, upsert=True)
+         "model": "haiku", "prompt_version": prompt_version}, upsert=True)
 print("predictions:", db_rw.predictions.count_documents({}))
 ```
 
 ```bash
-python m02_batch.py haiku v2      # use your best combination
+python m02_batch.py v2      # use your best prompt version
 ```
 
 **Check:** prints `predictions: 600`.
 
-## Step 11 — Compare normal vs batch cost per call
+## Step 10 — Compare normal vs batch cost per call
 
 ```bash
 python -c "
@@ -310,11 +299,11 @@ for r in db_ro.llm_calls.aggregate([
     print(r['_id'], r['calls'], 'calls, \$%.5f per call' % (r['cost'] / r['calls']))"
 ```
 
-**Check:** the `m2-batch` cost per call is about half the `m2` cost per call for the same model.
+**Check:** the `m2-batch` cost per call is about half the `m2` cost per call.
 
-## Step 12 — Write your conclusion and commit
+## Step 11 — Write your conclusion and commit
 
-Create `notes/m02_report.md` with three lines: accuracy per model and prompt (from Step 9's report), cost for 600 texts each way (Step 11), and which model + prompt you'd use and why.
+Create `notes/m02_report.md` with three lines: accuracy per prompt version (from Step 8's report), cost for 600 texts each way (Step 10), and which prompt you'd use and why.
 
 ```bash
 mkdir -p notes
@@ -329,8 +318,8 @@ git push
 ## Done when
 
 - [ ] Step 7: `python m02_report.py` ranks every run by accuracy and cost from one query.
-- [ ] Step 9: you changed the prompt and measured the effect instead of judging by eye.
-- [ ] Step 10: all 600 texts classified via the Batches API.
-- [ ] Step 12: your choice of model and prompt is written down with numbers.
+- [ ] Step 8: you changed the prompt and measured the effect instead of judging by eye.
+- [ ] Step 9: all 600 texts classified via the Batches API.
+- [ ] Step 11: your choice of prompt is written down with numbers.
 
 **Next:** [Module 3 — Images](../module-03-images/README.md)

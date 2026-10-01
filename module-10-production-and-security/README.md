@@ -127,7 +127,7 @@ Then, inside `ask()`, replace the `log_call(...)` line with these two lines:
 **Check:**
 
 ```bash
-LOG_JSON=1 python -c "from claude_multimodal import ask; ask('Say OK', max_tokens=5, module='m10')"
+LOG_JSON=1 python -c "from claude_multimodal import ask; ask('Say OK', max_tokens=1024, module='m10')"
 ```
 
 Prints one JSON line with `"event": "llm_call"` — the format log platforms (Loki, CloudWatch, Elastic) ingest.

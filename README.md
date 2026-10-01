@@ -54,7 +54,7 @@ By the end of the course you can:
 | --- | --- | --- | --- | --- | --- |
 | 0 | [Setup](module-00-setup/README.md) | 1 day | — | `.env`, MongoDB users, first notebook | Claude and MongoDB connect; read-only user blocks writes |
 | 1 | [Claude API fundamentals](module-01-claude-api-fundamentals/README.md) | 2–3 days | 0 | `claude_multimodal.py`: `ask()`, `log_call()`, tool loop; `m01_chat.py` | CLI chat with running cost and a tool; costs match `llm_calls` |
-| 2 | [Text analysis](module-02-text-analysis/README.md) | 1 week | 1 | `classify()`, evaluation scripts, batch run | Haiku vs Sonnet report from one query |
+| 2 | [Text analysis](module-02-text-analysis/README.md) | 1 week | 1 | `classify()`, evaluation scripts, batch run | Prompt versions compared from one query |
 | 3 | [Images](module-03-images/README.md) | 4–5 days | 2 | `image_block()`, `ask_image()`, chart extractor | Chart error rate measured |
 | 4 | [PDFs and documents](module-04-pdfs-and-documents/README.md) | 4–5 days | 3 | `ask_pdf()`, `extract_pdf_fields()`, folder pipeline | Bad files logged, totals check passing |
 | 5 | [Audio and video](module-05-audio-and-video/README.md) | 4–5 days | 4 | `transcribe()`, `label_speakers()`, `analyze_audio()` | One command processes a one-hour recording |
@@ -101,7 +101,7 @@ There are no quizzes or grades. A module is complete when its **Done when** chec
 
 | Tool | Used for | First needed |
 | --- | --- | --- |
-| Anthropic API (Haiku, Sonnet) | All analysis | Module 0 |
+| Anthropic API, model `claude-haiku-4-5-20251001`, `max_tokens=1024` | All analysis | Module 0 |
 | Python, Jupyter, python-dotenv | Code, notebooks, secrets from `.env` | Module 0 |
 | Docker, MongoDB `mongodb-atlas-local`, mongosh, pymongo | Local database with Vector Search | Module 0 |
 | Pillow | Resizing images | Module 3 |
@@ -116,7 +116,7 @@ There are no quizzes or grades. A module is complete when its **Done when** chec
 
 - [ ] Module 0 — Claude and MongoDB connect; read-only user blocks writes; no secrets in git
 - [ ] Module 1 — CLI chat with running cost and a tool; totals match `llm_calls`
-- [ ] Module 2 — Evaluation runs in MongoDB; Haiku vs Sonnet report
+- [ ] Module 2 — Evaluation runs in MongoDB; prompt versions compared
 - [ ] Module 3 — Chart values extracted; error rate measured
 - [ ] Module 4 — PDF folder in `invoices`; bad files logged; totals check passing
 - [ ] Module 5 — One-hour recording processed in one command

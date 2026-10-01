@@ -113,7 +113,7 @@ SPEAKER_TOOL = {
 }
 
 
-def label_speakers(recording, chunk=150, model=SONNET):
+def label_speakers(recording, chunk=150, model=HAIKU):
     """Ask Claude who speaks in each segment, 150 segments at a time."""
     segs = list(db_rw.transcript_segments.find({"recording": recording}).sort("i"))
     known = []
@@ -125,7 +125,7 @@ def label_speakers(recording, chunk=150, model=SONNET):
                   "said, otherwise 'Speaker 1', 'Speaker 2', and keep names consistent. "
                   f"Speakers identified so far: {', '.join(known) or 'none'}.\n"
                   f"<transcript>\n{lines}\n</transcript>")
-        data = tool_input(ask(prompt, model=model, max_tokens=8000, tools=[SPEAKER_TOOL],
+        data = tool_input(ask(prompt, model=model, max_tokens=1024, tools=[SPEAKER_TOOL],
                               tool_choice={"type": "tool", "name": "record_speakers"}, module="m5"))
         for x in data["speakers"]:
             db_rw.transcript_segments.update_one({"recording": recording, "i": x["i"]},
@@ -168,7 +168,7 @@ NOTES_TOOL = {
 }
 
 
-def analyze_audio(recording, chunk_minutes=10, model=SONNET):
+def analyze_audio(recording, chunk_minutes=10, model=HAIKU):
     """Summarize each chunk, then combine. Returns (summary, action_items, key_moments)."""
     segs = list(db_ro.transcript_segments.find({"recording": recording}).sort("i"))
     chunks, current = [], []
@@ -186,7 +186,7 @@ def analyze_audio(recording, chunk_minutes=10, model=SONNET):
         prompt = ("Summarize this part of a recording. List action items with an owner and the time "
                   "they were agreed, and key moments with times. Use the [hh:mm:ss] times shown.\n"
                   f"<transcript>\n{text}\n</transcript>")
-        notes.append(tool_input(ask(prompt, model=model, max_tokens=3000, tools=[NOTES_TOOL],
+        notes.append(tool_input(ask(prompt, model=model, max_tokens=1024, tools=[NOTES_TOOL],
                                     tool_choice={"type": "tool", "name": "record_notes"}, module="m5")))
 
     items = [{"recording": recording, **a} for n in notes for a in n["action_items"]]
@@ -196,7 +196,7 @@ def analyze_audio(recording, chunk_minutes=10, model=SONNET):
     moments = [m for n in notes for m in n["key_moments"]]
     summary = text_of(ask("Combine these partial summaries of one recording into a single summary "
                           "of at most 300 words:\n\n" + "\n\n".join(n["summary"] for n in notes),
-                          model=model, max_tokens=1000, module="m5"))
+                          model=model, max_tokens=1024, module="m5"))
     return summary, items, moments
 ```
 

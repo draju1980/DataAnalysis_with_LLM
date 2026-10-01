@@ -186,7 +186,7 @@ PIPELINE_TOOL = {
 }
 
 
-def ask_mongo(question, *, model=SONNET):
+def ask_mongo(question, *, model=HAIKU):
     """Answer a question by letting Claude write and run pipelines. Returns (answer, pipelines)."""
     system = (DOC_RULE + " You answer questions about a MongoDB database by running aggregation pipelines with "
               "the run_pipeline tool. Every number in your answer must come from a pipeline result in "

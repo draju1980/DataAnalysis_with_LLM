@@ -197,7 +197,7 @@ def search_chunks(question, modality=None, k=5):
         pipeline = [{"$vectorSearch": stage}, project]
     else:
         terms = text_of(ask("Rewrite this question as 3-8 search keywords, space-separated, "
-                            f"nothing else:\n{question}", max_tokens=50, module="m9"))
+                            f"nothing else:\n{question}", max_tokens=1024, module="m9"))
         search = {"index": "chunks_text", "compound": {"must": [{"text": {"query": terms, "path": "content"}}]}}
         if modality:
             search["compound"]["filter"] = [{"equals": {"path": "modality", "value": modality}}]
@@ -220,14 +220,14 @@ Prints 5 sources; the right one is among them.
 Append:
 
 ```python
-def answer_with_sources(question, modality=None, k=8, model=SONNET):
+def answer_with_sources(question, modality=None, k=8, model=HAIKU):
     """Answer from retrieved chunks only, citing them as [1], [2]…"""
     hits = search_chunks(question, modality, k)
     sources = "\n\n".join(f"[{n}] ({h['modality']}, {cite(h)})\n{h['content']}" for n, h in enumerate(hits, 1))
     prompt = ("Answer the question using only the numbered sources. Put the source number in "
               "brackets after each claim, like [2]. If the sources don't answer it, say so.\n"
               f"<sources>\n{sources}\n</sources>\nQuestion: {question}")
-    answer = text_of(ask(prompt, system=DOC_RULE, model=model, max_tokens=1500, module="m9"))
+    answer = text_of(ask(prompt, system=DOC_RULE, model=model, max_tokens=1024, module="m9"))
     return answer + "\n\nSources:\n" + "\n".join(f"[{n}] {cite(h)}" for n, h in enumerate(hits, 1))
 ```
 
@@ -247,7 +247,7 @@ Some questions need documents (Step 7), others need numbers from collections (Mo
 
 ```python
 from claude_multimodal import (run_with_tools, run_pipeline, search_chunks, cite, describe_mongo,
-                               text_of, PIPELINE_TOOL, DOC_RULE, SONNET)
+                               text_of, PIPELINE_TOOL, DOC_RULE, HAIKU)
 
 SEARCH_TOOL = {
     "name": "search_documents",
@@ -275,7 +275,7 @@ while True:
     history = [{"role": "user", "content": q}]
     resp, _ = run_with_tools(history, [SEARCH_TOOL, PIPELINE_TOOL],
                              {"search_documents": search_documents, "run_pipeline": run_pipeline},
-                             system=SYSTEM, model=SONNET, module="m9")
+                             system=SYSTEM, model=HAIKU, module="m9")
     print("\n" + text_of(resp))
 ```
 
