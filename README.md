@@ -4,8 +4,11 @@ An 11-module, self-paced course on analyzing text, images, PDFs, audio, tabular 
 
 **Start here → [Module 0 — Setup](module-00-setup/README.md)**
 
+> **Before you start: fork this repo.** Click **Fork** on https://github.com/draju1980/DataAnalysis_with_LLM to make your own copy, then clone your fork (`git clone https://github.com/<your-username>/DataAnalysis_with_LLM.git`). All your course work is committed to your fork. Don't clone the original repo directly: you can't push to it. [Module 0, Step 0](module-00-setup/README.md#step-0--fork-the-course-repo-to-your-github-account) walks through it.
+
 ## How to follow this course
 
+- **Fork first, then work in your fork.** Your code and commits live in your own copy of the repo on GitHub.
 - **Do the modules in order, and the steps in order.** Every step uses something the step before it created: a file, a function, a collection or a setting. If a step's **Check** fails, fix it before moving on.
 - **One shared code file.** All functions go into `claude_multimodal.py` in the project root. Each module adds to it, and later modules import what earlier ones built.
 - **Scripts and data.** Each module's runnable scripts (`m01_chat.py`, `m02_eval.py`, …) go in the project root next to `claude_multimodal.py`. Input files go in `data/<module>/`, which git ignores.
@@ -28,7 +31,7 @@ You learn to get reliable answers and structured data out of six kinds of input 
 | | |
 | --- | --- |
 | Audience | Engineers new to data analysis and AI who are comfortable with the command line, git and Docker |
-| Prerequisites | Python basics, git, Docker; an Anthropic API account with $10–20 credit |
+| Prerequisites | Python basics, git, Docker; a GitHub account (to fork this repo); an Anthropic API account with $10–20 credit |
 | Format | Self-paced; each module is a numbered sequence of steps, each with a **Check** |
 | Pace | 1–2 hours a day, about 8 weeks for Modules 0–9, then Module 10 and the capstone |
 | Environment | Local only: Python, Jupyter, and MongoDB (`mongodb-atlas-local`) in Docker |

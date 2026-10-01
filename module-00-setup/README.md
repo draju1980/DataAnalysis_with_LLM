@@ -2,7 +2,7 @@
 
 [Syllabus](../README.md) · [Next: Module 1 →](../module-01-claude-api-fundamentals/README.md)
 
-**You start with:** an empty project folder (this repo), a computer with Python 3.10+ and Docker.
+**You start with:** a GitHub account, a computer with git, Python 3.10+ and Docker.
 **You finish with:** a Python environment, secrets in `.env`, a tested Claude API key, a local MongoDB with a read-write user and a read-only user, and a notebook that proves all of it works.
 
 ## Key ideas (read once)
@@ -13,6 +13,23 @@
 - **Why a database.** Every later module saves Claude's results into MongoDB so you can check accuracy and cost with one query. The read-only user you create here is what makes it safe to let Claude write queries in Module 8.
 
 ---
+
+## Step 0 — Fork the course repo to your GitHub account
+
+Do this before anything else. You will commit your own code throughout the course, so you need your own copy of the repo, not the original.
+
+1. Sign in to GitHub and open https://github.com/draju1980/DataAnalysis_with_LLM.
+2. Click **Fork** (top right), keep your account as the owner, and click **Create fork**.
+3. Clone **your fork** (replace `<your-username>` with your GitHub username):
+
+```bash
+git clone https://github.com/<your-username>/DataAnalysis_with_LLM.git
+cd DataAnalysis_with_LLM
+```
+
+Do not clone `draju1980/DataAnalysis_with_LLM` directly: you can't push to it, and your work would have nowhere to go.
+
+**Check:** `git remote -v` shows `github.com/<your-username>/DataAnalysis_with_LLM` for `origin`.
 
 ## Step 1 — Open the project folder and set up `.gitignore`
 
