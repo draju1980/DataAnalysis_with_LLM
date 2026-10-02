@@ -81,7 +81,13 @@ mkdir -p data/m3/charts
 
 Put 20 chart screenshots (bar, line, pie; PNG or JPG) in `data/m3/charts/`. Pick charts whose true numbers you can find, e.g. from reports or dashboards you have the data for.
 
-**No charts of your own? Generate the course sample.** This draws 20 bar, line, pie and grouped-bar charts from fixed numbers, and saves those numbers in `data/m3/chart_source.csv`. That file is your source of truth in Step 7. Create `m03_make_charts.py`:
+**No charts of your own? Generate the course sample.** This draws 20 bar, line, pie and grouped-bar charts from fixed numbers, and saves those numbers in `data/m3/chart_source.csv`. That file is your source of truth in Step 7. Install matplotlib first, so the script runs and your editor can resolve its imports:
+
+```bash
+pip install matplotlib
+```
+
+Create `m03_make_charts.py`:
 
 ```python
 """Make 20 practice charts in data/m3/charts/ and record their true values in data/m3/chart_source.csv."""
@@ -146,7 +152,6 @@ print(f"wrote 20 charts to {out}/ and {len(rows)} true values to data/m3/chart_s
 ```
 
 ```bash
-pip install matplotlib
 python m03_make_charts.py
 ```
 
