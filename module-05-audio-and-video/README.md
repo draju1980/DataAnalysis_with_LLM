@@ -234,6 +234,7 @@ def save_segments(recording, segments):
     db_rw.transcript_segments.insert_many(
         [{"recording": recording, "i": i, "speaker": None, **s} for i, s in enumerate(segments)])
     db_rw.transcript_segments.create_index([("recording", 1), ("i", 1)])
+    print(f"saved {len(segments)} segments for '{recording}' to MongoDB", flush=True)
 ```
 
 ```bash
@@ -244,7 +245,7 @@ save_segments('test-clip', transcribe('data/m5/test-clip.wav'))
 print(db_ro.transcript_segments.count_documents({'recording': 'test-clip'}))"
 ```
 
-**Check:** prints the same segment count as Step 3.
+**Check:** shows the same `1/2` and `2/2` progress as Step 3 (about a minute: it transcribes again), then `saved N segments for 'test-clip' to MongoDB`, then the count read back from MongoDB. Both numbers equal the segment count from Step 3.
 
 ## Step 5 — Add `label_speakers()` and label the clip
 
@@ -859,6 +860,7 @@ def save_segments(recording, segments):
     db_rw.transcript_segments.insert_many(
         [{"recording": recording, "i": i, "speaker": None, **s} for i, s in enumerate(segments)])
     db_rw.transcript_segments.create_index([("recording", 1), ("i", 1)])
+    print(f"saved {len(segments)} segments for '{recording}' to MongoDB", flush=True)
 
 
 # ── Module 5, Step 5 ──
