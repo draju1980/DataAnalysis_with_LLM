@@ -521,7 +521,7 @@ diff -Bw <(grep -v '^# ── ' data/expected.py) <(grep -v '^# ── ' lib_cla
 `-Bw` ignores blank lines and spacing. Every other line `diff` prints is a real difference: a missing step, a block pasted twice, or a typo.
 
 <details>
-<summary>Show the complete file (809 lines)</summary>
+<summary>Show the complete file (834 lines)</summary>
 
 ```python
 # ── Module 1, Step 1 ──
@@ -877,12 +877,21 @@ def fmt_ts(seconds):
 
 
 def transcribe(path, model_size="small"):
-    """Transcribe audio locally. Returns a list of {start_s, end_s, text}."""
+    """Transcribe audio locally, printing progress. Returns a list of {start_s, end_s, text}."""
     from faster_whisper import WhisperModel
-    model = WhisperModel(model_size, device="cpu", compute_type="int8")
-    segments, _info = model.transcribe(str(path), vad_filter=True)
-    return [{"start_s": round(s.start, 1), "end_s": round(s.end, 1), "text": s.text.strip()}
-            for s in segments]
+    from huggingface_hub import snapshot_download
+    print(f"1/2 Whisper '{model_size}' model (downloaded once, then reused)", flush=True)
+    model_dir = snapshot_download(f"Systran/faster-whisper-{model_size}")
+    model = WhisperModel(model_dir, device="cpu", compute_type="int8")
+    segments, info = model.transcribe(str(path), vad_filter=True)
+    print(f"2/2 transcribing {fmt_ts(info.duration)} of audio", flush=True)
+    out = []
+    for s in segments:
+        out.append({"start_s": round(s.start, 1), "end_s": round(s.end, 1), "text": s.text.strip()})
+        print(f"\r    {fmt_ts(s.end)} / {fmt_ts(info.duration)}  ({s.end / info.duration:.0%})",
+              end="", flush=True)
+    print()
+    return out
 
 
 # ── Module 5, Step 4 ──
@@ -892,6 +901,7 @@ def save_segments(recording, segments):
     db_rw.transcript_segments.insert_many(
         [{"recording": recording, "i": i, "speaker": None, **s} for i, s in enumerate(segments)])
     db_rw.transcript_segments.create_index([("recording", 1), ("i", 1)])
+    print(f"saved {len(segments)} segments for '{recording}' to MongoDB", flush=True)
 
 
 # ── Module 5, Step 5 ──
@@ -905,25 +915,33 @@ SPEAKER_TOOL = {
 }
 
 
-def label_speakers(recording, chunk=150, model=HAIKU):
+def label_speakers(recording, chunk=150, model=HAIKU, max_tokens=4096):
     """Ask Claude who speaks in each segment, 150 segments at a time."""
     segs = list(db_rw.transcript_segments.find({"recording": recording}).sort("i"))
     known = []
+    n_chunks = -(-len(segs) // chunk)                       # ceiling division
     for start in range(0, len(segs), chunk):
         part = segs[start:start + chunk]
+        print(f"  speakers: part {start // chunk + 1}/{n_chunks} "
+              f"({fmt_ts(part[0]['start_s'])}-{fmt_ts(part[-1]['end_s'])})", flush=True)
         lines = "\n".join(f"{s['i']}: {s['text']}" for s in part)
         prompt = ("Below are numbered segments of a recording transcript. Decide who speaks in each "
                   "segment using turn-taking, names and roles mentioned. Use real names when they are "
                   "said, otherwise 'Speaker 1', 'Speaker 2', and keep names consistent. "
                   f"Speakers identified so far: {', '.join(known) or 'none'}.\n"
                   f"<transcript>\n{lines}\n</transcript>")
-        data = tool_input(ask(prompt, model=model, max_tokens=512, tools=[SPEAKER_TOOL],
-                              tool_choice={"type": "tool", "name": "record_speakers"}, module="m5"))
+        resp = ask(prompt, model=model, max_tokens=max_tokens, tools=[SPEAKER_TOOL],
+                   tool_choice={"type": "tool", "name": "record_speakers"}, module="m5")
+        if resp.stop_reason == "max_tokens":
+            raise RuntimeError(f"speaker labels cut off at max_tokens={max_tokens}; "
+                               "raise max_tokens or lower chunk, then rerun")
+        data = tool_input(resp)
         for x in data["speakers"]:
             db_rw.transcript_segments.update_one({"recording": recording, "i": x["i"]},
                                                  {"$set": {"speaker": x["speaker"]}})
             if x["speaker"] not in known:
                 known.append(x["speaker"])
+    print(f"  speakers: done, {len(known)} found", flush=True)
     return known
 
 
@@ -944,7 +962,7 @@ NOTES_TOOL = {
 }
 
 
-def analyze_audio(recording, chunk_minutes=10, model=HAIKU):
+def analyze_audio(recording, chunk_minutes=10, model=HAIKU, max_tokens=2048):
     """Summarize each chunk, then combine. Returns (summary, action_items, key_moments)."""
     segs = list(db_ro.transcript_segments.find({"recording": recording}).sort("i"))
     chunks, current = [], []
@@ -957,19 +975,26 @@ def analyze_audio(recording, chunk_minutes=10, model=HAIKU):
         chunks.append(current)
 
     notes = []
-    for c in chunks:
+    for k, c in enumerate(chunks, 1):
+        print(f"  analysis: part {k}/{len(chunks)} "
+              f"({fmt_ts(c[0]['start_s'])}-{fmt_ts(c[-1]['end_s'])})", flush=True)
         text = "\n".join(f"[{fmt_ts(s['start_s'])}] {s.get('speaker') or '?'}: {s['text']}" for s in c)
         prompt = ("Summarize this part of a recording. List action items with an owner and the time "
                   "they were agreed, and key moments with times. Use the [hh:mm:ss] times shown.\n"
                   f"<transcript>\n{text}\n</transcript>")
-        notes.append(tool_input(ask(prompt, model=model, max_tokens=512, tools=[NOTES_TOOL],
-                                    tool_choice={"type": "tool", "name": "record_notes"}, module="m5")))
+        resp = ask(prompt, model=model, max_tokens=max_tokens, tools=[NOTES_TOOL],
+                   tool_choice={"type": "tool", "name": "record_notes"}, module="m5")
+        if resp.stop_reason == "max_tokens":
+            raise RuntimeError(f"notes cut off at max_tokens={max_tokens}; "
+                               "raise max_tokens or lower chunk_minutes, then rerun")
+        notes.append(tool_input(resp))
 
     items = [{"recording": recording, **a} for n in notes for a in n["action_items"]]
     db_rw.action_items.delete_many({"recording": recording})
     if items:
         db_rw.action_items.insert_many([dict(i) for i in items])
     moments = [m for n in notes for m in n["key_moments"]]
+    print(f"  analysis: combining {len(notes)} summaries", flush=True)
     summary = text_of(ask("Combine these partial summaries of one recording into a single summary "
                           "of at most 300 words:\n\n" + "\n\n".join(n["summary"] for n in notes),
                           model=model, max_tokens=512, module="m5"))

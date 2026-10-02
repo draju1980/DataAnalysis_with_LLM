@@ -267,7 +267,7 @@ SPEAKER_TOOL = {
 }
 
 
-def label_speakers(recording, chunk=150, model=HAIKU):
+def label_speakers(recording, chunk=150, model=HAIKU, max_tokens=4096):
     """Ask Claude who speaks in each segment, 150 segments at a time."""
     segs = list(db_rw.transcript_segments.find({"recording": recording}).sort("i"))
     known = []
@@ -282,8 +282,12 @@ def label_speakers(recording, chunk=150, model=HAIKU):
                   "said, otherwise 'Speaker 1', 'Speaker 2', and keep names consistent. "
                   f"Speakers identified so far: {', '.join(known) or 'none'}.\n"
                   f"<transcript>\n{lines}\n</transcript>")
-        data = tool_input(ask(prompt, model=model, max_tokens=512, tools=[SPEAKER_TOOL],
-                              tool_choice={"type": "tool", "name": "record_speakers"}, module="m5"))
+        resp = ask(prompt, model=model, max_tokens=max_tokens, tools=[SPEAKER_TOOL],
+                   tool_choice={"type": "tool", "name": "record_speakers"}, module="m5")
+        if resp.stop_reason == "max_tokens":
+            raise RuntimeError(f"speaker labels cut off at max_tokens={max_tokens}; "
+                               "raise max_tokens or lower chunk, then rerun")
+        data = tool_input(resp)
         for x in data["speakers"]:
             db_rw.transcript_segments.update_one({"recording": recording, "i": x["i"]},
                                                  {"$set": {"speaker": x["speaker"]}})
@@ -295,6 +299,8 @@ def label_speakers(recording, chunk=150, model=HAIKU):
 
 - Passing `known` speakers from chunk to chunk keeps names consistent across a long recording.
 - It prints one line per part sent to Claude, with the time range it covers; a one-hour recording is usually 4–7 parts (150 segments each).
+- `max_tokens=4096`: each label is about 10–15 output tokens (`{"i": 42, "speaker": "Project Manager"}`), so 150 segments need up to about 2,300. The course default of 512 cuts the reply off after about 40 segments. `max_tokens` is only a ceiling: you pay for the tokens Claude actually writes, not the limit.
+- If the reply is cut off anyway, the function stops with `RuntimeError: speaker labels cut off at max_tokens=…` instead of saving half the labels. Call it with a higher limit (`label_speakers('test-clip', max_tokens=8192)`) or smaller parts (`chunk=100`); rerunning is safe because each label overwrites the last.
 
 ```bash
 python -c "
@@ -328,7 +334,7 @@ NOTES_TOOL = {
 }
 
 
-def analyze_audio(recording, chunk_minutes=10, model=HAIKU):
+def analyze_audio(recording, chunk_minutes=10, model=HAIKU, max_tokens=2048):
     """Summarize each chunk, then combine. Returns (summary, action_items, key_moments)."""
     segs = list(db_ro.transcript_segments.find({"recording": recording}).sort("i"))
     chunks, current = [], []
@@ -348,8 +354,12 @@ def analyze_audio(recording, chunk_minutes=10, model=HAIKU):
         prompt = ("Summarize this part of a recording. List action items with an owner and the time "
                   "they were agreed, and key moments with times. Use the [hh:mm:ss] times shown.\n"
                   f"<transcript>\n{text}\n</transcript>")
-        notes.append(tool_input(ask(prompt, model=model, max_tokens=512, tools=[NOTES_TOOL],
-                                    tool_choice={"type": "tool", "name": "record_notes"}, module="m5")))
+        resp = ask(prompt, model=model, max_tokens=max_tokens, tools=[NOTES_TOOL],
+                   tool_choice={"type": "tool", "name": "record_notes"}, module="m5")
+        if resp.stop_reason == "max_tokens":
+            raise RuntimeError(f"notes cut off at max_tokens={max_tokens}; "
+                               "raise max_tokens or lower chunk_minutes, then rerun")
+        notes.append(tool_input(resp))
 
     items = [{"recording": recording, **a} for n in notes for a in n["action_items"]]
     db_rw.action_items.delete_many({"recording": recording})
@@ -370,6 +380,9 @@ from lib_claude_multimodal import analyze_audio
 summary, items, moments = analyze_audio('test-clip')
 print(summary); print(items); print(moments)"
 ```
+
+- `max_tokens=2048` per 10-minute part: a summary plus several action items and key moments can pass 512 tokens. As in Step 5, a cut-off reply stops with a `RuntimeError` rather than saving partial notes; rerun with `analyze_audio('test-clip', max_tokens=4096)` or `chunk_minutes=5`. Rerunning replaces the recording's action items, so nothing is duplicated.
+- The final combining call keeps 512: a summary of at most 300 words fits.
 
 **Check:** prints `analysis: part 1/1 (…)` and `analysis: combining 1 summaries`, then a short summary, any action items with owner and time, and key moments with times that match the clip. The full hour shows parts `1/6` to `6/6`, one per 10 minutes.
 
@@ -499,7 +512,7 @@ diff -Bw <(grep -v '^# ── ' data/expected.py) <(grep -v '^# ── ' lib_cla
 `-Bw` ignores blank lines and spacing. Every other line `diff` prints is a real difference: a missing step, a block pasted twice, or a typo.
 
 <details>
-<summary>Show the complete file (463 lines)</summary>
+<summary>Show the complete file (471 lines)</summary>
 
 ```python
 # ── Module 1, Step 1 ──
@@ -889,7 +902,7 @@ SPEAKER_TOOL = {
 }
 
 
-def label_speakers(recording, chunk=150, model=HAIKU):
+def label_speakers(recording, chunk=150, model=HAIKU, max_tokens=4096):
     """Ask Claude who speaks in each segment, 150 segments at a time."""
     segs = list(db_rw.transcript_segments.find({"recording": recording}).sort("i"))
     known = []
@@ -904,8 +917,12 @@ def label_speakers(recording, chunk=150, model=HAIKU):
                   "said, otherwise 'Speaker 1', 'Speaker 2', and keep names consistent. "
                   f"Speakers identified so far: {', '.join(known) or 'none'}.\n"
                   f"<transcript>\n{lines}\n</transcript>")
-        data = tool_input(ask(prompt, model=model, max_tokens=512, tools=[SPEAKER_TOOL],
-                              tool_choice={"type": "tool", "name": "record_speakers"}, module="m5"))
+        resp = ask(prompt, model=model, max_tokens=max_tokens, tools=[SPEAKER_TOOL],
+                   tool_choice={"type": "tool", "name": "record_speakers"}, module="m5")
+        if resp.stop_reason == "max_tokens":
+            raise RuntimeError(f"speaker labels cut off at max_tokens={max_tokens}; "
+                               "raise max_tokens or lower chunk, then rerun")
+        data = tool_input(resp)
         for x in data["speakers"]:
             db_rw.transcript_segments.update_one({"recording": recording, "i": x["i"]},
                                                  {"$set": {"speaker": x["speaker"]}})
@@ -932,7 +949,7 @@ NOTES_TOOL = {
 }
 
 
-def analyze_audio(recording, chunk_minutes=10, model=HAIKU):
+def analyze_audio(recording, chunk_minutes=10, model=HAIKU, max_tokens=2048):
     """Summarize each chunk, then combine. Returns (summary, action_items, key_moments)."""
     segs = list(db_ro.transcript_segments.find({"recording": recording}).sort("i"))
     chunks, current = [], []
@@ -952,8 +969,12 @@ def analyze_audio(recording, chunk_minutes=10, model=HAIKU):
         prompt = ("Summarize this part of a recording. List action items with an owner and the time "
                   "they were agreed, and key moments with times. Use the [hh:mm:ss] times shown.\n"
                   f"<transcript>\n{text}\n</transcript>")
-        notes.append(tool_input(ask(prompt, model=model, max_tokens=512, tools=[NOTES_TOOL],
-                                    tool_choice={"type": "tool", "name": "record_notes"}, module="m5")))
+        resp = ask(prompt, model=model, max_tokens=max_tokens, tools=[NOTES_TOOL],
+                   tool_choice={"type": "tool", "name": "record_notes"}, module="m5")
+        if resp.stop_reason == "max_tokens":
+            raise RuntimeError(f"notes cut off at max_tokens={max_tokens}; "
+                               "raise max_tokens or lower chunk_minutes, then rerun")
+        notes.append(tool_input(resp))
 
     items = [{"recording": recording, **a} for n in notes for a in n["action_items"]]
     db_rw.action_items.delete_many({"recording": recording})
