@@ -139,20 +139,25 @@ curl -fL -o data/m5/ami/ES2002a.Overhead.avi $AMI/ES2002a/video/ES2002a.Overhead
 *b. Make the hour-long recording*, both meetings one after the other:
 
 ```bash
-ffmpeg -nostdin -y -loglevel error -i data/m5/ami/ES2002a.wav -i data/m5/ami/ES2002b.wav \
+ffmpeg -nostdin -y -loglevel error -stats -i data/m5/ami/ES2002a.wav -i data/m5/ami/ES2002b.wav \
   -filter_complex "[0:a][1:a]concat=n=2:v=0:a=1" -b:a 64k data/m5/q3-call.mp3
 ```
 
-**Check:** `ls -lh data/m5/q3-call.mp3` shows a file of about 28M. `-nostdin` stops ffmpeg from reading the keyboard; without it, ffmpeg swallows any lines pasted after it and they never run.
+While it runs, ffmpeg prints one line that keeps updating; `time=` is how far into the audio it has got (this one ends near `time=00:59:…`). Every ffmpeg command in this module shows the same line.
+
+**Check:** `ls -lh data/m5/q3-call.mp3` shows a file of about 28M.
+
+- `-stats` prints that progress line; `-loglevel error` hides everything else unless something goes wrong.
+- `-nostdin` stops ffmpeg from reading the keyboard; without it, ffmpeg swallows any lines pasted after it and they never run.
 
 *c. Make the video for Step 10*, the first 10 minutes of the camera with the meeting audio added (takes a minute or two):
 
 ```bash
-ffmpeg -nostdin -y -loglevel error -i data/m5/ami/ES2002a.Overhead.avi -i data/m5/ami/ES2002a.wav \
+ffmpeg -nostdin -y -loglevel error -stats -i data/m5/ami/ES2002a.Overhead.avi -i data/m5/ami/ES2002a.wav \
   -map 0:v -map 1:a -t 600 -c:v libx264 -c:a aac -shortest data/m5/demo.mp4
 ```
 
-**Check:** `ls -lh data/m5/demo.mp4` shows the file.
+**Check:** the progress line ends near `time=00:10:00`, and `ls -lh data/m5/demo.mp4` shows the file.
 
 *d. Delete the originals*, only once b and c both passed:
 
@@ -169,7 +174,7 @@ Expect four speakers (a project manager, a marketing expert, a user-interface de
 Build and test every step on a short clip first; run the full hour only at Step 8.
 
 ```bash
-ffmpeg -nostdin -y -loglevel error -i data/m5/q3-call.mp3 -t 180 -ac 1 -ar 16000 data/m5/test-clip.wav
+ffmpeg -nostdin -y -loglevel error -stats -i data/m5/q3-call.mp3 -t 180 -ac 1 -ar 16000 data/m5/test-clip.wav
 ```
 
 - `-t 180` keeps the first 180 seconds.
@@ -266,8 +271,11 @@ def label_speakers(recording, chunk=150, model=HAIKU):
     """Ask Claude who speaks in each segment, 150 segments at a time."""
     segs = list(db_rw.transcript_segments.find({"recording": recording}).sort("i"))
     known = []
+    n_chunks = -(-len(segs) // chunk)                       # ceiling division
     for start in range(0, len(segs), chunk):
         part = segs[start:start + chunk]
+        print(f"  speakers: part {start // chunk + 1}/{n_chunks} "
+              f"({fmt_ts(part[0]['start_s'])}-{fmt_ts(part[-1]['end_s'])})", flush=True)
         lines = "\n".join(f"{s['i']}: {s['text']}" for s in part)
         prompt = ("Below are numbered segments of a recording transcript. Decide who speaks in each "
                   "segment using turn-taking, names and roles mentioned. Use real names when they are "
@@ -281,10 +289,12 @@ def label_speakers(recording, chunk=150, model=HAIKU):
                                                  {"$set": {"speaker": x["speaker"]}})
             if x["speaker"] not in known:
                 known.append(x["speaker"])
+    print(f"  speakers: done, {len(known)} found", flush=True)
     return known
 ```
 
-Passing `known` speakers from chunk to chunk keeps names consistent across a long recording.
+- Passing `known` speakers from chunk to chunk keeps names consistent across a long recording.
+- It prints one line per part sent to Claude, with the time range it covers; a one-hour recording is usually 4–7 parts (150 segments each).
 
 ```bash
 python -c "
@@ -295,7 +305,7 @@ for s in db_ro.transcript_segments.find({'recording': 'test-clip'}).sort('i').li
     print(fmt_ts(s['start_s']), s['speaker'], '-', s['text'])"
 ```
 
-**Check:** prints the list of speakers and the first segments with sensible speaker names. Listen to the clip and note any wrong labels.
+**Check:** prints `speakers: part 1/1 (00:00:00-00:02:5…)` and `speakers: done, N found`, then the list of speakers and the first segments with sensible speaker names. Listen to the clip and note any wrong labels.
 
 ## Step 6 — Add `analyze_audio()` and analyze the clip
 
@@ -331,7 +341,9 @@ def analyze_audio(recording, chunk_minutes=10, model=HAIKU):
         chunks.append(current)
 
     notes = []
-    for c in chunks:
+    for k, c in enumerate(chunks, 1):
+        print(f"  analysis: part {k}/{len(chunks)} "
+              f"({fmt_ts(c[0]['start_s'])}-{fmt_ts(c[-1]['end_s'])})", flush=True)
         text = "\n".join(f"[{fmt_ts(s['start_s'])}] {s.get('speaker') or '?'}: {s['text']}" for s in c)
         prompt = ("Summarize this part of a recording. List action items with an owner and the time "
                   "they were agreed, and key moments with times. Use the [hh:mm:ss] times shown.\n"
@@ -344,6 +356,7 @@ def analyze_audio(recording, chunk_minutes=10, model=HAIKU):
     if items:
         db_rw.action_items.insert_many([dict(i) for i in items])
     moments = [m for n in notes for m in n["key_moments"]]
+    print(f"  analysis: combining {len(notes)} summaries", flush=True)
     summary = text_of(ask("Combine these partial summaries of one recording into a single summary "
                           "of at most 300 words:\n\n" + "\n\n".join(n["summary"] for n in notes),
                           model=model, max_tokens=512, module="m5"))
@@ -358,7 +371,7 @@ summary, items, moments = analyze_audio('test-clip')
 print(summary); print(items); print(moments)"
 ```
 
-**Check:** a short summary, any action items with owner and time, and key moments with times that match the clip.
+**Check:** prints `analysis: part 1/1 (…)` and `analysis: combining 1 summaries`, then a short summary, any action items with owner and time, and key moments with times that match the clip. The full hour shows parts `1/6` to `6/6`, one per 10 minutes.
 
 ## Step 7 — Chain everything into one command
 
@@ -377,7 +390,7 @@ if db_ro.transcript_segments.count_documents({"recording": recording}) and "--re
     print("1-2/5 transcript already in MongoDB, skipping (add --redo to transcribe again)")
 else:
     print("1/5 converting audio…")
-    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(src),
+    subprocess.run(["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-stats", "-i", str(src),
                     "-ac", "1", "-ar", "16000", str(wav)], check=True)
     print("2/5 transcribing (slowest step)…")
     save_segments(recording, transcribe(wav))
@@ -401,7 +414,7 @@ Test it end to end on the clip first:
 python m05_process.py data/m5/test-clip.wav
 ```
 
-**Check:** prints steps 1/5 to 5/5 and writes `data/m5/test-clip-notes.md`. Because Step 4 already stored the clip's transcript, steps 1–2 print `skipping`; that's expected. A transcript is never redone unless you add `--redo`, so a later run after a break picks up at the speakers.
+**Check:** prints steps 1/5 to 5/5, with the progress lines from Steps 3, 5 and 6 under them, and writes `data/m5/test-clip-notes.md`. Because Step 4 already stored the clip's transcript, steps 1–2 print `skipping`; that's expected. A transcript is never redone unless you add `--redo`, so a later run after a break picks up at the speakers.
 
 ## Step 8 — Process the full hour in one command
 
@@ -409,7 +422,7 @@ python m05_process.py data/m5/test-clip.wav
 time python m05_process.py data/m5/q3-call.mp3
 ```
 
-Transcription of an hour on CPU can take 10–30 minutes with `small`. Let it run.
+Transcription of an hour on CPU can take 10–30 minutes with `small`. Let it run: under `1/5` the ffmpeg line counts up to `time=00:59:…`, under `2/5` the Whisper line counts up to `100%`, then steps 3/5 and 4/5 print one line per part. If a line stops moving for several minutes, press Ctrl+C (never Ctrl+Z) and rerun; a finished transcript is never redone.
 
 **Check:** `data/m5/q3-call-notes.md` exists with a summary, action items with owners and times, and key moments. Jump to three of the timestamps in the recording and confirm they're right.
 
@@ -434,7 +447,7 @@ For a video (`data/m5/demo.mp4`; if you used the course sample, Step 1 already m
 
 ```bash
 mkdir -p data/m5/frames
-ffmpeg -nostdin -y -loglevel error -i data/m5/demo.mp4 -vf fps=1/30 data/m5/frames/%04d.jpg
+ffmpeg -nostdin -y -loglevel error -stats -i data/m5/demo.mp4 -vf fps=1/30 data/m5/frames/%04d.jpg
 python m05_process.py data/m5/demo.mp4          # transcript + notes, as in Step 7
 ```
 
@@ -450,6 +463,8 @@ frames = [p for p in sorted(Path("data/m5/frames").glob("*.jpg"))
           if start <= (int(p.stem) - 1) * 30 < end]
 segs = db_ro.transcript_segments.find({"recording": "demo", "start_s": {"$gte": start, "$lt": end}}).sort("i")
 transcript = "\n".join(f"[{fmt_ts(s['start_s'])}] {s.get('speaker') or '?'}: {s['text']}" for s in segs)
+print(f"sending {len(frames)} frames and {transcript.count(chr(10)) + bool(transcript)} transcript lines "
+      f"({fmt_ts(start)}-{fmt_ts(end)}) to Claude…", flush=True)
 print(ask_image(frames, "These frames come from this part of a video, in order. "
                 "Using both the frames and the transcript, describe what is shown and said, "
                 f"with timestamps.\n<transcript>\n{transcript}\n</transcript>", max_side=1024))
@@ -459,7 +474,7 @@ print(ask_image(frames, "These frames come from this part of a video, in order. 
 python m05_video_window.py 60 180
 ```
 
-**Check:** the answer mentions things only visible in the frames (slides, screens) together with what was said.
+**Check:** first prints `sending 4 frames and N transcript lines (00:01:00-00:03:00) to Claude…`, then an answer that mentions things only visible in the frames (slides, screens) together with what was said.
 
 ## Step 11 — Commit
 
@@ -484,7 +499,7 @@ diff -Bw <(grep -v '^# ── ' data/expected.py) <(grep -v '^# ── ' lib_cla
 `-Bw` ignores blank lines and spacing. Every other line `diff` prints is a real difference: a missing step, a block pasted twice, or a typo.
 
 <details>
-<summary>Show the complete file (446 lines)</summary>
+<summary>Show the complete file (463 lines)</summary>
 
 ```python
 # ── Module 1, Step 1 ──
@@ -878,8 +893,11 @@ def label_speakers(recording, chunk=150, model=HAIKU):
     """Ask Claude who speaks in each segment, 150 segments at a time."""
     segs = list(db_rw.transcript_segments.find({"recording": recording}).sort("i"))
     known = []
+    n_chunks = -(-len(segs) // chunk)                       # ceiling division
     for start in range(0, len(segs), chunk):
         part = segs[start:start + chunk]
+        print(f"  speakers: part {start // chunk + 1}/{n_chunks} "
+              f"({fmt_ts(part[0]['start_s'])}-{fmt_ts(part[-1]['end_s'])})", flush=True)
         lines = "\n".join(f"{s['i']}: {s['text']}" for s in part)
         prompt = ("Below are numbered segments of a recording transcript. Decide who speaks in each "
                   "segment using turn-taking, names and roles mentioned. Use real names when they are "
@@ -893,6 +911,7 @@ def label_speakers(recording, chunk=150, model=HAIKU):
                                                  {"$set": {"speaker": x["speaker"]}})
             if x["speaker"] not in known:
                 known.append(x["speaker"])
+    print(f"  speakers: done, {len(known)} found", flush=True)
     return known
 
 
@@ -926,7 +945,9 @@ def analyze_audio(recording, chunk_minutes=10, model=HAIKU):
         chunks.append(current)
 
     notes = []
-    for c in chunks:
+    for k, c in enumerate(chunks, 1):
+        print(f"  analysis: part {k}/{len(chunks)} "
+              f"({fmt_ts(c[0]['start_s'])}-{fmt_ts(c[-1]['end_s'])})", flush=True)
         text = "\n".join(f"[{fmt_ts(s['start_s'])}] {s.get('speaker') or '?'}: {s['text']}" for s in c)
         prompt = ("Summarize this part of a recording. List action items with an owner and the time "
                   "they were agreed, and key moments with times. Use the [hh:mm:ss] times shown.\n"
@@ -939,6 +960,7 @@ def analyze_audio(recording, chunk_minutes=10, model=HAIKU):
     if items:
         db_rw.action_items.insert_many([dict(i) for i in items])
     moments = [m for n in notes for m in n["key_moments"]]
+    print(f"  analysis: combining {len(notes)} summaries", flush=True)
     summary = text_of(ask("Combine these partial summaries of one recording into a single summary "
                           "of at most 300 words:\n\n" + "\n\n".join(n["summary"] for n in notes),
                           model=model, max_tokens=512, module="m5"))
