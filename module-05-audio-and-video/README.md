@@ -30,7 +30,7 @@ until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "M
 
 ```bash
 python -c "
-from claude_multimodal import ask, text_of, tool_input, ask_image
+from lib_claude_multimodal import ask, text_of, tool_input, ask_image
 print('Modules 1-4 ok')"
 ```
 
@@ -43,17 +43,17 @@ print('Modules 1-4 ok')"
   step() { if eval "$2" >/dev/null 2>&1; then echo "done  $1"; else echo "todo  $1"; fi; }
   step "Step 1   ffmpeg + faster-whisper"       'command -v ffmpeg && python -c "import faster_whisper"'
   step "Step 2   data/m5/test-clip.wav"         'test -f data/m5/test-clip.wav'
-  step "Step 3   transcribe()"                  'grep -qF "def transcribe(" claude_multimodal.py'
-  step "Step 4   save_segments()"               'grep -qF "def save_segments(" claude_multimodal.py'
-  step "Step 5   label_speakers()"              'grep -qF "def label_speakers(" claude_multimodal.py'
-  step "Step 6   analyze_audio()"               'grep -qF "def analyze_audio(" claude_multimodal.py'
+  step "Step 3   transcribe()"                  'grep -qF "def transcribe(" lib_claude_multimodal.py'
+  step "Step 4   save_segments()"               'grep -qF "def save_segments(" lib_claude_multimodal.py'
+  step "Step 5   label_speakers()"              'grep -qF "def label_speakers(" lib_claude_multimodal.py'
+  step "Step 6   analyze_audio()"               'grep -qF "def analyze_audio(" lib_claude_multimodal.py'
   step "Step 7   m05_process.py on the clip"    'test -f m05_process.py && test -f data/m5/test-clip-notes.md'
   step "Step 8   full recording notes"          'ls data/m5 | grep -v "^test-clip" | grep -q "notes.md"'
   step "Step 10  m05_video_window.py"           'test -f m05_video_window.py'
   step "Step 11  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 5:"'
 )
 python -c "
-from claude_multimodal import db_ro
+from lib_claude_multimodal import db_ro
 for r in db_ro.transcript_segments.aggregate([{'\$group': {'_id': '\$recording', 'segments': {'\$sum': 1},
         'labelled': {'\$sum': {'\$cond': [{'\$ne': ['\$speaker', None]}, 1, 0]}}}}]):
     print(f\"{r['_id']:20} {r['segments']:5} segments, {r['labelled']:5} with a speaker,\",
@@ -68,7 +68,7 @@ for r in db_ro.transcript_segments.aggregate([{'\$group': {'_id': '\$recording',
 - If Step 8 stops during "2/5 transcribing", nothing was saved for that recording yet; run the same command again.
 - `label_speakers()` and `analyze_audio()` are safe to rerun: they overwrite speaker labels and replace the recording's action items. Each rerun calls the API again.
 - The first `transcribe()` downloads the Whisper model once; later sessions reuse it.
-- Not sure your `claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-claude_multimodalpy-after-module-5) at the end of the page.
+- Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-5) at the end of the page.
 - **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never `docker compose down -v`: it deletes the database, transcripts included.
 
 ---
@@ -100,7 +100,7 @@ ffmpeg -y -loglevel error -i data/m5/q3-call.mp3 -t 180 -ac 1 -ar 16000 data/m5/
 
 ## Step 3 — Add `transcribe()` and transcribe the clip
 
-Append to `claude_multimodal.py`:
+Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1):
 
 ```python
 def fmt_ts(seconds):
@@ -125,7 +125,7 @@ def transcribe(path, model_size="small"):
 
 ```bash
 python -c "
-from claude_multimodal import transcribe, fmt_ts
+from lib_claude_multimodal import transcribe, fmt_ts
 segs = transcribe('data/m5/test-clip.wav')
 print(len(segs), 'segments'); [print(fmt_ts(s['start_s']), s['text']) for s in segs[:5]]"
 ```
@@ -147,7 +147,7 @@ def save_segments(recording, segments):
 
 ```bash
 python -c "
-from claude_multimodal import transcribe, save_segments, db_ro
+from lib_claude_multimodal import transcribe, save_segments, db_ro
 save_segments('test-clip', transcribe('data/m5/test-clip.wav'))
 print(db_ro.transcript_segments.count_documents({'recording': 'test-clip'}))"
 ```
@@ -195,7 +195,7 @@ Passing `known` speakers from chunk to chunk keeps names consistent across a lon
 
 ```bash
 python -c "
-from claude_multimodal import label_speakers, db_ro, fmt_ts
+from lib_claude_multimodal import label_speakers, db_ro, fmt_ts
 print(label_speakers('test-clip'))
 for s in db_ro.transcript_segments.find({'recording': 'test-clip'}).sort('i').limit(8):
     print(fmt_ts(s['start_s']), s['speaker'], '-', s['text'])"
@@ -258,7 +258,7 @@ def analyze_audio(recording, chunk_minutes=10, model=HAIKU):
 
 ```bash
 python -c "
-from claude_multimodal import analyze_audio
+from lib_claude_multimodal import analyze_audio
 summary, items, moments = analyze_audio('test-clip')
 print(summary); print(items); print(moments)"
 ```
@@ -272,7 +272,7 @@ Create `m05_process.py`. It runs Steps 2–6 for any recording and writes a Mark
 ```python
 import subprocess, sys
 from pathlib import Path
-from claude_multimodal import transcribe, save_segments, label_speakers, analyze_audio, db_ro
+from lib_claude_multimodal import transcribe, save_segments, label_speakers, analyze_audio, db_ro
 
 src = Path(sys.argv[1])
 recording = src.stem
@@ -322,7 +322,7 @@ Transcription of an hour on CPU can take 10–30 minutes with `small`. Let it ru
 
 ```bash
 python -c "
-from claude_multimodal import db_ro, fmt_ts
+from lib_claude_multimodal import db_ro, fmt_ts
 print('Action items:')
 for a in db_ro.action_items.find({'recording': 'q3-call'}, {'_id': 0}): print(' ', a)
 print('Mentions of pricing:')
@@ -347,7 +347,7 @@ Frame `0001.jpg` is at 0:00, `0002.jpg` at 0:30, and so on. Now ask about one 2-
 ```python
 import sys
 from pathlib import Path
-from claude_multimodal import ask_image, db_ro, fmt_ts
+from lib_claude_multimodal import ask_image, db_ro, fmt_ts
 
 start, end = int(sys.argv[1]), int(sys.argv[2])          # seconds, e.g. 60 180
 frames = [p for p in sorted(Path("data/m5/frames").glob("*.jpg"))
@@ -368,21 +368,21 @@ python m05_video_window.py 60 180
 ## Step 11 — Commit
 
 ```bash
-git add claude_multimodal.py m05_*.py
+git add lib_claude_multimodal.py m05_*.py
 git commit -m "Module 5: transcription, speaker labels, audio analysis, video frames"
 git push
 ```
 
 **Check:** pushed; no recordings from `data/` in the commit.
 
-## Complete `claude_multimodal.py` after Module 5
+## Complete `lib_claude_multimodal.py` after Module 5
 
-Use this to cross-check your file once the steps are done, or after a break. It is every block the course has told you to add to `claude_multimodal.py` through Module 5, in order, with the earlier edits applied. The `# ── Module N, Step M ──` lines only show which step added the code below them; your file doesn't need them.
+Use this to cross-check your file once the steps are done, or after a break. It is every block the course has told you to add to `lib_claude_multimodal.py` through Module 5, in order, with the earlier edits applied. The `# ── Module N, Step M ──` lines only show which step added the code below them; your file doesn't need them.
 
 To compare automatically, save the file below as `data/expected.py` (`data/` is git-ignored, so it never gets committed), then:
 
 ```bash
-diff -Bw <(grep -v '^# ── ' data/expected.py) claude_multimodal.py && echo "your file matches"
+diff -Bw <(grep -v '^# ── ' data/expected.py) lib_claude_multimodal.py && echo "your file matches"
 ```
 
 `-Bw` ignores blank lines and spacing. Every other line `diff` prints is a real difference: a missing step, a block pasted twice, or a typo.

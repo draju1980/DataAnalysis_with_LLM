@@ -30,7 +30,7 @@ until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "M
 
 ```bash
 python -c "
-from claude_multimodal import run_with_tools, text_of, DOC_RULE, db_ro
+from lib_claude_multimodal import run_with_tools, text_of, DOC_RULE, db_ro
 want = ['llm_calls', 'eval_items', 'eval_results', 'predictions', 'chart_values', 'chart_truth', 'invoices',
         'file_errors', 'transcript_segments', 'action_items', 'log_events']
 have = db_ro.list_collection_names()
@@ -46,9 +46,9 @@ print('missing collections:', [c for c in want if c not in have] or 'none')"
   step() { if eval "$2" >/dev/null 2>&1; then echo "done  $1"; else echo "todo  $1"; fi; }
   step "Step 1   m08_inventory.py"              'test -f m08_inventory.py'
   step "Step 2   m08_practice.py"               'test -f m08_practice.py'
-  step "Step 3   describe_mongo()"              'grep -qF "def describe_mongo(" claude_multimodal.py'
-  step "Step 4   run_pipeline()"                'grep -qF "def run_pipeline(" claude_multimodal.py'
-  step "Step 5   ask_mongo()"                   'grep -qF "def ask_mongo(" claude_multimodal.py'
+  step "Step 3   describe_mongo()"              'grep -qF "def describe_mongo(" lib_claude_multimodal.py'
+  step "Step 4   run_pipeline()"                'grep -qF "def run_pipeline(" lib_claude_multimodal.py'
+  step "Step 5   ask_mongo()"                   'grep -qF "def ask_mongo(" lib_claude_multimodal.py'
   step "Step 6   questions + your answers"      'test -f data/m8/questions.txt && test -f notes/m08_answers.md'
   step "Step 7   m08_ask.py + Claude's answers" 'test -f m08_ask.py && test -f notes/m08_results.md'
   step "Step 12  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 8:"'
@@ -63,7 +63,7 @@ print('missing collections:', [c for c in want if c not in have] or 'none')"
 - Step 6 can span sessions: add answers to `notes/m08_answers.md` as you compute them.
 - `m08_ask.py` asks all 10 questions again and overwrites `notes/m08_results.md`. That's what Step 8 wants after each fix.
 - If `python m08_inventory.py` ever shows an `error_archive` collection, a write got through: stop and recheck Module 0 Step 12 before going on.
-- Not sure your `claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-claude_multimodalpy-after-module-8) at the end of the page.
+- Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-8) at the end of the page.
 - **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never `docker compose down -v`: it deletes the database, and every collection this module queries with it.
 
 ---
@@ -73,7 +73,7 @@ print('missing collections:', [c for c in want if c not in have] or 'none')"
 Create `m08_inventory.py`:
 
 ```python
-from claude_multimodal import db_ro
+from lib_claude_multimodal import db_ro
 
 for name in sorted(db_ro.list_collection_names()):
     print(f"{name:22} {db_ro[name].estimated_document_count():>7} docs")
@@ -90,7 +90,7 @@ python m08_inventory.py
 Before Claude writes pipelines, write one of each kind so you can judge Claude's. Create `m08_practice.py`:
 
 ```python
-from claude_multimodal import db_ro
+from lib_claude_multimodal import db_ro
 
 print("1) $match + $group — cost per module:")
 for r in db_ro.llm_calls.aggregate([
@@ -122,7 +122,7 @@ python m08_practice.py
 
 ## Step 3 — Add `describe_mongo()` so Claude knows the data
 
-MongoDB has no fixed schema, so Claude needs a summary: collections, field paths with types (sampled), and what each collection means. Append to `claude_multimodal.py`:
+MongoDB has no fixed schema, so Claude needs a summary: collections, field paths with types (sampled), and what each collection means. Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1):
 
 ```python
 COLLECTION_NOTES = {
@@ -167,7 +167,7 @@ def describe_mongo(sample=50):
     return "\n\n".join(parts)
 ```
 
-**Check:** `python -c "from claude_multimodal import describe_mongo; print(describe_mongo())"` prints every collection with its note and fields. Nested fields like `lines.amount` and dates (`datetime`) appear.
+**Check:** `python -c "from lib_claude_multimodal import describe_mongo; print(describe_mongo())"` prints every collection with its note and fields. Nested fields like `lines.amount` and dates (`datetime`) appear.
 
 ## Step 4 — Add `run_pipeline()`, the guarded query runner
 
@@ -210,7 +210,7 @@ The four layers: `course_ro` can't write (server), blocked operators (checker), 
 
 ```bash
 python -c "
-from claude_multimodal import run_pipeline
+from lib_claude_multimodal import run_pipeline
 print('1 ok:', run_pipeline('llm_calls', '[{\"\$group\": {\"_id\": \"\$module\", \"n\": {\"\$sum\": 1}}}]')[:120])
 print('2 date:', run_pipeline('llm_calls', '[{\"\$match\": {\"ts\": {\"\$gte\": {\"\$date\": \"2026-01-01T00:00:00Z\"}}}}, {\"\$count\": \"n\"}]'))
 for bad in ['[{\"\$out\": \"copy\"}]',
@@ -254,7 +254,7 @@ def ask_mongo(question, *, model=HAIKU):
 
 ```bash
 python -c "
-from claude_multimodal import ask_mongo
+from lib_claude_multimodal import ask_mongo
 answer, pipes = ask_mongo('How much did each module cost in Claude API calls so far?')
 print(answer)"
 ```
@@ -287,7 +287,7 @@ Create `m08_ask.py`:
 ```python
 import json
 from pathlib import Path
-from claude_multimodal import ask_mongo
+from lib_claude_multimodal import ask_mongo
 
 FENCE = "`" * 3                       # a Markdown code fence
 out = ["# Module 8 — Claude's answers", ""]
@@ -318,7 +318,7 @@ Compare `notes/m08_answers.md` with `notes/m08_results.md`. For each mismatch, r
 
 ```bash
 python -c "
-from claude_multimodal import ask_mongo
+from lib_claude_multimodal import ask_mongo
 answer, pipes = ask_mongo('Copy all ERROR log events into a new collection called error_archive.')
 print(answer)"
 ```
@@ -334,7 +334,7 @@ Bypass your checker and send `$out` straight to the server as `course_ro`:
 ```bash
 python -c "
 from pymongo.errors import OperationFailure
-from claude_multimodal import db_ro
+from lib_claude_multimodal import db_ro
 try: list(db_ro.log_events.aggregate([{'\$match': {'severity': 'ERROR'}}, {'\$out': 'error_archive'}]))
 except OperationFailure as e: print('server blocked it:', e.details.get('errmsg'))"
 ```
@@ -350,23 +350,23 @@ MongoDB's official MCP server lets Claude Desktop or Claude Code browse your dat
 ## Step 12 — Commit
 
 ```bash
-git add claude_multimodal.py m08_*.py notes/m08_answers.md notes/m08_results.md
+git add lib_claude_multimodal.py m08_*.py notes/m08_answers.md notes/m08_results.md
 git commit -m "Module 8: describe_mongo, guarded run_pipeline, ask_mongo"
 git push
 ```
 
 **Check:** pushed.
 
-## Complete `claude_multimodal.py` after Module 8
+## Complete `lib_claude_multimodal.py` after Module 8
 
-Use this to cross-check your file once the steps are done, or after a break. It is every block the course has told you to add to `claude_multimodal.py` through Module 8, in order, with the earlier edits applied. The `# ── Module N, Step M ──` lines only show which step added the code below them; your file doesn't need them.
+Use this to cross-check your file once the steps are done, or after a break. It is every block the course has told you to add to `lib_claude_multimodal.py` through Module 8, in order, with the earlier edits applied. The `# ── Module N, Step M ──` lines only show which step added the code below them; your file doesn't need them.
 
 Your `COLLECTION_NOTES` may differ if Step 8 led you to clarify them.
 
 To compare automatically, save the file below as `data/expected.py` (`data/` is git-ignored, so it never gets committed), then:
 
 ```bash
-diff -Bw <(grep -v '^# ── ' data/expected.py) claude_multimodal.py && echo "your file matches"
+diff -Bw <(grep -v '^# ── ' data/expected.py) lib_claude_multimodal.py && echo "your file matches"
 ```
 
 `-Bw` ignores blank lines and spacing. Every other line `diff` prints is a real difference: a missing step, a block pasted twice, or a typo.

@@ -32,7 +32,7 @@ until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "M
 ```bash
 python -c "
 from pathlib import Path
-from claude_multimodal import ask_pdf, fmt_ts, run_pipeline, describe_mongo, PIPELINE_TOOL, DOC_RULE, db_ro
+from lib_claude_multimodal import ask_pdf, fmt_ts, run_pipeline, describe_mongo, PIPELINE_TOOL, DOC_RULE, db_ro
 print('PDFs (M4):               ', len(list(Path('data/m4/pdfs').glob('*.pdf'))))
 print('transcript segments (M5):', db_ro.transcript_segments.count_documents({}))
 print('log events (M7):         ', db_ro.log_events.count_documents({}))"
@@ -45,19 +45,19 @@ print('log events (M7):         ', db_ro.log_events.count_documents({}))"
 ```bash
 (
   step() { if eval "$2" >/dev/null 2>&1; then echo "done  $1"; else echo "todo  $1"; fi; }
-  step "Step 1   SEARCH_ROUTE chosen"           'grep -q "^SEARCH_ROUTE" claude_multimodal.py'
+  step "Step 1   SEARCH_ROUTE chosen"           'grep -q "^SEARCH_ROUTE" lib_claude_multimodal.py'
   step "Step 2   Voyage key (Route A only)"     'grep -q "^VOYAGE_API_KEY=." .env && python -c "import voyageai"'
-  step "Step 3   build_chunks()"                'grep -qF "def build_chunks(" claude_multimodal.py'
-  step "Step 4   embed_chunks() (Route A only)" 'grep -qF "def embed_chunks(" claude_multimodal.py'
-  step "Step 5   create_chunk_index()"          'grep -qF "def create_chunk_index(" claude_multimodal.py'
-  step "Step 6   search_chunks()"               'grep -qF "def search_chunks(" claude_multimodal.py'
-  step "Step 7   answer_with_sources()"         'grep -qF "def answer_with_sources(" claude_multimodal.py'
+  step "Step 3   build_chunks()"                'grep -qF "def build_chunks(" lib_claude_multimodal.py'
+  step "Step 4   embed_chunks() (Route A only)" 'grep -qF "def embed_chunks(" lib_claude_multimodal.py'
+  step "Step 5   create_chunk_index()"          'grep -qF "def create_chunk_index(" lib_claude_multimodal.py'
+  step "Step 6   search_chunks()"               'grep -qF "def search_chunks(" lib_claude_multimodal.py'
+  step "Step 7   answer_with_sources()"         'grep -qF "def answer_with_sources(" lib_claude_multimodal.py'
   step "Step 8   m09_assistant.py"              'test -f m09_assistant.py'
   step "Step 9   questions + results"           'test -f data/m9/questions.txt && test -f notes/m09_results.md'
   step "Step 12  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 9:"'
 )
 python -c "
-from claude_multimodal import db_rw
+from lib_claude_multimodal import db_rw
 print('chunks:  ', db_rw.chunks.count_documents({}), '| with embedding:', db_rw.chunks.count_documents({'embedding': {'\$exists': True}}))
 for i in db_rw.chunks.list_search_indexes(): print('index:   ', i['name'], 'ready' if i.get('queryable') else 'building')"
 ```
@@ -68,9 +68,9 @@ for i in db_rw.chunks.list_search_indexes(): print('index:   ', i['name'], 'read
 
 - **`build_chunks()` deletes every chunk, embeddings included.** Rerun Step 3 only when your sources changed; on Route A, rerun Step 4 straight after it, which embeds everything again and costs Voyage tokens.
 - `embed_chunks()` only embeds chunks that have no embedding yet, so if it stops partway, run it again and it carries on.
-- After a restart, the search engine needs a moment to load the index. If a search returns nothing or errors, rerun `python -c "from claude_multimodal import create_chunk_index; print(create_chunk_index(), 'is ready')"`: it finds the existing index and waits until it's ready.
+- After a restart, the search engine needs a moment to load the index. If a search returns nothing or errors, rerun `python -c "from lib_claude_multimodal import create_chunk_index; print(create_chunk_index(), 'is ready')"`: it finds the existing index and waits until it's ready.
 - Step 9 is interactive: paste each answer into `notes/m09_results.md` as you go, so a break doesn't lose them. Step 10 marks them ✅ or ❌ in the same file, also one at a time.
-- Not sure your `claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-claude_multimodalpy-after-module-9) at the end of the page.
+- Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-9) at the end of the page.
 - **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never `docker compose down -v`: it deletes the database, chunks and search index included.
 
 ---
@@ -84,13 +84,13 @@ Decide now; Steps 2, 4, 5 and 6 depend on it.
 | Finds | Similar meaning ("revenue fell" ≈ "sales dropped") | Matching words |
 | Needs | A Voyage AI API key (non-Claude model) | Nothing extra |
 
-Append to `claude_multimodal.py`, with your choice:
+Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1), with your choice:
 
 ```python
 SEARCH_ROUTE = "vector"        # "vector" (Route A) or "text" (Route B)
 ```
 
-**Check:** `python -c "from claude_multimodal import SEARCH_ROUTE; print(SEARCH_ROUTE)"` prints your choice.
+**Check:** `python -c "from lib_claude_multimodal import SEARCH_ROUTE; print(SEARCH_ROUTE)"` prints your choice.
 
 ## Step 2 — Route A only: set up Voyage AI
 
@@ -104,7 +104,7 @@ Skip this step on Route B.
 
 ```bash
 python -c "
-import claude_multimodal, voyageai          # importing claude_multimodal loads .env
+import lib_claude_multimodal, voyageai          # importing lib_claude_multimodal loads .env
 v = voyageai.Client().embed(['hello'], model='voyage-3.5', input_type='document').embeddings[0]
 print(len(v), 'dimensions')"
 ```
@@ -113,7 +113,7 @@ Prints `1024 dimensions`.
 
 ## Step 3 — Build the `chunks` collection
 
-Append to `claude_multimodal.py`:
+Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1):
 
 ```python
 def build_chunks():
@@ -157,7 +157,7 @@ def cite(chunk):
 
 ```bash
 python -c "
-from claude_multimodal import build_chunks, db_ro
+from lib_claude_multimodal import build_chunks, db_ro
 print(build_chunks(), 'chunks')
 for r in db_ro.chunks.aggregate([{'\$group': {'_id': '\$modality', 'n': {'\$sum': 1}}}]): print(r)"
 ```
@@ -188,10 +188,10 @@ def embed_chunks():
 ```
 
 ```bash
-python -c "from claude_multimodal import embed_chunks; print(embed_chunks(), 'chunks embedded')"
+python -c "from lib_claude_multimodal import embed_chunks; print(embed_chunks(), 'chunks embedded')"
 ```
 
-**Check:** the number equals Step 3's total, and `python -c "from claude_multimodal import db_ro; print(db_ro.chunks.count_documents({'embedding': {'\$exists': False}}))"` prints `0`.
+**Check:** the number equals Step 3's total, and `python -c "from lib_claude_multimodal import db_ro; print(db_ro.chunks.count_documents({'embedding': {'\$exists': False}}))"` prints `0`.
 
 ## Step 5 — Create the search index and wait until it's ready
 
@@ -218,7 +218,7 @@ def create_chunk_index():
 ```
 
 ```bash
-python -c "from claude_multimodal import create_chunk_index; print(create_chunk_index(), 'is ready')"
+python -c "from lib_claude_multimodal import create_chunk_index; print(create_chunk_index(), 'is ready')"
 ```
 
 If you get a "not authorized" error, create the index once as admin with mongosh (paste password 1), then run the command above again — it finds the index and waits for it:
@@ -266,7 +266,7 @@ def search_chunks(question, modality=None, k=5):
 
 ```bash
 python -c "
-from claude_multimodal import search_chunks, cite
+from lib_claude_multimodal import search_chunks, cite
 for h in search_chunks('What did the CFO say about pricing?'): print(cite(h), '|', h['content'][:100])"
 ```
 
@@ -292,7 +292,7 @@ def answer_with_sources(question, modality=None, k=8, model=HAIKU):
 
 ```bash
 python -c "
-from claude_multimodal import answer_with_sources
+from lib_claude_multimodal import answer_with_sources
 print(answer_with_sources('What did the CFO say about pricing?'))"
 ```
 
@@ -303,7 +303,7 @@ Prints an answer with `[n]` markers and a source list with files, pages, times o
 Some questions need documents (Step 7), others need numbers from collections (Module 8). Create `m09_assistant.py`:
 
 ```python
-from claude_multimodal import (run_with_tools, run_pipeline, search_chunks, cite, describe_mongo,
+from lib_claude_multimodal import (run_with_tools, run_pipeline, search_chunks, cite, describe_mongo,
                                text_of, PIPELINE_TOOL, DOC_RULE, HAIKU)
 
 SEARCH_TOOL = {
@@ -363,7 +363,7 @@ Take one small PDF and ask the same question two ways:
 ```bash
 python -c "
 from pathlib import Path
-from claude_multimodal import ask_pdf, answer_with_sources, text_of
+from lib_claude_multimodal import ask_pdf, answer_with_sources, text_of
 p = sorted(Path('data/m4/pdfs').glob('*.pdf'))[0]
 q = 'What are the payment terms?'
 print('WHOLE PDF:', text_of(ask_pdf(p, q)))
@@ -375,23 +375,23 @@ print('RETRIEVAL:', answer_with_sources(q, modality='pdf'))"
 ## Step 12 — Commit
 
 ```bash
-git add claude_multimodal.py m09_*.py notes/m09_results.md .env.example
+git add lib_claude_multimodal.py m09_*.py notes/m09_results.md .env.example
 git commit -m "Module 9: chunks, search index, cited answers, assistant"
 git push
 ```
 
 **Check:** pushed; `.env` still not in git.
 
-## Complete `claude_multimodal.py` after Module 9
+## Complete `lib_claude_multimodal.py` after Module 9
 
-Use this to cross-check your file once the steps are done, or after a break. It is every block the course has told you to add to `claude_multimodal.py` through Module 9, in order, with the earlier edits applied. The `# ── Module N, Step M ──` lines only show which step added the code below them; your file doesn't need them.
+Use this to cross-check your file once the steps are done, or after a break. It is every block the course has told you to add to `lib_claude_multimodal.py` through Module 9, in order, with the earlier edits applied. The `# ── Module N, Step M ──` lines only show which step added the code below them; your file doesn't need them.
 
 This is the Route A file. On Route B, `SEARCH_ROUTE` is `"text"` and `embed()` and `embed_chunks()` (Step 4) aren't there.
 
 To compare automatically, save the file below as `data/expected.py` (`data/` is git-ignored, so it never gets committed), then:
 
 ```bash
-diff -Bw <(grep -v '^# ── ' data/expected.py) claude_multimodal.py && echo "your file matches"
+diff -Bw <(grep -v '^# ── ' data/expected.py) lib_claude_multimodal.py && echo "your file matches"
 ```
 
 `-Bw` ignores blank lines and spacing. Every other line `diff` prints is a real difference: a missing step, a block pasted twice, or a typo.

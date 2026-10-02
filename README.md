@@ -10,8 +10,9 @@ An 11-module, self-paced course on analyzing text, images, PDFs, audio, tabular 
 
 - **Fork first, then work in your fork.** Your code and commits live in your own copy of the repo on GitHub.
 - **Do the modules in order, and the steps in order.** Every step uses something the step before it created: a file, a function, a collection or a setting. If a step's **Check** fails, fix it before moving on.
-- **One shared code file.** All functions go into `claude_multimodal.py` in the project root. Each module adds to it, and later modules import what earlier ones built.
-- **Scripts and data.** Each module's runnable scripts (`m01_chat.py`, `m02_eval.py`, …) go in the project root next to `claude_multimodal.py`. Input files go in `data/<module>/`, which git ignores.
+- **One shared library.** All reusable functions go into `lib_claude_multimodal.py` in the project root. Each module adds to it, and later modules import what earlier ones built.
+- **File naming.** The shared library is the only file with the `lib_` prefix. Every other file you create starts with its module number (`m01_chat.py`, `m02_eval.py`, …), so no two tasks share a file name.
+- **Scripts and data.** Each module's runnable scripts (`m01_chat.py`, `m02_eval.py`, …) go in the project root next to `lib_claude_multimodal.py`. Input files go in `data/<module>/`, which git ignores.
 - **Course pages vs your work.** The `module-XX-…/README.md` files are the instructions. Your code lives in the project root.
 
 ### Start of every session
@@ -60,7 +61,7 @@ By the end of the course you can:
 | # | Module | Duration | Builds on | You build | Done when |
 | --- | --- | --- | --- | --- | --- |
 | 0 | [Setup](module-00-setup/README.md) | 1 day | — | `.env`, MongoDB users, first notebook | Claude and MongoDB connect; read-only user blocks writes |
-| 1 | [Claude API fundamentals](module-01-claude-api-fundamentals/README.md) | 2–3 days | 0 | `claude_multimodal.py`: `ask()`, `log_call()`, tool loop; `m01_chat.py` | CLI chat with running cost and a tool; costs match `llm_calls` |
+| 1 | [Claude API fundamentals](module-01-claude-api-fundamentals/README.md) | 2–3 days | 0 | `lib_claude_multimodal.py`: `ask()`, `log_call()`, tool loop; `m01_chat.py` | CLI chat with running cost and a tool; costs match `llm_calls` |
 | 2 | [Text analysis](module-02-text-analysis/README.md) | 1 week | 1 | `classify()`, evaluation scripts, batch run | Prompt versions compared from one query |
 | 3 | [Images](module-03-images/README.md) | 4–5 days | 2 | `image_block()`, `ask_image()`, chart extractor | Chart error rate measured |
 | 4 | [PDFs and documents](module-04-pdfs-and-documents/README.md) | 4–5 days | 3 | `ask_pdf()`, `extract_pdf_fields()`, folder pipeline | Bad files logged, totals check passing |
@@ -144,7 +145,7 @@ module-01-claude-api-fundamentals/README.md
 module-10-production-and-security/README.md
 capstone/README.md
 
-claude_multimodal.py              ← your shared code (built from Module 1)
+lib_claude_multimodal.py          ← your shared library (built from Module 1)
 m01_chat.py, m02_eval.py, …       ← your module scripts
 data/                             ← your input files (git-ignored)
 ```

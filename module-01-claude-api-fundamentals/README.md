@@ -3,7 +3,7 @@
 [← Module 0](../module-00-setup/README.md) · [Syllabus](../README.md) · [Next: Module 2 →](../module-02-text-analysis/README.md)
 
 **You start with:** Module 0 done — `.env`, MongoDB running, both users working.
-**You finish with:** `claude_multimodal.py` containing `ask()`, `text_of()`, `cost_of()`, `log_call()` and a tool loop; a command-line chat (`m01_chat.py`) with a calculator tool; and every API call logged with its cost in MongoDB.
+**You finish with:** `lib_claude_multimodal.py` containing `ask()`, `text_of()`, `cost_of()`, `log_call()` and a tool loop; a command-line chat (`m01_chat.py`) with a calculator tool; and every API call logged with its cost in MongoDB.
 
 ## Key ideas (read once)
 
@@ -45,14 +45,14 @@ print('Module 0: .env and both database users ok')"
 ```bash
 (
   step() { if eval "$2" >/dev/null 2>&1; then echo "done  $1"; else echo "todo  $1"; fi; }
-  step "Step 1   claude_multimodal.py imports"  'python -c "import claude_multimodal"'
-  step "Step 2   text_of(), cost_of()"          'grep -qF "def cost_of(" claude_multimodal.py'
-  step "Step 3   log_call()"                    'grep -qF "def log_call(" claude_multimodal.py'
-  step "Step 4   ask()"                         'grep -qF "def ask(" claude_multimodal.py'
+  step "Step 1   lib_claude_multimodal.py imports"  'python -c "import lib_claude_multimodal"'
+  step "Step 2   text_of(), cost_of()"          'grep -qF "def cost_of(" lib_claude_multimodal.py'
+  step "Step 3   log_call()"                    'grep -qF "def log_call(" lib_claude_multimodal.py'
+  step "Step 4   ask()"                         'grep -qF "def ask(" lib_claude_multimodal.py'
   step "Step 6   m01_stream.py"                 'test -f m01_stream.py'
   step "Step 7   m01_temperature.py"            'test -f m01_temperature.py'
-  step "Step 8   calc() and CALC_TOOL"          'grep -qF "def calc(" claude_multimodal.py'
-  step "Step 9   run_with_tools()"              'grep -qF "def run_with_tools(" claude_multimodal.py'
+  step "Step 8   calc() and CALC_TOOL"          'grep -qF "def calc(" lib_claude_multimodal.py'
+  step "Step 9   run_with_tools()"              'grep -qF "def run_with_tools(" lib_claude_multimodal.py'
   step "Step 10  m01_chat.py"                   'test -f m01_chat.py'
   step "Step 11  m01_costs.py"                  'test -f m01_costs.py'
   step "Step 12  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 1:"'
@@ -63,18 +63,18 @@ print('Module 0: .env and both database users ok')"
 
 **Resuming safely**
 
-- Never paste an "Append to `claude_multimodal.py`" block a second time: a function defined twice silently uses the last copy. If a step's line says `done`, skip its append.
-- If the Step 1 line says `todo` but the file exists, the file has an error, often a block pasted halfway before a break. Run `python -c "import claude_multimodal"` to see the line, and fix it in place.
+- Never paste an "Append to `lib_claude_multimodal.py`" block a second time: a function defined twice silently uses the last copy. If a step's line says `done`, skip its append.
+- If the Step 1 line says `todo` but the file exists, the file has an error, often a block pasted halfway before a break. Run `python -c "import lib_claude_multimodal"` to see the line, and fix it in place.
 - Steps 4–7 and 10 call the API again when rerun. Each call costs a fraction of a cent and adds a row to `llm_calls`, which is fine.
 - Step 11 compares the cost before and after one chat session. Do the "before", the chat, and the "after" in the same sitting.
-- Not sure your `claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-claude_multimodalpy-after-module-1) at the end of the page.
+- Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-1) at the end of the page.
 - **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never `docker compose down -v`: it deletes the database.
 
 ---
 
-## Step 1 — Create `claude_multimodal.py` with the shared setup
+## Step 1 — Create `lib_claude_multimodal.py` with the shared setup
 
-Create `claude_multimodal.py` in the project root. Every function in the course goes into this file.
+Create `lib_claude_multimodal.py` in the project root. This is the course's one shared library: every reusable function goes into this file, and each later step or module that says "Append to the shared library" adds to this same file. The `lib_` prefix marks it as the shared library; every other file you create is a runnable script named after its module (`m01_….py`, `m02_….py`, …).
 
 ```python
 """Shared helpers for the Multimodal Data Analysis with Claude course."""
@@ -103,11 +103,11 @@ db_ro = MongoClient(os.environ["MONGODB_URI"]).course      # queries read with t
 - `max_retries=4`: the SDK already retries rate-limit (429), overload (529) and server errors with backoff. Don't write your own retry loop on top.
 - Every call in the course uses `model="claude-haiku-4-5-20251001"` and `max_tokens=1024`. Check Haiku's price on Anthropic's pricing page and correct `PRICES` if it has changed.
 
-**Check:** `python -c "import claude_multimodal; print('ok')"` prints `ok`.
+**Check:** `python -c "import lib_claude_multimodal; print('ok')"` prints `ok`.
 
 ## Step 2 — Add `text_of()` and `cost_of()`
 
-Append to `claude_multimodal.py`:
+Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1):
 
 ```python
 def text_of(resp):
@@ -132,7 +132,7 @@ def cost_of(resp, batch=False):
     return cost * 0.5 if batch else cost   # the Batches API costs half
 ```
 
-**Check:** `python -c "from claude_multimodal import text_of, cost_of; print('ok')"` prints `ok`. (You'll test them with a real reply in Step 4.)
+**Check:** `python -c "from lib_claude_multimodal import text_of, cost_of; print('ok')"` prints `ok`. (You'll test them with a real reply in Step 4.)
 
 ## Step 3 — Add `log_call()` to record every call in MongoDB
 
@@ -155,7 +155,7 @@ def log_call(resp, module, latency_ms, batch=False):
 
 From now on, every cost question in the course is a query on `llm_calls`.
 
-**Check:** `python -c "from claude_multimodal import log_call; print('ok')"` prints `ok`.
+**Check:** `python -c "from lib_claude_multimodal import log_call; print('ok')"` prints `ok`.
 
 ## Step 4 — Add `ask()`, the one function every module calls
 
@@ -191,7 +191,7 @@ def ask(prompt=None, *, messages=None, system=None, model=HAIKU, max_tokens=1024
 
 ```bash
 python -c "
-from claude_multimodal import ask, text_of, cost_of
+from lib_claude_multimodal import ask, text_of, cost_of
 r = ask('In one sentence, what is a Docker volume?', module='m1')
 print(text_of(r)); print(r.usage); print('cost USD', cost_of(r))"
 ```
@@ -204,7 +204,7 @@ The call from Step 4 is now a document in `llm_calls`. Read it with the read-onl
 
 ```bash
 python -c "
-from claude_multimodal import db_ro
+from lib_claude_multimodal import db_ro
 for d in db_ro.llm_calls.find({}, {'_id': 0}).sort('ts', -1).limit(3): print(d)"
 ```
 
@@ -215,7 +215,7 @@ for d in db_ro.llm_calls.find({}, {'_id': 0}).sort('ts', -1).limit(3): print(d)"
 For long answers, streaming prints text as it's generated. Create `m01_stream.py`:
 
 ```python
-from claude_multimodal import client, log_call, HAIKU
+from lib_claude_multimodal import client, log_call, HAIKU
 
 with client.messages.stream(
     model=HAIKU, max_tokens=1024,
@@ -240,7 +240,7 @@ python m01_stream.py
 Claude picks each word by sampling; `temperature` controls how random that is. Create `m01_temperature.py`:
 
 ```python
-from claude_multimodal import ask, text_of
+from lib_claude_multimodal import ask, text_of
 
 for t in (1.0, 0.0):
     print(f"--- temperature {t}")
@@ -260,7 +260,7 @@ python m01_temperature.py
 
 Claude is not reliable at arithmetic, so give it a calculator. The calculator must never run arbitrary code: tool inputs are written by the model, and in later modules the model reads untrusted files. So it parses the expression and allows only numbers and arithmetic operators — never `eval()`.
 
-Append to `claude_multimodal.py`:
+Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1). This is the same file you added to in Steps 1–4, not a new one:
 
 ```python
 import ast
@@ -305,7 +305,7 @@ CALC_TOOL = {
 
 ```bash
 python -c "
-from claude_multimodal import calc
+from lib_claude_multimodal import calc
 print(calc('1,847 * 0.05'))
 try: calc('__import__(\"os\").system(\"ls\")')
 except ValueError as e: print('blocked:', e)"
@@ -353,14 +353,14 @@ def run_with_tools(history, tools, handlers, *, module, model=HAIKU, system=None
 - `history` is the conversation list; the function appends Claude's replies and the tool results to it.
 - `handlers` maps a tool name to the Python function that runs it, e.g. `{"calculator": calc}`.
 
-**Check:** `python -c "from claude_multimodal import run_with_tools, tool_input; print('ok')"` prints `ok`.
+**Check:** `python -c "from lib_claude_multimodal import run_with_tools, tool_input; print('ok')"` prints `ok`.
 
 ## Step 10 — Build the command-line chat
 
 Create `m01_chat.py`:
 
 ```python
-from claude_multimodal import run_with_tools, text_of, cost_of, calc, CALC_TOOL
+from lib_claude_multimodal import run_with_tools, text_of, cost_of, calc, CALC_TOOL
 
 history = []      # the whole conversation, resent on every turn
 total = 0.0       # running cost in USD
@@ -400,7 +400,7 @@ Then type `quit` and note the **Session cost**.
 Your chat's running total must match what `llm_calls` recorded. Create `m01_costs.py`:
 
 ```python
-from claude_multimodal import db_ro
+from lib_claude_multimodal import db_ro
 
 pipeline = [
     {"$match": {"module": "m1"}},                      # like SQL WHERE
@@ -424,21 +424,21 @@ An **aggregation pipeline** is a list of stages; each stage transforms the docum
 ## Step 12 — Commit your work
 
 ```bash
-git add claude_multimodal.py m01_stream.py m01_temperature.py m01_chat.py m01_costs.py
+git add lib_claude_multimodal.py m01_stream.py m01_temperature.py m01_chat.py m01_costs.py
 git commit -m "Module 1: ask(), logging, tool loop, CLI chat"
 git push
 ```
 
 **Check:** `git status --short` shows nothing left to commit except files you chose not to add.
 
-## Complete `claude_multimodal.py` after Module 1
+## Complete `lib_claude_multimodal.py` after Module 1
 
-Use this to cross-check your file once the steps are done, or after a break. It is every block the course has told you to add to `claude_multimodal.py` through Module 1, in order. The `# ── Module N, Step M ──` lines only show which step added the code below them; your file doesn't need them.
+Use this to cross-check your file once the steps are done, or after a break. It is every block the course has told you to add to `lib_claude_multimodal.py` through Module 1, in order. The `# ── Module N, Step M ──` lines only show which step added the code below them; your file doesn't need them.
 
 To compare automatically, save the file below as `data/expected.py` (`data/` is git-ignored, so it never gets committed), then:
 
 ```bash
-diff -Bw <(grep -v '^# ── ' data/expected.py) claude_multimodal.py && echo "your file matches"
+diff -Bw <(grep -v '^# ── ' data/expected.py) lib_claude_multimodal.py && echo "your file matches"
 ```
 
 `-Bw` ignores blank lines and spacing. Every other line `diff` prints is a real difference: a missing step, a block pasted twice, or a typo.

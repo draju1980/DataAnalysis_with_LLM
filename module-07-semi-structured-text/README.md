@@ -29,7 +29,7 @@ until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "M
 
 ```bash
 python -c "
-from claude_multimodal import ask, text_of, tool_input, DOC_RULE
+from lib_claude_multimodal import ask, text_of, tool_input, DOC_RULE
 print('ok: ask(), tool_input() and DOC_RULE are in place')"
 ```
 
@@ -43,14 +43,14 @@ print('ok: ask(), tool_input() and DOC_RULE are in place')"
   step "Step 1   data/m7/app.log"               'test -s data/m7/app.log'
   step "Step 2   data/m7/sample.log"            'test -s data/m7/sample.log'
   step "Step 3   notes/m07_grep_count.txt"      'test -s notes/m07_grep_count.txt'
-  step "Step 4   extract_log_records()"         'grep -qF "def extract_log_records(" claude_multimodal.py'
+  step "Step 4   extract_log_records()"         'grep -qF "def extract_log_records(" lib_claude_multimodal.py'
   step "Step 5   m07_extract.py"                'test -f m07_extract.py'
   step "Step 7   m07_spotcheck.py"              'test -f m07_spotcheck.py'
-  step "Step 9   ask_text_file()"               'grep -qF "def ask_text_file(" claude_multimodal.py'
+  step "Step 9   ask_text_file()"               'grep -qF "def ask_text_file(" lib_claude_multimodal.py'
   step "Step 10  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 7:"'
 )
 python -c "
-from claude_multimodal import db_ro
+from lib_claude_multimodal import db_ro
 for r in db_ro.log_events.aggregate([{'\$group': {'_id': '\$source_file', 'n': {'\$sum': 1}}}]):
     print('log_events from', r['_id'], ':', r['n'], 'records')"
 ```
@@ -62,7 +62,7 @@ for r in db_ro.log_events.aggregate([{'\$group': {'_id': '\$source_file', 'n': {
 - Step 6 compares against the number you saved in `notes/m07_grep_count.txt` (Step 3), so you don't need to redo the grep.
 - If `m07_extract.py` stops partway, just rerun it on the same file: it first deletes that file's records, so you never get duplicates. Each rerun calls the API for every chunk again.
 - The optional full-log run in Step 10 can take a long time; it's safe to stop and restart the same way.
-- Not sure your `claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-claude_multimodalpy-after-module-7) at the end of the page.
+- Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-7) at the end of the page.
 - **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never `docker compose down -v`: it deletes the database.
 
 ---
@@ -117,7 +117,7 @@ grep -cE '^[0-9]{4}-[0-9]{2}-[0-9]{2}' data/m7/sample.log > notes/m07_grep_count
 
 ## Step 4 — Add `extract_log_records()` and test it on 50 lines
 
-Append to `claude_multimodal.py`:
+Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1):
 
 ```python
 LOG_TOOL = {
@@ -156,7 +156,7 @@ def extract_log_records(lines, first_line_no=1, model=HAIKU):
 
 ```bash
 python -c "
-from claude_multimodal import extract_log_records
+from lib_claude_multimodal import extract_log_records
 lines = open('data/m7/sample.log').readlines()[:50]
 recs = extract_log_records(lines)
 print(len(recs), 'records'); [print(r) for r in recs[:3]]"
@@ -172,7 +172,7 @@ Create `m07_extract.py`. It sends 100 lines at a time and converts `ts` to a rea
 import sys
 from datetime import datetime
 from pathlib import Path
-from claude_multimodal import extract_log_records, db_rw
+from lib_claude_multimodal import extract_log_records, db_rw
 
 path = Path(sys.argv[1])
 lines = path.read_text(errors="replace").splitlines()
@@ -207,7 +207,7 @@ A limitation to know: an event that straddles a 100-line boundary can be split i
 
 ```bash
 python -c "
-from claude_multimodal import db_ro
+from lib_claude_multimodal import db_ro
 print('records:', db_ro.log_events.count_documents({'source_file': 'sample.log'}))
 print('missing ts:', db_ro.log_events.count_documents({'source_file': 'sample.log', 'ts': None}))"
 ```
@@ -219,7 +219,7 @@ print('missing ts:', db_ro.log_events.count_documents({'source_file': 'sample.lo
 Create `m07_spotcheck.py`. It shows each record next to the original line it came from.
 
 ```python
-from claude_multimodal import db_ro
+from lib_claude_multimodal import db_ro
 
 lines = open("data/m7/sample.log", errors="replace").read().splitlines()
 for r in db_ro.log_events.aggregate([{"$match": {"source_file": "sample.log"}},
@@ -238,7 +238,7 @@ python m07_spotcheck.py
 
 ```bash
 python -c "
-from claude_multimodal import db_ro
+from lib_claude_multimodal import db_ro
 for r in db_ro.log_events.aggregate([
     {'\$match': {'source_file': 'sample.log', 'ts': {'\$ne': None}}},
     {'\$group': {'_id': {'hour': {'\$dateTrunc': {'date': '\$ts', 'unit': 'hour'}},
@@ -254,7 +254,7 @@ Fields inside `attrs` are queryable too, e.g. `{'attrs.namespace': 'prod'}`.
 
 ## Step 9 — Ask questions about small YAML, XML or HTML files directly
 
-Small files don't need extraction; send them whole. Append to `claude_multimodal.py`:
+Small files don't need extraction; send them whole. Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1):
 
 ```python
 def ask_text_file(path, question, *, model=HAIKU, max_chars=200_000):
@@ -270,7 +270,7 @@ Try it on the Compose file you wrote in Module 0:
 
 ```bash
 python -c "
-from claude_multimodal import ask_text_file
+from lib_claude_multimodal import ask_text_file
 print(ask_text_file('docker-compose.yml', 'Which ports are published, on which host interface, and which data is persisted?'))"
 ```
 
@@ -281,21 +281,21 @@ print(ask_text_file('docker-compose.yml', 'Which ports are published, on which h
 If the sample worked, run the full file: `python m07_extract.py data/m7/app.log` and repeat Steps 6–7 for `app.log`.
 
 ```bash
-git add claude_multimodal.py m07_*.py notes/m07_grep_count.txt
+git add lib_claude_multimodal.py m07_*.py notes/m07_grep_count.txt
 git commit -m "Module 7: log extraction, count and spot checks, small-file questions"
 git push
 ```
 
 **Check:** pushed; no log files from `data/` in the commit.
 
-## Complete `claude_multimodal.py` after Module 7
+## Complete `lib_claude_multimodal.py` after Module 7
 
-Use this to cross-check your file once the steps are done, or after a break. It is every block the course has told you to add to `claude_multimodal.py` through Module 7, in order, with the earlier edits applied. The `# ── Module N, Step M ──` lines only show which step added the code below them; your file doesn't need them.
+Use this to cross-check your file once the steps are done, or after a break. It is every block the course has told you to add to `lib_claude_multimodal.py` through Module 7, in order, with the earlier edits applied. The `# ── Module N, Step M ──` lines only show which step added the code below them; your file doesn't need them.
 
 To compare automatically, save the file below as `data/expected.py` (`data/` is git-ignored, so it never gets committed), then:
 
 ```bash
-diff -Bw <(grep -v '^# ── ' data/expected.py) claude_multimodal.py && echo "your file matches"
+diff -Bw <(grep -v '^# ── ' data/expected.py) lib_claude_multimodal.py && echo "your file matches"
 ```
 
 `-Bw` ignores blank lines and spacing. Every other line `diff` prints is a real difference: a missing step, a block pasted twice, or a typo.

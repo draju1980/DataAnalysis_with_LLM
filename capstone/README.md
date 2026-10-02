@@ -2,7 +2,7 @@
 
 [← Module 10](../module-10-production-and-security/README.md) · [Syllabus](../README.md)
 
-**You start with:** all modules done — every function in `claude_multimodal.py`, the evaluation habit, the container and CI setup, and the threat model template.
+**You start with:** all modules done — every function in `lib_claude_multimodal.py`, the evaluation habit, the container and CI setup, and the threat model template.
 **You finish with:** one real project that uses at least four input formats, stores results in MongoDB, meets the Module 10 standard, and is written up with accuracy, cost per run and a threat model.
 
 ## Before you start or resume
@@ -22,7 +22,7 @@ until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "M
 
 ```bash
 python -c "
-from claude_multimodal import (ask, extract_pdf_fields, load_tables, ask_image, transcribe, extract_log_records,
+from lib_claude_multimodal import (ask, extract_pdf_fields, load_tables, ask_image, transcribe, extract_log_records,
     ask_text_file, run_pipeline, build_chunks, create_chunk_index, search_chunks, redact)
 print('all module functions ok')" && test -f m09_assistant.py && test -f threat-model.md && echo "M9 assistant and M10 threat model: ok"
 ```
@@ -44,7 +44,7 @@ print('all module functions ok')" && test -f m09_assistant.py && test -f threat-
   step "Step 10  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Capstone:"'
 )
 python -c "
-from claude_multimodal import db_ro
+from lib_claude_multimodal import db_ro
 r = list(db_ro.llm_calls.aggregate([{'\$match': {'module': 'capstone'}},
     {'\$group': {'_id': None, 'calls': {'\$sum': 1}, 'cost': {'\$sum': '\$cost_usd'}}}]))
 print('capstone calls so far:', r[0]['calls'] if r else 0, '| cost \$%.4f' % ((r[0]['cost'] or 0) if r else 0))
@@ -120,10 +120,10 @@ Rebuild chunks and the index from Module 9 so the new material is searchable:
 
 ```bash
 python -c "
-from claude_multimodal import build_chunks, create_chunk_index, SEARCH_ROUTE
+from lib_claude_multimodal import build_chunks, create_chunk_index, SEARCH_ROUTE
 print(build_chunks(), 'chunks')
 if SEARCH_ROUTE == 'vector':
-    from claude_multimodal import embed_chunks; print(embed_chunks(), 'embedded')
+    from lib_claude_multimodal import embed_chunks; print(embed_chunks(), 'embedded')
 print(create_chunk_index(), 'ready')"
 ```
 
@@ -147,7 +147,7 @@ Create `capstone_eval.py` that reads `capstone/test_questions.csv`, asks each qu
 
 ```bash
 python -c "
-from claude_multimodal import db_ro
+from lib_claude_multimodal import db_ro
 r = next(db_ro.llm_calls.aggregate([{'\$match': {'module': 'capstone'}},
     {'\$group': {'_id': None, 'calls': {'\$sum': 1}, 'cost': {'\$sum': '\$cost_usd'}}}]))
 print(r['calls'], 'calls, total \$%.4f' % r['cost'])"

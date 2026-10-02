@@ -2,7 +2,7 @@
 
 [← Module 1](../module-01-claude-api-fundamentals/README.md) · [Syllabus](../README.md) · [Next: Module 3 →](../module-03-images/README.md)
 
-**You start with:** Module 1 done — `ask()`, `tool_input()`, `cost_of()`, `log_call()` in `claude_multimodal.py`.
+**You start with:** Module 1 done — `ask()`, `tool_input()`, `cost_of()`, `log_call()` in `lib_claude_multimodal.py`.
 **You finish with:** `classify()`; a hand-labeled test set in MongoDB; an evaluation script you can rerun after any prompt change; a comparison of two prompt versions; and 500 texts classified with the Batches API at half price.
 
 ## Key ideas (read once)
@@ -28,7 +28,7 @@ until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "M
 
 ```bash
 python -c "
-from claude_multimodal import ask, text_of, cost_of, log_call, tool_input, db_ro
+from lib_claude_multimodal import ask, text_of, cost_of, log_call, tool_input, db_ro
 print('Module 1 ok;', db_ro.llm_calls.count_documents({}), 'calls logged so far')"
 ```
 
@@ -43,16 +43,16 @@ print('Module 1 ok;', db_ro.llm_calls.count_documents({}), 'calls logged so far'
   step "Step 2   m02_config.py"                 'test -f m02_config.py'
   step "Step 3   data/m2/labels.csv"            'test -f data/m2/labels.csv'
   step "Step 4   m02_load_items.py"             'test -f m02_load_items.py'
-  step "Step 5   classify()"                    'grep -qF "def classify(" claude_multimodal.py'
+  step "Step 5   classify()"                    'grep -qF "def classify(" lib_claude_multimodal.py'
   step "Step 6   m02_eval.py"                   'test -f m02_eval.py'
   step "Step 7   m02_report.py"                 'test -f m02_report.py'
-  step "Step 8   prompt v2"                     'grep -qF "\"v2\":" claude_multimodal.py'
+  step "Step 8   prompt v2"                     'grep -qF "\"v2\":" lib_claude_multimodal.py'
   step "Step 9   m02_batch.py"                  'test -f m02_batch.py'
   step "Step 11  notes/m02_report.md"           'test -f notes/m02_report.md'
   step "Step 11  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 2:"'
 )
 python -c "
-from claude_multimodal import db_ro
+from lib_claude_multimodal import db_ro
 print('eval_items: ', db_ro.eval_items.count_documents({}), '(Step 4 wants 100)')
 for r in db_ro.eval_results.aggregate([{'\$group': {'_id': '\$run_id', 'n': {'\$sum': 1}}}, {'\$sort': {'_id': 1}}]):
     print('eval run:   ', r['_id'], r['n'], 'items (Steps 6 and 8 want 100 each)')
@@ -69,7 +69,7 @@ print('predictions:', db_ro.predictions.count_documents({}), '(Step 9 wants 600)
 
   ```bash
   python -c "
-  from claude_multimodal import db_rw
+  from lib_claude_multimodal import db_rw
   print(db_rw.eval_results.delete_many({'run_id': '<the short run id>'}).deleted_count, 'deleted')"
   ```
 
@@ -77,11 +77,11 @@ print('predictions:', db_ro.predictions.count_documents({}), '(Step 9 wants 600)
 
   ```bash
   python -c "
-  from claude_multimodal import client
+  from lib_claude_multimodal import client
   for b in client.messages.batches.list(limit=5): print(b.id, b.processing_status, b.created_at)"
   ```
 
-- Not sure your `claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-claude_multimodalpy-after-module-2) at the end of the page.
+- Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-2) at the end of the page.
 - **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never `docker compose down -v`: it deletes the database.
 
 ---
@@ -148,7 +148,7 @@ Create `m02_load_items.py`:
 
 ```python
 import pandas as pd
-from claude_multimodal import db_rw
+from lib_claude_multimodal import db_rw
 
 labels = pd.read_csv("data/m2/labels.csv")
 for row in labels.itertuples():
@@ -167,7 +167,7 @@ python m02_load_items.py
 
 **Check:** prints `eval_items: 100`.
 
-## Step 5 — Add `classify()` to `claude_multimodal.py`
+## Step 5 — Add `classify()` to `lib_claude_multimodal.py`
 
 Append:
 
@@ -206,7 +206,7 @@ def classify(text, labels, *, model=HAIKU, prompt_version="v1", module="m2"):
 
 ```bash
 python -c "
-from claude_multimodal import classify
+from lib_claude_multimodal import classify
 from m02_config import LABELS
 print(classify('Arrived broken and support never replied.', LABELS)[0])"
 ```
@@ -220,7 +220,7 @@ Create `m02_eval.py`. It runs one prompt version over all 100 labeled items and 
 ```python
 import sys
 from datetime import datetime, timezone
-from claude_multimodal import classify, cost_of, db_rw, HAIKU
+from lib_claude_multimodal import classify, cost_of, db_rw, HAIKU
 from m02_config import LABELS
 
 prompt_version = sys.argv[1]                                 # e.g. v1
@@ -251,7 +251,7 @@ Create `m02_report.py`. One aggregation pipeline joins each prediction to its co
 
 ```python
 import sys
-from claude_multimodal import db_ro
+from lib_claude_multimodal import db_ro
 
 join = [
     {"$lookup": {"from": "eval_items", "localField": "item_id",
@@ -288,7 +288,7 @@ python m02_report.py <run_id from Step 6>
 
 ## Step 8 — Improve the prompt and measure the change
 
-Add a second prompt version with clear rules and examples. In `claude_multimodal.py`, add a `"v2"` entry inside `PROMPTS`:
+Add a second prompt version with clear rules and examples. In `lib_claude_multimodal.py`, add a `"v2"` entry inside `PROMPTS`:
 
 ```python
     "v2": ("Classify the sentiment of the review inside <review> tags as one of: {labels}.\n"
@@ -316,7 +316,7 @@ Pick the best prompt version from the report. Batches run in the background (usu
 ```python
 import sys, time
 import pandas as pd
-from claude_multimodal import client, db_rw, label_tool, log_call, tool_input, PROMPTS, HAIKU
+from lib_claude_multimodal import client, db_rw, label_tool, log_call, tool_input, PROMPTS, HAIKU
 from m02_config import LABELS
 
 model = HAIKU
@@ -367,7 +367,7 @@ If the script is interrupted, the batch keeps running: rerun it with the printed
 
 ```bash
 python -c "
-from claude_multimodal import db_ro
+from lib_claude_multimodal import db_ro
 for r in db_ro.llm_calls.aggregate([
     {'\$match': {'module': {'\$in': ['m2', 'm2-batch']}}},
     {'\$group': {'_id': {'module': '\$module', 'model': '\$model'},
@@ -384,23 +384,23 @@ Create `notes/m02_report.md` with three lines: accuracy per prompt version (from
 ```bash
 mkdir -p notes
 # write notes/m02_report.md
-git add m02_*.py claude_multimodal.py notes/m02_report.md
+git add m02_*.py lib_claude_multimodal.py notes/m02_report.md
 git commit -m "Module 2: classify, evaluation, batch run"
 git push
 ```
 
 **Check:** the commit is pushed; `data/` is not in it.
 
-## Complete `claude_multimodal.py` after Module 2
+## Complete `lib_claude_multimodal.py` after Module 2
 
-Use this to cross-check your file once the steps are done, or after a break. It is every block the course has told you to add to `claude_multimodal.py` through Module 2, in order, with the earlier edits applied. The `# ── Module N, Step M ──` lines only show which step added the code below them; your file doesn't need them.
+Use this to cross-check your file once the steps are done, or after a break. It is every block the course has told you to add to `lib_claude_multimodal.py` through Module 2, in order, with the earlier edits applied. The `# ── Module N, Step M ──` lines only show which step added the code below them; your file doesn't need them.
 
 Your `"v2"` prompt will differ: Step 8 asks you to adapt its rules and examples to your own mistakes.
 
 To compare automatically, save the file below as `data/expected.py` (`data/` is git-ignored, so it never gets committed), then:
 
 ```bash
-diff -Bw <(grep -v '^# ── ' data/expected.py) claude_multimodal.py && echo "your file matches"
+diff -Bw <(grep -v '^# ── ' data/expected.py) lib_claude_multimodal.py && echo "your file matches"
 ```
 
 `-Bw` ignores blank lines and spacing. Every other line `diff` prints is a real difference: a missing step, a block pasted twice, or a typo.

@@ -28,7 +28,7 @@ until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "M
 
 ```bash
 python -c "
-from claude_multimodal import ask, text_of, run_with_tools
+from lib_claude_multimodal import ask, text_of, run_with_tools
 print('Module 1 ok')"
 ```
 
@@ -41,11 +41,11 @@ print('Module 1 ok')"
   step() { if eval "$2" >/dev/null 2>&1; then echo "done  $1"; else echo "todo  $1"; fi; }
   step "Step 1   packages + 3 files in data/m6"  'python -c "import duckdb, openpyxl, pyarrow" && test $(ls data/m6 | wc -l) -ge 3'
   step "Step 2   notes/m06_quirks.md"            'test -f notes/m06_quirks.md'
-  step "Step 3   load_tables() + m06_tables.py"  'grep -qF "def load_tables(" claude_multimodal.py && test -f m06_tables.py'
-  step "Step 4   describe_table()"               'grep -qF "def describe_table(" claude_multimodal.py'
+  step "Step 3   load_tables() + m06_tables.py"  'grep -qF "def load_tables(" lib_claude_multimodal.py && test -f m06_tables.py'
+  step "Step 4   describe_table()"               'grep -qF "def describe_table(" lib_claude_multimodal.py'
   step "Step 5   trades_clean (optional)"        'grep -qF "trades_clean" m06_tables.py'
-  step "Step 6   run_sql()"                      'grep -qF "def run_sql(" claude_multimodal.py'
-  step "Step 7   ask_data()"                     'grep -qF "def ask_data(" claude_multimodal.py'
+  step "Step 6   run_sql()"                      'grep -qF "def run_sql(" lib_claude_multimodal.py'
+  step "Step 7   ask_data()"                     'grep -qF "def ask_data(" lib_claude_multimodal.py'
   step "Step 8   questions + your answers"       'test -f data/m6/questions.txt && test -f notes/m06_answers.md'
   step "Step 9   m06_ask.py + Claude's answers"  'test -f m06_ask.py && test -f notes/m06_results.md'
   step "Step 11  committed"                      'git log --oneline --author="$(git config user.email)" | grep -q "Module 6:"'
@@ -60,7 +60,7 @@ print('Module 1 ok')"
 - Nothing in this module is stored between sessions: DuckDB runs in memory and `open_tables()` re-reads the files each time. Resuming is just rerunning the script you were on.
 - Step 8 can span sessions: add answers to `notes/m06_answers.md` as you compute them.
 - `m06_ask.py` asks all 10 questions again and overwrites `notes/m06_results.md` on every run. That's what Step 10 wants after each fix.
-- Not sure your `claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-claude_multimodalpy-after-module-6) at the end of the page.
+- Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-6) at the end of the page.
 - **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never `docker compose down -v`: it deletes the database.
 
 ---
@@ -107,7 +107,7 @@ Write these down in `notes/m06_quirks.md` (`mkdir -p notes` first), so you still
 
 ## Step 3 — Add `load_tables()` and load all three files
 
-Append to `claude_multimodal.py`:
+Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1):
 
 ```python
 import json
@@ -140,7 +140,7 @@ def load_tables(spec):
 Create `m06_tables.py` with your file list. Use the sheet, header row and JSON key you noted in Step 2:
 
 ```python
-from claude_multimodal import load_tables
+from lib_claude_multimodal import load_tables
 
 SPEC = {
     "trades": "data/m6/trades.csv",
@@ -167,7 +167,7 @@ python m06_tables.py
 
 ## Step 4 — Add `describe_table()` and profile each table
 
-Append to `claude_multimodal.py`:
+Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1):
 
 ```python
 def describe_table(con, name, n=5):
@@ -185,7 +185,7 @@ def describe_table(con, name, n=5):
 ```bash
 python -c "
 from m06_tables import open_tables, SPEC
-from claude_multimodal import describe_table
+from lib_claude_multimodal import describe_table
 con = open_tables()
 for t in SPEC: print(describe_table(con, t), '\n')"
 ```
@@ -242,7 +242,7 @@ def run_sql(con, sql, max_rows=200):
 ```bash
 python -c "
 from m06_tables import open_tables
-from claude_multimodal import run_sql
+from lib_claude_multimodal import run_sql
 con = open_tables()
 print(run_sql(con, 'SELECT count(*) AS n FROM trades'))
 try: run_sql(con, 'DROP VIEW trades')
@@ -283,7 +283,7 @@ def ask_data(con, question, tables, *, model=HAIKU):
 ```bash
 python -c "
 from m06_tables import open_tables
-from claude_multimodal import ask_data
+from lib_claude_multimodal import ask_data
 answer, sqls = ask_data(open_tables(), 'How many trades are there in total?', ['trades_clean', 'targets', 'instruments'])
 print(answer); print(sqls)"
 ```
@@ -319,7 +319,7 @@ Create `m06_ask.py`:
 ```python
 from pathlib import Path
 from m06_tables import open_tables
-from claude_multimodal import ask_data
+from lib_claude_multimodal import ask_data
 
 FENCE = "`" * 3                       # a Markdown code fence
 TABLES = ["trades_clean", "targets", "instruments"]
@@ -350,21 +350,21 @@ Put `notes/m06_answers.md` and `notes/m06_results.md` side by side. For each mis
 ## Step 11 — Commit
 
 ```bash
-git add claude_multimodal.py m06_*.py notes/m06_quirks.md notes/m06_answers.md notes/m06_results.md
+git add lib_claude_multimodal.py m06_*.py notes/m06_quirks.md notes/m06_answers.md notes/m06_results.md
 git commit -m "Module 6: tabular files, DuckDB, ask_data"
 git push
 ```
 
 **Check:** pushed; your data files are not in the commit.
 
-## Complete `claude_multimodal.py` after Module 6
+## Complete `lib_claude_multimodal.py` after Module 6
 
-Use this to cross-check your file once the steps are done, or after a break. It is every block the course has told you to add to `claude_multimodal.py` through Module 6, in order, with the earlier edits applied. The `# ── Module N, Step M ──` lines only show which step added the code below them; your file doesn't need them.
+Use this to cross-check your file once the steps are done, or after a break. It is every block the course has told you to add to `lib_claude_multimodal.py` through Module 6, in order, with the earlier edits applied. The `# ── Module N, Step M ──` lines only show which step added the code below them; your file doesn't need them.
 
 To compare automatically, save the file below as `data/expected.py` (`data/` is git-ignored, so it never gets committed), then:
 
 ```bash
-diff -Bw <(grep -v '^# ── ' data/expected.py) claude_multimodal.py && echo "your file matches"
+diff -Bw <(grep -v '^# ── ' data/expected.py) lib_claude_multimodal.py && echo "your file matches"
 ```
 
 `-Bw` ignores blank lines and spacing. Every other line `diff` prints is a real difference: a missing step, a block pasted twice, or a typo.
@@ -904,7 +904,7 @@ Created in Step 3 and changed in Step 5. This is the version with Step 5's fix; 
 <summary>Show the complete file (22 lines)</summary>
 
 ```python
-from claude_multimodal import load_tables
+from lib_claude_multimodal import load_tables
 
 SPEC = {
     "trades": ("data/m6/trades.csv", {"types": {"trade_date": "VARCHAR"}}),

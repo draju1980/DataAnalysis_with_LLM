@@ -28,7 +28,7 @@ until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "M
 
 ```bash
 python -c "
-from claude_multimodal import ask, text_of, tool_input, classify
+from lib_claude_multimodal import ask, text_of, tool_input, classify
 print('Modules 1-2 ok')"
 ```
 
@@ -40,10 +40,10 @@ print('Modules 1-2 ok')"
 (
   step() { if eval "$2" >/dev/null 2>&1; then echo "done  $1"; else echo "todo  $1"; fi; }
   step "Step 1   20 charts + Pillow"            'test $(ls data/m3/charts | wc -l) -ge 20 && python -c "import PIL"'
-  step "Step 2   image_block()"                 'grep -qF "def image_block(" claude_multimodal.py'
-  step "Step 3   ask_image()"                   'grep -qF "def ask_image(" claude_multimodal.py'
+  step "Step 2   image_block()"                 'grep -qF "def image_block(" lib_claude_multimodal.py'
+  step "Step 3   ask_image()"                   'grep -qF "def ask_image(" lib_claude_multimodal.py'
   step "Step 4   m03_size_cost.py"              'test -f m03_size_cost.py'
-  step "Step 5   CHART_SCHEMA"                  'grep -qF "CHART_SCHEMA =" claude_multimodal.py'
+  step "Step 5   CHART_SCHEMA"                  'grep -qF "CHART_SCHEMA =" lib_claude_multimodal.py'
   step "Step 6   m03_extract.py"                'test -f m03_extract.py'
   step "Step 7   data/m3/truth.csv"             'test -f data/m3/truth.csv'
   step "Step 8   m03_load_truth.py"             'test -f m03_load_truth.py'
@@ -53,7 +53,7 @@ print('Modules 1-2 ok')"
   step "Step 12  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 3:"'
 )
 python -c "
-from claude_multimodal import db_ro
+from lib_claude_multimodal import db_ro
 print('charts extracted:', len(db_ro.chart_values.distinct('image_file')), '(Step 6 wants 20)')
 print('chart_truth rows:', db_ro.chart_truth.count_documents({}), '(Step 8 wants your truth.csv row count)')"
 ```
@@ -65,7 +65,7 @@ print('chart_truth rows:', db_ro.chart_truth.count_documents({}), '(Step 8 wants
 - **Never rerun `m03_export_truth.py` after you've typed in true values.** It overwrites `data/m3/truth.csv` and erases your corrections. If you need to export again, rename the old file first.
 - `m03_extract.py` is safe to rerun: it replaces each chart's values instead of adding to them. It does call the API for all 20 charts again.
 - Step 8 is safe to rerun: it empties `chart_truth` before loading.
-- Not sure your `claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-claude_multimodalpy-after-module-3) at the end of the page.
+- Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-3) at the end of the page.
 - **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never `docker compose down -v`: it deletes the database.
 
 ---
@@ -81,7 +81,7 @@ Put 20 chart screenshots (bar, line, pie; PNG or JPG) in `data/m3/charts/`. Pick
 
 **Check:** `ls data/m3/charts | wc -l` prints `20`.
 
-## Step 2 — Add `image_block()` to `claude_multimodal.py`
+## Step 2 — Add `image_block()` to `lib_claude_multimodal.py`
 
 It resizes an image and wraps it as an API content block. Append:
 
@@ -111,7 +111,7 @@ def image_block(path, max_side=1568):
 ```bash
 python -c "
 from pathlib import Path
-from claude_multimodal import image_block
+from lib_claude_multimodal import image_block
 p = sorted(Path('data/m3/charts').iterdir())[0]
 b = image_block(p); print(p.name, b['source']['media_type'], len(b['source']['data']), 'chars')"
 ```
@@ -143,7 +143,7 @@ def ask_image(paths, question, *, schema=None, tool_name="record", model=HAIKU,
 ```bash
 python -c "
 from pathlib import Path
-from claude_multimodal import ask_image
+from lib_claude_multimodal import ask_image
 p = sorted(Path('data/m3/charts').iterdir())[0]
 print(ask_image(p, 'Describe this chart: type, title, axes, and the main trend.'))"
 ```
@@ -156,7 +156,7 @@ Send the same chart at two sizes and compare input tokens. Create `m03_size_cost
 
 ```python
 from pathlib import Path
-from claude_multimodal import ask, image_block
+from lib_claude_multimodal import ask, image_block
 
 p = sorted(Path("data/m3/charts").iterdir())[0]
 for side in (400, 1568):
@@ -173,7 +173,7 @@ python m03_size_cost.py
 
 ## Step 5 — Define the chart schema and extract one chart
 
-Append the schema to `claude_multimodal.py`:
+Append the schema to `lib_claude_multimodal.py`:
 
 ```python
 CHART_SCHEMA = {
@@ -205,7 +205,7 @@ CHART_PROMPT = ("Extract every data point shown in this chart. Use series names 
 ```bash
 python -c "
 from pathlib import Path
-from claude_multimodal import ask_image, CHART_SCHEMA, CHART_PROMPT
+from lib_claude_multimodal import ask_image, CHART_SCHEMA, CHART_PROMPT
 p = sorted(Path('data/m3/charts').iterdir())[0]
 d = ask_image(p, CHART_PROMPT, schema=CHART_SCHEMA, tool_name='record_chart')
 print(d['title']); [print(x) for x in d['points'][:5]]"
@@ -219,7 +219,7 @@ Create `m03_extract.py`:
 
 ```python
 from pathlib import Path
-from claude_multimodal import ask_image, db_rw, CHART_SCHEMA, CHART_PROMPT
+from lib_claude_multimodal import ask_image, db_rw, CHART_SCHEMA, CHART_PROMPT
 
 IMAGE_TYPES = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 for path in sorted(Path("data/m3/charts").iterdir()):
@@ -245,7 +245,7 @@ python m03_extract.py
 
 The `key` field (file | series | label) is what you join on in Step 9.
 
-**Check:** 20 lines of `<file>: N values`, and `python -c "from claude_multimodal import db_ro; print(db_ro.chart_values.count_documents({}))"` prints the total.
+**Check:** 20 lines of `<file>: N values`, and `python -c "from lib_claude_multimodal import db_ro; print(db_ro.chart_values.count_documents({}))"` prints the total.
 
 ## Step 7 — Export 5 charts' values to fill in the truth
 
@@ -254,7 +254,7 @@ Choose 5 charts whose real numbers you know. Export what Claude read so the seri
 ```python
 import sys
 import pandas as pd
-from claude_multimodal import db_ro
+from lib_claude_multimodal import db_ro
 
 rows = list(db_ro.chart_values.find({"image_file": {"$in": sys.argv[1:]}},
                                     {"_id": 0, "image_file": 1, "series": 1, "label": 1, "value": 1}))
@@ -276,7 +276,7 @@ Create `m03_load_truth.py`:
 
 ```python
 import pandas as pd
-from claude_multimodal import db_rw
+from lib_claude_multimodal import db_rw
 
 t = pd.read_csv("data/m3/truth.csv")
 t["key"] = t.image_file + "|" + t.series.astype(str) + "|" + t.label.astype(str)
@@ -296,7 +296,7 @@ python m03_load_truth.py
 Create `m03_errors.py`:
 
 ```python
-from claude_multimodal import db_ro
+from lib_claude_multimodal import db_ro
 
 rows = list(db_ro.chart_values.aggregate([
     {"$lookup": {"from": "chart_truth", "localField": "key", "foreignField": "key", "as": "truth"}},
@@ -328,7 +328,7 @@ python m03_errors.py
 ```bash
 python -c "
 from pathlib import Path
-from claude_multimodal import ask_image
+from lib_claude_multimodal import ask_image
 a, b = sorted(Path('data/m3/charts').iterdir())[:2]
 print(ask_image([a, b], 'The first image is chart A, the second chart B. What changed between them?'))"
 ```
@@ -341,7 +341,7 @@ Take a screenshot with printed text (a terminal, an error dialog, a receipt) and
 
 ```bash
 python -c "
-from claude_multimodal import ask_image
+from lib_claude_multimodal import ask_image
 print(ask_image('data/m3/screenshot.png', 'Transcribe all text in this image exactly, preserving line breaks.'))"
 ```
 
@@ -352,21 +352,21 @@ print(ask_image('data/m3/screenshot.png', 'Transcribe all text in this image exa
 Create `notes/m03_decision.md` answering, with your Step 9 numbers: which image tasks you'd run without a human check (e.g. titles, printed text, labeled values) and which need review (e.g. values estimated from bar heights).
 
 ```bash
-git add claude_multimodal.py m03_*.py notes/m03_decision.md
+git add lib_claude_multimodal.py m03_*.py notes/m03_decision.md
 git commit -m "Module 3: image extraction and error measurement"
 git push
 ```
 
 **Check:** pushed; no images from `data/` in the commit.
 
-## Complete `claude_multimodal.py` after Module 3
+## Complete `lib_claude_multimodal.py` after Module 3
 
-Use this to cross-check your file once the steps are done, or after a break. It is every block the course has told you to add to `claude_multimodal.py` through Module 3, in order, with the earlier edits applied. The `# ── Module N, Step M ──` lines only show which step added the code below them; your file doesn't need them.
+Use this to cross-check your file once the steps are done, or after a break. It is every block the course has told you to add to `lib_claude_multimodal.py` through Module 3, in order, with the earlier edits applied. The `# ── Module N, Step M ──` lines only show which step added the code below them; your file doesn't need them.
 
 To compare automatically, save the file below as `data/expected.py` (`data/` is git-ignored, so it never gets committed), then:
 
 ```bash
-diff -Bw <(grep -v '^# ── ' data/expected.py) claude_multimodal.py && echo "your file matches"
+diff -Bw <(grep -v '^# ── ' data/expected.py) lib_claude_multimodal.py && echo "your file matches"
 ```
 
 `-Bw` ignores blank lines and spacing. Every other line `diff` prints is a real difference: a missing step, a block pasted twice, or a typo.
