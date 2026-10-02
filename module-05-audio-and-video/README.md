@@ -77,18 +77,45 @@ for r in db_ro.transcript_segments.aggregate([{'\$group': {'_id': '\$recording',
 
 ## Step 1 — Install faster-whisper and ffmpeg, add a recording
 
+**1. Install the packages**
+
 ```bash
 pip install faster-whisper imageio-ffmpeg
+```
+
+- `faster-whisper` is the local Whisper model that turns speech into text.
+- `imageio-ffmpeg` ships a ready-built ffmpeg inside the pip package, so it works the same on macOS, Linux and Windows, with no `brew` or `apt`.
+
+**Check:** the last line starts with `Successfully installed` (or every package says `Requirement already satisfied`).
+
+**2. Put `ffmpeg` on your PATH**
+
+The pip package hides ffmpeg deep inside `.venv` under a long name. This copies it into `.venv`'s command folder as plain `ffmpeg`, so every `ffmpeg` command in this module finds it whenever the venv is active:
+
+```bash
 python -c "
 import imageio_ffmpeg, os, shutil, sysconfig
 dst = os.path.join(sysconfig.get_path('scripts'), 'ffmpeg' + ('.exe' if os.name == 'nt' else ''))
 shutil.copy(imageio_ffmpeg.get_ffmpeg_exe(), dst); os.chmod(dst, 0o755); print('ffmpeg ->', dst)"
-mkdir -p data/m5
 ```
 
-- `imageio-ffmpeg` ships a ready-built ffmpeg inside the pip package, so it works the same on macOS, Linux and Windows, with no `brew` or `apt`.
-- The `python -c` line copies that binary into `.venv` as `ffmpeg`, so the `ffmpeg` commands below find it whenever the venv is active.
-- Already have ffmpeg from `brew` or `apt`? That works too; the copy in `.venv` takes priority while the venv is active.
+**Check:** prints `ffmpeg -> …/.venv/bin/ffmpeg` (`…\.venv\Scripts\ffmpeg.exe` on Windows). Already have ffmpeg from `brew` or `apt`? That's fine; the copy in `.venv` takes priority while the venv is active.
+
+**3. Test both tools**
+
+```bash
+python -c "import faster_whisper; print('faster-whisper', faster_whisper.__version__)"
+command -v ffmpeg
+ffmpeg -version | head -1
+```
+
+**Check:** prints a faster-whisper version, a path ending in `.venv/bin/ffmpeg`, then `ffmpeg version 7.1 …` (or newer). If any line errors, fix it before going on: rerun sub-step 1 or 2, and make sure your prompt starts with `(.venv)`.
+
+**4. Add a recording**
+
+```bash
+mkdir -p data/m5
+```
 
 Put a one-hour recording (earnings call, meeting; mp3, m4a, wav or mp4) in `data/m5/`, e.g. `data/m5/q3-call.mp3`.
 
@@ -114,14 +141,7 @@ rm -r data/m5/ami          # the originals are no longer needed
 
 Expect four speakers (a project manager, a marketing expert, a user-interface designer and an industrial designer) and, in ES2002b, decisions and action items for the next meeting.
 
-**Check:**
-
-```bash
-ffmpeg -version | head -1
-ls data/m5
-```
-
-Output prints an ffmpeg version, then your recording's file name.
+**Check:** `ls data/m5` lists your recording (with the course sample: `demo.mp4` and `q3-call.mp3`).
 
 ## Step 2 — Make a 3-minute test clip
 
