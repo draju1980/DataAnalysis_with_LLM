@@ -19,12 +19,33 @@ You'll likely spread this module over several sessions, and Step 8 alone can tak
 
 **1. Start the session**
 
+Go to the project folder:
+
 ```bash
 cd DataAnalysis_with_LLM
+```
+
+Activate the Python environment:
+
+```bash
 source .venv/bin/activate
+```
+
+**Check:** your prompt now starts with `(.venv)`.
+
+Start MongoDB:
+
+```bash
 docker compose up -d
+```
+
+Wait until MongoDB is ready to take connections:
+
+```bash
 until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "MongoDB ready"
 ```
+
+**Check:** prints `MongoDB ready`, usually within 30 seconds.
 
 **2. Check the prerequisites** (Modules 1–4)
 
@@ -38,6 +59,8 @@ print('Modules 1-4 ok')"
 **Check:** prints `Modules 1-4 ok`. Step 10 uses `ask_image()` from Module 3.
 
 **3. Find where you stopped**
+
+List which steps are done (it checks for files and functions, not results):
 
 ```bash
 (
@@ -53,6 +76,11 @@ print('Modules 1-4 ok')"
   step "Step 10  m05_video_window.py"           'test -f m05_video_window.py'
   step "Step 11  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 5:"'
 )
+```
+
+List each recording already in MongoDB and how far it got:
+
+```bash
 python -c "
 print('\n')
 from lib_claude_multimodal import db_ro
@@ -62,7 +90,7 @@ for r in db_ro.transcript_segments.aggregate([{'\$group': {'_id': '\$recording',
           db_ro.action_items.count_documents({'recording': r['_id']}), 'action items')"
 ```
 
-**Check:** resume at the first `todo` line. The second command lists each recording already in MongoDB: segments mean it's transcribed (Steps 3–4), speakers mean Step 5 ran, action items mean Step 6 ran.
+**Check:** resume at the first `todo` line. The command above lists each recording already in MongoDB: segments mean it's transcribed (Steps 3–4), speakers mean Step 5 ran, action items mean Step 6 ran.
 
 **Resuming safely**
 
@@ -104,13 +132,31 @@ shutil.copy(imageio_ffmpeg.get_ffmpeg_exe(), dst); os.chmod(dst, 0o755); print('
 
 **3. Test both tools**
 
+If any of these three fails, fix it before going on: rerun sub-step 1 or 2, and make sure your prompt starts with `(.venv)`.
+
+Confirm faster-whisper imports:
+
 ```bash
 python -c "import faster_whisper; print('faster-whisper', faster_whisper.__version__)"
+```
+
+**Check:** prints `faster-whisper 1.2.1` (or newer).
+
+Confirm the shell finds the `ffmpeg` copied into `.venv`:
+
+```bash
 command -v ffmpeg
+```
+
+**Check:** prints a path ending in `.venv/bin/ffmpeg`.
+
+Confirm ffmpeg runs:
+
+```bash
 ffmpeg -version | head -1
 ```
 
-**Check:** prints a faster-whisper version, a path ending in `.venv/bin/ffmpeg`, then `ffmpeg version 7.1 …` (or newer). If any line errors, fix it before going on: rerun sub-step 1 or 2, and make sure your prompt starts with `(.venv)`.
+**Check:** prints `ffmpeg version 7.1 …` (or newer).
 
 **4. Add a recording**
 
@@ -124,14 +170,30 @@ Put a one-hour recording (earnings call, meeting; mp3, m4a, wav or mp4) in `data
 
 Run these as four separate cells, checking each one before the next.
 
-*a. Download the originals* (about 170 MB):
+*a. Download the originals* (about 170 MB). Each `curl` shows its own progress bar.
+
+Make a folder for them:
 
 ```bash
 mkdir -p data/m5/ami
-AMI=https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus
-curl -fL -o data/m5/ami/ES2002a.wav          $AMI/ES2002a/audio/ES2002a.Mix-Headset.wav
-curl -fL -o data/m5/ami/ES2002b.wav          $AMI/ES2002b/audio/ES2002b.Mix-Headset.wav
-curl -fL -o data/m5/ami/ES2002a.Overhead.avi $AMI/ES2002a/video/ES2002a.Overhead.avi
+```
+
+Meeting ES2002a, audio (about 39 MB):
+
+```bash
+curl -fL -o data/m5/ami/ES2002a.wav https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/ES2002a/audio/ES2002a.Mix-Headset.wav
+```
+
+Meeting ES2002b, audio (about 70 MB):
+
+```bash
+curl -fL -o data/m5/ami/ES2002b.wav https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/ES2002b/audio/ES2002b.Mix-Headset.wav
+```
+
+Meeting ES2002a, overhead camera video (about 60 MB):
+
+```bash
+curl -fL -o data/m5/ami/ES2002a.Overhead.avi https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/ES2002a/video/ES2002a.Overhead.avi
 ```
 
 **Check:** `ls -lh data/m5/ami` lists `ES2002a.Overhead.avi` (about 60M), `ES2002a.wav` (about 39M) and `ES2002b.wav` (about 70M).
@@ -230,7 +292,7 @@ Prints `1/2 …`, a download bar on the first run, `2/2 transcribing 00:03:00 of
 
 ## Step 4 — Add `save_segments()` and store the clip's transcript
 
-Append:
+Append to the shared library `lib_claude_multimodal.py`:
 
 ```python
 def save_segments(recording, segments):
@@ -254,7 +316,7 @@ print(db_ro.transcript_segments.count_documents({'recording': 'test-clip'}))"
 
 ## Step 5 — Add `label_speakers()` and label the clip
 
-Append:
+Append to the shared library `lib_claude_multimodal.py`:
 
 ```python
 SPEAKER_TOOL = {
@@ -315,7 +377,7 @@ for s in db_ro.transcript_segments.find({'recording': 'test-clip'}).sort('i').li
 
 ## Step 6 — Add `analyze_audio()` and analyze the clip
 
-Append:
+Append to the shared library `lib_claude_multimodal.py`:
 
 ```python
 NOTES_TOOL = {
@@ -456,15 +518,29 @@ for s in db_ro.transcript_segments.find({'recording': 'q3-call', 'text': {'\$reg
 
 ## Step 10 — Video: combine frames with the transcript
 
-For a video (`data/m5/demo.mp4`; if you used the course sample, Step 1 already made it), extract one frame every 30 seconds:
+This uses a video, `data/m5/demo.mp4` (if you used the course sample, Step 1 already made it).
+
+Make a folder for the frames:
 
 ```bash
 mkdir -p data/m5/frames
-ffmpeg -nostdin -y -loglevel error -stats -i data/m5/demo.mp4 -vf fps=1/30 data/m5/frames/%04d.jpg
-python m05_process.py data/m5/demo.mp4          # transcript + notes, as in Step 7
 ```
 
-Frame `0001.jpg` is at 0:00, `0002.jpg` at 0:30, and so on. Now ask about one 2-minute window using both. Create `m05_video_window.py`:
+Extract one frame every 30 seconds. The progress line ends near `time=00:10:00`:
+
+```bash
+ffmpeg -nostdin -y -loglevel error -stats -i data/m5/demo.mp4 -vf fps=1/30 data/m5/frames/%04d.jpg
+```
+
+**Check:** `ls data/m5/frames` lists about 20 frames (`0001.jpg`, `0002.jpg`, …) for the 10-minute sample. Frame `0001.jpg` is at 0:00, `0002.jpg` at 0:30, and so on.
+
+Transcribe the video's audio, label speakers and write notes, exactly as Step 7 did for the clip (a few minutes for 10 minutes of video):
+
+```bash
+python m05_process.py data/m5/demo.mp4
+```
+
+**Check:** prints steps 1/5 to 5/5 and writes `data/m5/demo-notes.md`. Now ask about one 2-minute window using both the frames and the transcript. Create `m05_video_window.py`:
 
 ```python
 import sys
@@ -483,6 +559,8 @@ print(ask_image(frames, "These frames come from this part of a video, in order. 
                 f"with timestamps.\n<transcript>\n{transcript}\n</transcript>", max_side=1024))
 ```
 
+Ask about the window from 1:00 to 3:00 (the two numbers are seconds):
+
 ```bash
 python m05_video_window.py 60 180
 ```
@@ -491,9 +569,23 @@ python m05_video_window.py 60 180
 
 ## Step 11 — Commit
 
+Stage the library and this module's scripts (never `data/`, which holds the recordings):
+
 ```bash
 git add lib_claude_multimodal.py m05_*.py
+```
+
+**Check:** `git status` lists only those files under "Changes to be committed".
+
+Commit them:
+
+```bash
 git commit -m "Module 5: transcription, speaker labels, audio analysis, video frames"
+```
+
+Push to your remote:
+
+```bash
 git push
 ```
 
