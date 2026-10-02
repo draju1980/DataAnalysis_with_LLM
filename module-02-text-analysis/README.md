@@ -435,7 +435,7 @@ for r in db_ro.llm_calls.aggregate([
 
 No script writes this file. You write it yourself, in any text editor, using numbers from commands you've already run. It records what you found, in your own words.
 
-1. Get the numbers. Rerun the report from Steps 7–8 below, and rerun the Step 10 command for costs:
+1. Get the numbers. Rerun the report from Steps 7–8, and rerun the Step 10 command for costs:
 
    ```bash
    python m02_report.py
@@ -444,23 +444,21 @@ No script writes this file. You write it yourself, in any text editor, using num
    - **Accuracy per prompt version:** the `accuracy` column, one row per run (`v1`, `v2`, …).
    - **Cost for 600 texts each way:** multiply each `per call` cost from Step 10 by 600. `m2` is the normal API, `m2-batch` the Batches API. For example, `$0.00040 per call` × 600 = `$0.24`.
 
-2. Create the file and fill in your numbers:
+2. Write the file. This creates it with three lines, then prints it so you can check it:
 
    ```bash
    mkdir -p notes
-   ```
-
-   `notes/m02_report.md`:
-
-   ```markdown
+   cat > notes/m02_report.md <<'EOF'
    # Module 2 — sentiment classification
 
-   - Accuracy on 100 labeled reviews: v1 82%, v2 89%
-   - Cost for 600 reviews with Haiku: normal API $0.24, Batches API $0.12
-   - I'd use v2 with the Batches API: +7 points accuracy for the same price, and half the cost when results can wait.
+   - Accuracy on 100 labeled reviews (Haiku): v1 66%, v2 66%
+   - Cost for 600 reviews with Haiku: normal API ≈ $0.57, Batches API ≈ $0.29 (half price)
+   - I'd use v1 with the Batches API: v2's rules and examples didn't raise accuracy, v1's shorter prompt costs less, and the batch halves the cost when results can wait.
+   EOF
+   cat notes/m02_report.md
    ```
 
-   The numbers above are examples. Use yours, and say why you chose that prompt (e.g. which mistakes it fixed).
+   The numbers and the conclusion above are an example run. Replace them with yours before you run the command, or edit the file afterwards in any text editor. If your v2 beat v1, say which mistakes it fixed.
 
 3. Commit:
 
