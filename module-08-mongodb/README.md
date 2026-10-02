@@ -703,14 +703,14 @@ INVOICE_SCHEMA = {
 }
 
 
-def extract_pdf_fields(path, *, schema=INVOICE_SCHEMA, model=HAIKU, module="m4"):
+def extract_pdf_fields(path, *, schema=INVOICE_SCHEMA, model=HAIKU, max_tokens=1024, module="m4"):
     """Extract structured fields from a PDF. Missing fields come back as null."""
     tool = {"name": "record_fields", "description": "Record the fields found in the document.",
             "input_schema": schema}
     messages = [{"role": "user", "content": [
         pdf_block(path),
         {"type": "text", "text": "Extract the fields. Use null for anything not present; never guess."}]}]
-    resp = ask(messages=messages, system=DOC_RULE, model=model, max_tokens=512, tools=[tool],
+    resp = ask(messages=messages, system=DOC_RULE, model=model, max_tokens=max_tokens, tools=[tool],
                tool_choice={"type": "tool", "name": "record_fields"}, module=module)
     return tool_input(resp)
 

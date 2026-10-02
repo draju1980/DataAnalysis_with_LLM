@@ -227,14 +227,14 @@ INVOICE_SCHEMA = {
 }
 
 
-def extract_pdf_fields(path, *, schema=INVOICE_SCHEMA, model=HAIKU, module="m4"):
+def extract_pdf_fields(path, *, schema=INVOICE_SCHEMA, model=HAIKU, max_tokens=1024, module="m4"):
     """Extract structured fields from a PDF. Missing fields come back as null."""
     tool = {"name": "record_fields", "description": "Record the fields found in the document.",
             "input_schema": schema}
     messages = [{"role": "user", "content": [
         pdf_block(path),
         {"type": "text", "text": "Extract the fields. Use null for anything not present; never guess."}]}]
-    resp = ask(messages=messages, system=DOC_RULE, model=model, max_tokens=512, tools=[tool],
+    resp = ask(messages=messages, system=DOC_RULE, model=model, max_tokens=max_tokens, tools=[tool],
                tool_choice={"type": "tool", "name": "record_fields"}, module=module)
     return tool_input(resp)
 ```
@@ -302,6 +302,8 @@ python m04_extract_folder.py
 An invoice and its lines are **one document**, with the lines embedded as an array — exactly the shape Claude returns.
 
 **Check:** every good PDF prints `OK` (including the scanned one), `zz_corrupt.pdf` prints `SKIP`, and the script finishes.
+
+If a `WARNING: reply cut off at max_tokens=…` line appears, the invoice printed after it was stored incomplete: Claude ran out of room before writing every line item, so its `lines` field is missing or short. Invoices with many lines need a bigger reply. Raise the default in `extract_pdf_fields()` (e.g. `max_tokens=2048`), save `lib_claude_multimodal.py`, and rerun `python m04_extract_folder.py`. `replace_one(..., upsert=True)` overwrites each invoice, so the rerun fixes it without duplicates.
 
 ## Step 6 — Look at what was stored
 
@@ -779,14 +781,14 @@ INVOICE_SCHEMA = {
 }
 
 
-def extract_pdf_fields(path, *, schema=INVOICE_SCHEMA, model=HAIKU, module="m4"):
+def extract_pdf_fields(path, *, schema=INVOICE_SCHEMA, model=HAIKU, max_tokens=1024, module="m4"):
     """Extract structured fields from a PDF. Missing fields come back as null."""
     tool = {"name": "record_fields", "description": "Record the fields found in the document.",
             "input_schema": schema}
     messages = [{"role": "user", "content": [
         pdf_block(path),
         {"type": "text", "text": "Extract the fields. Use null for anything not present; never guess."}]}]
-    resp = ask(messages=messages, system=DOC_RULE, model=model, max_tokens=512, tools=[tool],
+    resp = ask(messages=messages, system=DOC_RULE, model=model, max_tokens=max_tokens, tools=[tool],
                tool_choice={"type": "tool", "name": "record_fields"}, module=module)
     return tool_input(resp)
 
