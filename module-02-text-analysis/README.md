@@ -433,17 +433,44 @@ for r in db_ro.llm_calls.aggregate([
 
 ## Step 11 — Write your conclusion and commit
 
-Create `notes/m02_report.md` with three lines: accuracy per prompt version (from Step 8's report), cost for 600 texts each way (Step 10), and which prompt you'd use and why.
+No script writes this file. You write it yourself, in any text editor, using numbers from commands you've already run. It records what you found, in your own words.
 
-```bash
-mkdir -p notes
-# write notes/m02_report.md
-git add m02_*.py lib_claude_multimodal.py notes/m02_report.md
-git commit -m "Module 2: classify, evaluation, batch run"
-git push
-```
+1. Get the numbers. Rerun the report from Steps 7–8 below, and rerun the Step 10 command for costs:
 
-**Check:** the commit is pushed; `data/` is not in it.
+   ```bash
+   python m02_report.py
+   ```
+
+   - **Accuracy per prompt version:** the `accuracy` column, one row per run (`v1`, `v2`, …).
+   - **Cost for 600 texts each way:** multiply each `per call` cost from Step 10 by 600. `m2` is the normal API, `m2-batch` the Batches API. For example, `$0.00040 per call` × 600 = `$0.24`.
+
+2. Create the file and fill in your numbers:
+
+   ```bash
+   mkdir -p notes
+   ```
+
+   `notes/m02_report.md`:
+
+   ```markdown
+   # Module 2 — sentiment classification
+
+   - Accuracy on 100 labeled reviews: v1 82%, v2 89%
+   - Cost for 600 reviews with Haiku: normal API $0.24, Batches API $0.12
+   - I'd use v2 with the Batches API: +7 points accuracy for the same price, and half the cost when results can wait.
+   ```
+
+   The numbers above are examples. Use yours, and say why you chose that prompt (e.g. which mistakes it fixed).
+
+3. Commit:
+
+   ```bash
+   git add m02_*.py lib_claude_multimodal.py notes/m02_report.md
+   git commit -m "Module 2: classify, evaluation, batch run"
+   git push
+   ```
+
+**Check:** `notes/m02_report.md` has your real accuracy and cost numbers, the commit is pushed, and `data/` is not in it.
 
 ## Complete `lib_claude_multimodal.py` after Module 2
 
