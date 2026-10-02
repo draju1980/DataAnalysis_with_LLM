@@ -177,7 +177,7 @@ d.to_csv('data/m2/labels.csv', index=False)
 print('pre-filled', d.label.notna().sum(), 'labels from star ratings')"
 ```
 
-Stars don't always match the text (a 2-star review can read as clearly negative), so skim the file and correct the rows you disagree with.
+Stars often don't match the text: a 3-star review can read as clearly negative, and a 4-star one as lukewarm. Unreviewed star labels hold accuracy in Step 7 to about 65% whatever the prompt, so skim the file and correct the rows you disagree with.
 
 **Check:**
 
