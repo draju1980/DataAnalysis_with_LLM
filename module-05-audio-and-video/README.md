@@ -78,10 +78,17 @@ for r in db_ro.transcript_segments.aggregate([{'\$group': {'_id': '\$recording',
 ## Step 1 — Install faster-whisper and ffmpeg, add a recording
 
 ```bash
-pip install faster-whisper
-brew install ffmpeg                 # macOS; Ubuntu/Debian: sudo apt install ffmpeg
+pip install faster-whisper imageio-ffmpeg
+python -c "
+import imageio_ffmpeg, os, shutil, sysconfig
+dst = os.path.join(sysconfig.get_path('scripts'), 'ffmpeg' + ('.exe' if os.name == 'nt' else ''))
+shutil.copy(imageio_ffmpeg.get_ffmpeg_exe(), dst); os.chmod(dst, 0o755); print('ffmpeg ->', dst)"
 mkdir -p data/m5
 ```
+
+- `imageio-ffmpeg` ships a ready-built ffmpeg inside the pip package, so it works the same on macOS, Linux and Windows, with no `brew` or `apt`.
+- The `python -c` line copies that binary into `.venv` as `ffmpeg`, so the `ffmpeg` commands below find it whenever the venv is active.
+- Already have ffmpeg from `brew` or `apt`? That works too; the copy in `.venv` takes priority while the venv is active.
 
 Put a one-hour recording (earnings call, meeting; mp3, m4a, wav or mp4) in `data/m5/`, e.g. `data/m5/q3-call.mp3`.
 
@@ -127,7 +134,7 @@ ffmpeg -y -loglevel error -i data/m5/q3-call.mp3 -t 180 -ac 1 -ar 16000 data/m5/
 - `-t 180` keeps the first 180 seconds.
 - `-ac 1 -ar 16000` converts to mono 16 kHz, the format Whisper uses.
 
-**Check:** `ffprobe -v error -show_entries format=duration -of csv=p=0 data/m5/test-clip.wav` prints about `180`.
+**Check:** `python -c "import wave; w = wave.open('data/m5/test-clip.wav'); print(round(w.getnframes() / w.getframerate()))"` prints `180`.
 
 ## Step 3 — Add `transcribe()` and transcribe the clip
 

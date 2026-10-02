@@ -130,7 +130,7 @@ There are no quizzes or grades. A module is complete when its **Done when** chec
 | Docker, MongoDB `mongodb-atlas-local`, mongosh, pymongo | Local database with Vector Search | Module 0 |
 | Pillow | Resizing images | Module 3 |
 | pypdf | Counting, splitting and reading PDF pages | Module 4 |
-| faster-whisper, ffmpeg | Transcription and video frames (the one non-Claude model) | Module 5 |
+| faster-whisper, imageio-ffmpeg | Transcription and video frames (the one non-Claude model); ffmpeg comes from pip | Module 5 |
 | pandas, DuckDB, openpyxl, pyarrow | Tabular files and SQL on files | Module 6 |
 | grep, jq | Pre-filtering logs | Module 7 |
 | Voyage AI (optional) | Embeddings; skip it to stay Claude-only with `$search` | Module 9 |
