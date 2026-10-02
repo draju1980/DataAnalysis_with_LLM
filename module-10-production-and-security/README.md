@@ -117,7 +117,13 @@ CMD ["python", "m04_extract_folder.py"]
 - The container runs as a normal user, not root.
 - Only the two Python files go in; your PDFs are mounted read-only at run time (Step 4).
 
-**Check:** `docker build -t pdf-extractor .` finishes successfully.
+**Check:**
+
+```bash
+docker build -t pdf-extractor .
+```
+
+The build finishes successfully.
 
 ## Step 3 — Add container-network connection strings to `.env`
 
@@ -450,7 +456,13 @@ mongosh "mongodb://admin@127.0.0.1:27017/admin?directConnection=true" --quiet --
 4. Recreate the Docker lines: delete the two `_DOCKER` lines from `.env`, then rerun **Step 3** of this module.
 5. Rerun **Module 0 Step 12** to check both users.
 
-**Check:** Module 0 Step 12 shows `read` and `readWrite`, and `docker compose --profile jobs run --rm pdf-extractor` still works.
+**Check:** Module 0 Step 12 shows `read` and `readWrite`. Then run:
+
+```bash
+docker compose --profile jobs run --rm pdf-extractor
+```
+
+The job still runs successfully.
 
 ## Step 16 — Write the threat model
 

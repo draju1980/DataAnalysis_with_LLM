@@ -112,7 +112,14 @@ Create `capstone_ingest.py` that loads each input with the matching module's fun
 
 Record failures in `file_errors` exactly as in Module 4.
 
-**Check:** `python capstone_ingest.py` finishes, and `python m08_inventory.py` shows your new data.
+**Check:**
+
+```bash
+python capstone_ingest.py
+python m08_inventory.py
+```
+
+The ingest finishes, and the inventory shows your new data.
 
 ## Step 5 — Build the search layer
 
@@ -135,7 +142,13 @@ If your capstone has new sources (e.g. HTML pages), add them to `build_chunks()`
 
 Copy `m09_assistant.py` to `capstone_assistant.py`. Change the system prompt to describe your project, and add any tool you need (for example `run_sql` from Module 6 for the tables). Keep the rule: every number comes from a tool result, every claim has a source.
 
-**Check:** `python capstone_assistant.py` answers one of your Step 1 questions with a citation.
+**Check:**
+
+```bash
+python capstone_assistant.py
+```
+
+The assistant answers one of your Step 1 questions with a citation.
 
 ## Step 7 — Run the test set and score it
 

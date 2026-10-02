@@ -91,7 +91,13 @@ Copy at least 8 invoices, bank statements or broker contract notes into `data/m4
 head -c 3000 "data/m4/pdfs/$(ls data/m4/pdfs | head -1)" > data/m4/pdfs/zz_corrupt.pdf
 ```
 
-**Check:** `ls data/m4/pdfs` lists your PDFs plus `zz_corrupt.pdf`.
+**Check:**
+
+```bash
+ls data/m4/pdfs
+```
+
+Output lists your PDFs plus `zz_corrupt.pdf`.
 
 ## Step 2 — Add `pdf_block()`, `pdf_page_count()` and `ask_pdf()`
 

@@ -64,7 +64,11 @@ print('Module 0: .env and both database users ok')"
 **Resuming safely**
 
 - Never paste an "Append to `lib_claude_multimodal.py`" block a second time: a function defined twice silently uses the last copy. If a step's line says `done`, skip its append.
-- If the Step 1 line says `todo` but the file exists, the file has an error, often a block pasted halfway before a break. Run `python -c "import lib_claude_multimodal"` to see the line, and fix it in place.
+- If the Step 1 line says `todo` but the file exists, the file has an error, often a block pasted halfway before a break. Run this to see the line, and fix it in place:
+
+  ```bash
+  python -c "import lib_claude_multimodal"
+  ```
 - Steps 4–7 and 10 call the API again when rerun. Each call costs a fraction of a cent and adds a row to `llm_calls`, which is fine.
 - Step 11 compares the cost before and after one chat session. Do the "before", the chat, and the "after" in the same sitting.
 - Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-1) at the end of the page.
@@ -103,7 +107,17 @@ db_ro = MongoClient(os.environ["MONGODB_URI"]).course      # queries read with t
 - `max_retries=4`: the SDK already retries rate-limit (429), overload (529) and server errors with backoff. Don't write your own retry loop on top.
 - Every call in the course uses `model="claude-haiku-4-5-20251001"` and `max_tokens=1024`. Check Haiku's price on Anthropic's pricing page and correct `PRICES` if it has changed.
 
-**Check:** `python -c "import lib_claude_multimodal; print('ok')"` prints `ok`.
+**Check:**
+
+```bash
+python -c "import lib_claude_multimodal; print('ok')"
+```
+
+Output prints:
+
+```
+ok
+```
 
 ## Step 2 — Add `text_of()` and `cost_of()`
 
@@ -132,7 +146,19 @@ def cost_of(resp, batch=False):
     return cost * 0.5 if batch else cost   # the Batches API costs half
 ```
 
-**Check:** `python -c "from lib_claude_multimodal import text_of, cost_of; print('ok')"` prints `ok`. (You'll test them with a real reply in Step 4.)
+**Check:**
+
+```bash
+python -c "from lib_claude_multimodal import text_of, cost_of; print('ok')"
+```
+
+Output prints:
+
+```
+ok
+```
+
+You'll test them with a real reply in Step 4.
 
 ## Step 3 — Add `log_call()` to record every call in MongoDB
 
@@ -155,7 +181,17 @@ def log_call(resp, module, latency_ms, batch=False):
 
 From now on, every cost question in the course is a query on `llm_calls`.
 
-**Check:** `python -c "from lib_claude_multimodal import log_call; print('ok')"` prints `ok`.
+**Check:**
+
+```bash
+python -c "from lib_claude_multimodal import log_call; print('ok')"
+```
+
+Output prints:
+
+```
+ok
+```
 
 ## Step 4 — Add `ask()`, the one function every module calls
 
@@ -353,7 +389,17 @@ def run_with_tools(history, tools, handlers, *, module, model=HAIKU, system=None
 - `history` is the conversation list; the function appends Claude's replies and the tool results to it.
 - `handlers` maps a tool name to the Python function that runs it, e.g. `{"calculator": calc}`.
 
-**Check:** `python -c "from lib_claude_multimodal import run_with_tools, tool_input; print('ok')"` prints `ok`.
+**Check:**
+
+```bash
+python -c "from lib_claude_multimodal import run_with_tools, tool_input; print('ok')"
+```
+
+Output prints:
+
+```
+ok
+```
 
 ## Step 10 — Build the command-line chat
 

@@ -83,7 +83,14 @@ mkdir -p data/m5
 
 Put a one-hour recording (earnings call, meeting; mp3, m4a, wav or mp4) in `data/m5/`, e.g. `data/m5/q3-call.mp3`.
 
-**Check:** `ffmpeg -version | head -1` prints a version, and `ls data/m5` shows your recording.
+**Check:**
+
+```bash
+ffmpeg -version | head -1
+ls data/m5
+```
+
+Output prints an ffmpeg version, then your recording's file name.
 
 ## Step 2 — Make a 3-minute test clip
 

@@ -167,7 +167,13 @@ def describe_mongo(sample=50):
     return "\n\n".join(parts)
 ```
 
-**Check:** `python -c "from lib_claude_multimodal import describe_mongo; print(describe_mongo())"` prints every collection with its note and fields. Nested fields like `lines.amount` and dates (`datetime`) appear.
+**Check:**
+
+```bash
+python -c "from lib_claude_multimodal import describe_mongo; print(describe_mongo())"
+```
+
+Output prints every collection with its note and fields. Nested fields like `lines.amount` and dates (`datetime`) appear.
 
 ## Step 4 — Add `run_pipeline()`, the guarded query runner
 
@@ -325,7 +331,13 @@ print(answer)"
 
 Claude may try `$out` or `$merge`; the checker returns `blocked operators` to it, and it should report that it can't write.
 
-**Check:** `python m08_inventory.py` shows **no** `error_archive` collection.
+**Check:**
+
+```bash
+python m08_inventory.py
+```
+
+Output shows **no** `error_archive` collection.
 
 ## Step 10 — Guardrail test 2: the database blocks it even without the checker
 

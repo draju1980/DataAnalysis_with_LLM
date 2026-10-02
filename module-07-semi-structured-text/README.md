@@ -113,7 +113,14 @@ mkdir -p notes
 grep -cE '^[0-9]{4}-[0-9]{2}-[0-9]{2}' data/m7/sample.log > notes/m07_grep_count.txt   # your pattern
 ```
 
-**Check:** `cat notes/m07_grep_count.txt` shows one number, and `grep -vcE '<your pattern>' data/m7/sample.log` shows how many continuation lines there are.
+**Check:**
+
+```bash
+cat notes/m07_grep_count.txt
+grep -vcE '<your pattern>' data/m7/sample.log
+```
+
+Output prints two numbers: your saved record count, then how many continuation lines there are.
 
 ## Step 4 — Add `extract_log_records()` and test it on 50 lines
 
@@ -278,7 +285,13 @@ print(ask_text_file('docker-compose.yml', 'Which ports are published, on which h
 
 ## Step 10 — Run the full log (optional) and commit
 
-If the sample worked, run the full file: `python m07_extract.py data/m7/app.log` and repeat Steps 6–7 for `app.log`.
+If the sample worked, run the full file:
+
+```bash
+python m07_extract.py data/m7/app.log
+```
+
+Then repeat Steps 6–7 for `app.log`.
 
 ```bash
 git add lib_claude_multimodal.py m07_*.py notes/m07_grep_count.txt

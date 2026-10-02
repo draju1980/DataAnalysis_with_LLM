@@ -82,7 +82,13 @@ Put three related files in **different formats** in `data/m6/`, for example:
 
 They should share at least one column you can join on (like `symbol` or month).
 
-**Check:** `ls data/m6` shows your three files.
+**Check:**
+
+```bash
+ls data/m6
+```
+
+Output shows your three files.
 
 ## Step 2 — Look at the raw files and note the quirks
 

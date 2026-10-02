@@ -68,7 +68,11 @@ for i in db_rw.chunks.list_search_indexes(): print('index:   ', i['name'], 'read
 
 - **`build_chunks()` deletes every chunk, embeddings included.** Rerun Step 3 only when your sources changed; on Route A, rerun Step 4 straight after it, which embeds everything again and costs Voyage tokens.
 - `embed_chunks()` only embeds chunks that have no embedding yet, so if it stops partway, run it again and it carries on.
-- After a restart, the search engine needs a moment to load the index. If a search returns nothing or errors, rerun `python -c "from lib_claude_multimodal import create_chunk_index; print(create_chunk_index(), 'is ready')"`: it finds the existing index and waits until it's ready.
+- After a restart, the search engine needs a moment to load the index. If a search returns nothing or errors, rerun this; it finds the existing index and waits until it's ready:
+
+  ```bash
+  python -c "from lib_claude_multimodal import create_chunk_index; print(create_chunk_index(), 'is ready')"
+  ```
 - Step 9 is interactive: paste each answer into `notes/m09_results.md` as you go, so a break doesn't lose them. Step 10 marks them ✅ or ❌ in the same file, also one at a time.
 - Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-9) at the end of the page.
 - **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never `docker compose down -v`: it deletes the database, chunks and search index included.
@@ -90,7 +94,13 @@ Append to the shared library `lib_claude_multimodal.py` (the file you created in
 SEARCH_ROUTE = "vector"        # "vector" (Route A) or "text" (Route B)
 ```
 
-**Check:** `python -c "from lib_claude_multimodal import SEARCH_ROUTE; print(SEARCH_ROUTE)"` prints your choice.
+**Check:**
+
+```bash
+python -c "from lib_claude_multimodal import SEARCH_ROUTE; print(SEARCH_ROUTE)"
+```
+
+Output prints your choice.
 
 ## Step 2 — Route A only: set up Voyage AI
 
@@ -191,7 +201,17 @@ def embed_chunks():
 python -c "from lib_claude_multimodal import embed_chunks; print(embed_chunks(), 'chunks embedded')"
 ```
 
-**Check:** the number equals Step 3's total, and `python -c "from lib_claude_multimodal import db_ro; print(db_ro.chunks.count_documents({'embedding': {'\$exists': False}}))"` prints `0`.
+**Check:** the number equals Step 3's total. Then run:
+
+```bash
+python -c "from lib_claude_multimodal import db_ro; print(db_ro.chunks.count_documents({'embedding': {'\$exists': False}}))\"
+```
+
+Output prints:
+
+```
+0
+```
 
 ## Step 5 — Create the search index and wait until it's ready
 

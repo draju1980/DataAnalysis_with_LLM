@@ -82,7 +82,13 @@ git commit -m "Ignore secrets, virtualenv, data and backups"
 - `.env` will hold your secrets (Step 7).
 - `data/` will hold your own input files (invoices, recordings…), which may be private.
 
-**Check:** `cat .gitignore` shows six lines.
+**Check:**
+
+```bash
+cat .gitignore
+```
+
+Output shows six lines.
 
 ## Step 2 — Create the Python environment
 
@@ -97,7 +103,17 @@ pip install anthropic python-dotenv pymongo jupyter
 
 Your prompt now starts with `(.venv)`. Run `source .venv/bin/activate` in every new terminal (see "Start of every session" in the syllabus). Later modules install more packages when they need them.
 
-**Check:** `python -c "import anthropic, dotenv, pymongo; print('ok')"` prints `ok`.
+**Check:**
+
+```bash
+python -c "import anthropic, dotenv, pymongo; print('ok')"
+```
+
+Output prints:
+
+```
+ok
+```
 
 ## Step 3 — Install Docker and mongosh
 
@@ -238,7 +254,13 @@ What this does:
 - Compose reads `${MONGO_ROOT_PASSWORD}` from `.env` (Step 7); only that one value goes into the container.
 - The three volumes keep your data when the container restarts.
 
-**Check:** wait about a minute, then `docker compose ps` shows `mongodb` as **healthy**. If it says `starting`, wait and check again.
+**Check:** wait about a minute, then run:
+
+```bash
+docker compose ps
+```
+
+Output shows `mongodb` as **healthy**. If it says `starting`, wait and check again.
 
 ## Step 10 — Check the admin login
 

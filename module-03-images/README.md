@@ -79,7 +79,17 @@ mkdir -p data/m3/charts
 
 Put 20 chart screenshots (bar, line, pie; PNG or JPG) in `data/m3/charts/`. Pick charts whose true numbers you can find, e.g. from reports or dashboards you have the data for.
 
-**Check:** `ls data/m3/charts | wc -l` prints `20`.
+**Check:**
+
+```bash
+ls data/m3/charts | wc -l
+```
+
+Output prints:
+
+```
+20
+```
 
 ## Step 2 — Add `image_block()` to `lib_claude_multimodal.py`
 
@@ -245,7 +255,13 @@ python m03_extract.py
 
 The `key` field (file | series | label) is what you join on in Step 9.
 
-**Check:** 20 lines of `<file>: N values`, and `python -c "from lib_claude_multimodal import db_ro; print(db_ro.chart_values.count_documents({}))"` prints the total.
+**Check:** the script prints 20 lines of `<file>: N values`. Then run:
+
+```bash
+python -c "from lib_claude_multimodal import db_ro; print(db_ro.chart_values.count_documents({}))"
+```
+
+Output prints the total.
 
 ## Step 7 — Export 5 charts' values to fill in the truth
 

@@ -102,7 +102,17 @@ r002,"Does what it says. Nothing special."
 ...
 ```
 
-**Check:** `python -c "import pandas as pd; d=pd.read_csv('data/m2/reviews.csv'); print(len(d), list(d.columns))"` prints `600 ['id', 'text']`.
+**Check:**
+
+```bash
+python -c "import pandas as pd; d=pd.read_csv('data/m2/reviews.csv'); print(len(d), list(d.columns))"
+```
+
+Output prints:
+
+```
+600 ['id', 'text']
+```
 
 ## Step 2 — Choose your labels in one place
 
@@ -114,7 +124,13 @@ Create `m02_config.py`. Every Module 2 script imports from it, so labels never g
 LABELS = ["positive", "negative", "neutral"]
 ```
 
-**Check:** `python -c "from m02_config import LABELS; print(LABELS)"` prints your labels.
+**Check:**
+
+```bash
+python -c "from m02_config import LABELS; print(LABELS)"
+```
+
+Output prints your labels.
 
 ## Step 3 — Label 100 texts by hand
 
