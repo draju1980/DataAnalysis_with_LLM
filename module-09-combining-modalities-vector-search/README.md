@@ -411,20 +411,20 @@ git push
 
 ## Complete `lib_claude_multimodal.py` after Module 9
 
-Use this to cross-check your file once the steps are done, or after a break. It is every block the course has told you to add to `lib_claude_multimodal.py` through Module 9, in order, with the earlier edits applied. The `# ── Module N, Step M ──` lines only show which step added the code below them; your file doesn't need them.
+Use this to cross-check your file once the steps are done, or after a break. It is every block the course has told you to add to `lib_claude_multimodal.py` through Module 9, in order, with the earlier edits applied. The `# ── Module N, Step M ──` lines show which step added the code below them. Each step's block starts with its own marker line, so pasting it keeps your file labelled in step order; if your file is missing some markers, that's fine — the diff below ignores them.
 
 This is the Route A file. On Route B, `SEARCH_ROUTE` is `"text"` and `embed()` and `embed_chunks()` (Step 4) aren't there.
 
 To compare automatically, save the file below as `data/expected.py` (`data/` is git-ignored, so it never gets committed), then:
 
 ```bash
-diff -Bw <(grep -v '^# ── ' data/expected.py) lib_claude_multimodal.py && echo "your file matches"
+diff -Bw <(grep -v '^# ── ' data/expected.py) <(grep -v '^# ── ' lib_claude_multimodal.py) && echo "your file matches"
 ```
 
 `-Bw` ignores blank lines and spacing. Every other line `diff` prints is a real difference: a missing step, a block pasted twice, or a typo.
 
 <details>
-<summary>Show the complete file (774 lines)</summary>
+<summary>Show the complete file (777 lines)</summary>
 
 ```python
 # ── Module 1, Step 1 ──
@@ -458,6 +458,7 @@ def text_of(resp):
 
 
 def _price(model):
+    """Look up (input, output) prices for a model name, or (None, None) if unknown."""
     for name, price in PRICES.items():
         if model.startswith(name) or name.startswith(model):
             return price
@@ -516,6 +517,7 @@ def ask(prompt=None, *, messages=None, system=None, model=HAIKU, max_tokens=512,
 import ast
 import operator
 
+# Each allowed syntax node mapped to the Python function that computes it
 _OPS = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
         ast.Div: operator.truediv, ast.Mod: operator.mod, ast.Pow: operator.pow,
         ast.USub: operator.neg, ast.UAdd: operator.pos}
@@ -561,13 +563,14 @@ def run_with_tools(history, tools, handlers, *, module, model=HAIKU, system=None
                    max_tokens=512, max_rounds=10):
     """Run Claude with tools until it answers. Returns (final reply, all replies)."""
     replies = []
-    for _ in range(max_rounds):
+    for _ in range(max_rounds):                  # a cap, so a confused model can't loop forever
         resp = ask(messages=history, tools=tools, model=model, system=system,
                    max_tokens=max_tokens, module=module)
         replies.append(resp)
-        history.append({"role": "assistant", "content": resp.content})
-        if resp.stop_reason != "tool_use":
+        history.append({"role": "assistant", "content": resp.content})   # keep Claude's turn
+        if resp.stop_reason != "tool_use":       # a final answer: we're done
             return resp, replies
+        # Claude asked for one or more tools: run each one and collect the results
         results = []
         for block in resp.content:
             if block.type != "tool_use":
@@ -580,7 +583,7 @@ def run_with_tools(history, tools, handlers, *, module, model=HAIKU, system=None
             except Exception as e:  # send the error back so Claude can fix its call
                 results.append({"type": "tool_result", "tool_use_id": block.id,
                                 "content": f"Error: {e}", "is_error": True})
-        history.append({"role": "user", "content": results})
+        history.append({"role": "user", "content": results})   # results go back as a user turn
     raise RuntimeError("too many tool rounds")
 
 

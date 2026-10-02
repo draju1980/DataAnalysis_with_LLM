@@ -81,7 +81,10 @@ print('Module 0: .env and both database users ok')"
 
 Create `lib_claude_multimodal.py` in the project root. This is the course's one shared library: every reusable function goes into this file, and each later step or module that says "Append to the shared library" adds to this same file. The `lib_` prefix marks it as the shared library; every other file you create is a runnable script named after its module (`m01_….py`, `m02_….py`, …).
 
+**How appending works in this course:** every later block for this file is pasted at the **end** of the file, below everything already there, and starts with a `# ── Module N, Step M ──` comment line. Never insert a block in the middle of the file, and never paste the same block twice.
+
 ```python
+# ── Module 1, Step 1 ──
 """Shared helpers for the Multimodal Data Analysis with Claude course."""
 import os
 import time
@@ -122,15 +125,19 @@ ok
 
 ## Step 2 — Add `text_of()` and `cost_of()`
 
-Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1):
+Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1).
+
+**Where it goes:** at the very **end** of `lib_claude_multimodal.py`, below the Step 1 code. Don't paste it above or inside an earlier function. Copy the whole block, including the `# ── Module 1, Step 2 ──` comment on its first line: it labels the code so you can see later which step added it.
 
 ```python
+# ── Module 1, Step 2 ──
 def text_of(resp):
     """Join all text blocks of a reply into one string."""
     return "".join(b.text for b in resp.content if b.type == "text")
 
 
 def _price(model):
+    """Look up (input, output) prices for a model name, or (None, None) if unknown."""
     for name, price in PRICES.items():
         if model.startswith(name) or name.startswith(model):
             return price
@@ -163,9 +170,12 @@ You'll test them with a real reply in Step 4.
 
 ## Step 3 — Add `log_call()` to record every call in MongoDB
 
-Append:
+Append to `lib_claude_multimodal.py`.
+
+**Where it goes:** at the very **end** of `lib_claude_multimodal.py`, below the Step 2 code. Don't paste it above or inside an earlier function. Copy the whole block, including the `# ── Module 1, Step 3 ──` comment on its first line: it labels the code so you can see later which step added it.
 
 ```python
+# ── Module 1, Step 3 ──
 def log_call(resp, module, latency_ms, batch=False):
     """Save tokens, cost and latency of one reply to the llm_calls collection."""
     db_rw.llm_calls.insert_one({
@@ -196,9 +206,12 @@ ok
 
 ## Step 4 — Add `ask()`, the one function every module calls
 
-Append:
+Append to `lib_claude_multimodal.py`.
+
+**Where it goes:** at the very **end** of `lib_claude_multimodal.py`, below the Step 3 code. Don't paste it above or inside an earlier function. Copy the whole block, including the `# ── Module 1, Step 4 ──` comment on its first line: it labels the code so you can see later which step added it.
 
 ```python
+# ── Module 1, Step 4 ──
 def ask(prompt=None, *, messages=None, system=None, model=HAIKU, max_tokens=512,
         temperature=None, tools=None, tool_choice=None, module="adhoc"):
     """Send one request to Claude, log it, and return the reply."""
@@ -299,12 +312,18 @@ python m01_temperature.py
 
 Claude is not reliable at arithmetic, so give it a calculator. The calculator must never run arbitrary code: tool inputs are written by the model, and in later modules the model reads untrusted files. So it parses the expression and allows only numbers and arithmetic operators — never `eval()`.
 
-Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1). This is the same file you added to in Steps 1–4, not a new one:
+Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1). This is the same file you added to in Steps 1–4, not a new one.
+
+**Where it goes:** at the very **end** of `lib_claude_multimodal.py`, below the Step 4 code. Don't paste it above or inside an earlier function. Copy the whole block, including the `# ── Module 1, Step 8 ──` comment on its first line: it labels the code so you can see later which step added it.
+
+The `import` lines sit in the middle of the file rather than at the top. That's deliberate: it keeps every step a single paste at the end, and Python allows imports anywhere.
 
 ```python
+# ── Module 1, Step 8 ──
 import ast
 import operator
 
+# Each allowed syntax node mapped to the Python function that computes it
 _OPS = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
         ast.Div: operator.truediv, ast.Mod: operator.mod, ast.Pow: operator.pow,
         ast.USub: operator.neg, ast.UAdd: operator.pos}
@@ -355,9 +374,16 @@ Prints `92.35` and `blocked: only numbers and + - * / % ** are allowed`.
 
 ## Step 9 — Add the tool loop
 
-When Claude wants a tool, your code must run it and send the result back, repeating until Claude gives a final answer. Append:
+When Claude wants a tool, your code must run it and send the result back, repeating until Claude gives a final answer.
+
+Append to `lib_claude_multimodal.py`.
+
+**Where it goes:** at the very **end** of `lib_claude_multimodal.py`, below the Step 8 code. Don't paste it above or inside an earlier function. Copy the whole block, including the `# ── Module 1, Step 9 ──` comment on its first line: it labels the code so you can see later which step added it.
+
+Your file should now end with the `CALC_TOOL = {…}` dictionary from Step 8; this block goes right after its closing `}`.
 
 ```python
+# ── Module 1, Step 9 ──
 def tool_input(resp):
     """Return the input of the first tool_use block (used with forced tool calls)."""
     return next(b.input for b in resp.content if b.type == "tool_use")
@@ -367,13 +393,14 @@ def run_with_tools(history, tools, handlers, *, module, model=HAIKU, system=None
                    max_tokens=512, max_rounds=10):
     """Run Claude with tools until it answers. Returns (final reply, all replies)."""
     replies = []
-    for _ in range(max_rounds):
+    for _ in range(max_rounds):                  # a cap, so a confused model can't loop forever
         resp = ask(messages=history, tools=tools, model=model, system=system,
                    max_tokens=max_tokens, module=module)
         replies.append(resp)
-        history.append({"role": "assistant", "content": resp.content})
-        if resp.stop_reason != "tool_use":
+        history.append({"role": "assistant", "content": resp.content})   # keep Claude's turn
+        if resp.stop_reason != "tool_use":       # a final answer: we're done
             return resp, replies
+        # Claude asked for one or more tools: run each one and collect the results
         results = []
         for block in resp.content:
             if block.type != "tool_use":
@@ -386,7 +413,7 @@ def run_with_tools(history, tools, handlers, *, module, model=HAIKU, system=None
             except Exception as e:  # send the error back so Claude can fix its call
                 results.append({"type": "tool_result", "tool_use_id": block.id,
                                 "content": f"Error: {e}", "is_error": True})
-        history.append({"role": "user", "content": results})
+        history.append({"role": "user", "content": results})   # results go back as a user turn
     raise RuntimeError("too many tool rounds")
 ```
 
@@ -483,18 +510,18 @@ git push
 
 ## Complete `lib_claude_multimodal.py` after Module 1
 
-Use this to cross-check your file once the steps are done, or after a break. It is every block the course has told you to add to `lib_claude_multimodal.py` through Module 1, in order. The `# ── Module N, Step M ──` lines only show which step added the code below them; your file doesn't need them.
+Use this to cross-check your file once the steps are done, or after a break. It is every block the course has told you to add to `lib_claude_multimodal.py` through Module 1, in order. The `# ── Module N, Step M ──` lines show which step added the code below them. Each step's block starts with its own marker line, so pasting it keeps your file labelled in step order; if your file is missing some markers, that's fine — the diff below ignores them.
 
 To compare automatically, save the file below as `data/expected.py` (`data/` is git-ignored, so it never gets committed), then:
 
 ```bash
-diff -Bw <(grep -v '^# ── ' data/expected.py) lib_claude_multimodal.py && echo "your file matches"
+diff -Bw <(grep -v '^# ── ' data/expected.py) <(grep -v '^# ── ' lib_claude_multimodal.py) && echo "your file matches"
 ```
 
 `-Bw` ignores blank lines and spacing. Every other line `diff` prints is a real difference: a missing step, a block pasted twice, or a typo.
 
 <details>
-<summary>Show the complete file (155 lines)</summary>
+<summary>Show the complete file (158 lines)</summary>
 
 ```python
 # ── Module 1, Step 1 ──
@@ -528,6 +555,7 @@ def text_of(resp):
 
 
 def _price(model):
+    """Look up (input, output) prices for a model name, or (None, None) if unknown."""
     for name, price in PRICES.items():
         if model.startswith(name) or name.startswith(model):
             return price
@@ -586,6 +614,7 @@ def ask(prompt=None, *, messages=None, system=None, model=HAIKU, max_tokens=512,
 import ast
 import operator
 
+# Each allowed syntax node mapped to the Python function that computes it
 _OPS = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
         ast.Div: operator.truediv, ast.Mod: operator.mod, ast.Pow: operator.pow,
         ast.USub: operator.neg, ast.UAdd: operator.pos}
@@ -631,13 +660,14 @@ def run_with_tools(history, tools, handlers, *, module, model=HAIKU, system=None
                    max_tokens=512, max_rounds=10):
     """Run Claude with tools until it answers. Returns (final reply, all replies)."""
     replies = []
-    for _ in range(max_rounds):
+    for _ in range(max_rounds):                  # a cap, so a confused model can't loop forever
         resp = ask(messages=history, tools=tools, model=model, system=system,
                    max_tokens=max_tokens, module=module)
         replies.append(resp)
-        history.append({"role": "assistant", "content": resp.content})
-        if resp.stop_reason != "tool_use":
+        history.append({"role": "assistant", "content": resp.content})   # keep Claude's turn
+        if resp.stop_reason != "tool_use":       # a final answer: we're done
             return resp, replies
+        # Claude asked for one or more tools: run each one and collect the results
         results = []
         for block in resp.content:
             if block.type != "tool_use":
@@ -650,7 +680,7 @@ def run_with_tools(history, tools, handlers, *, module, model=HAIKU, system=None
             except Exception as e:  # send the error back so Claude can fix its call
                 results.append({"type": "tool_result", "tool_use_id": block.id,
                                 "content": f"Error: {e}", "is_error": True})
-        history.append({"role": "user", "content": results})
+        history.append({"role": "user", "content": results})   # results go back as a user turn
     raise RuntimeError("too many tool rounds")
 ```
 
