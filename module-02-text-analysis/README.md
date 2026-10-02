@@ -216,7 +216,7 @@ def classify(text, labels, *, model=HAIKU, prompt_version="v1", module="m2"):
     """Return (label, reply). The forced tool call guarantees a valid label."""
     tool = label_tool(labels)
     prompt = PROMPTS[prompt_version].format(labels=", ".join(labels), text=text)
-    resp = ask(prompt, model=model, max_tokens=1024, tools=[tool],
+    resp = ask(prompt, model=model, max_tokens=512, tools=[tool],
                tool_choice={"type": "tool", "name": tool["name"]}, module=module)
     return tool_input(resp)["label"], resp
 ```
@@ -349,7 +349,7 @@ df = pd.read_csv("data/m2/reviews.csv")
 requests = [{
     "custom_id": str(r.id),
     "params": {
-        "model": model, "max_tokens": 1024, "tools": [tool],
+        "model": model, "max_tokens": 512, "tools": [tool],
         "tool_choice": {"type": "tool", "name": tool["name"]},
         "messages": [{"role": "user", "content":
                       PROMPTS[prompt_version].format(labels=", ".join(LABELS), text=r.text)}],
@@ -495,7 +495,7 @@ def log_call(resp, module, latency_ms, batch=False):
 
 
 # ── Module 1, Step 4 ──
-def ask(prompt=None, *, messages=None, system=None, model=HAIKU, max_tokens=1024,
+def ask(prompt=None, *, messages=None, system=None, model=HAIKU, max_tokens=512,
         temperature=None, tools=None, tool_choice=None, module="adhoc"):
     """Send one request to Claude, log it, and return the reply."""
     if messages is None:
@@ -504,7 +504,7 @@ def ask(prompt=None, *, messages=None, system=None, model=HAIKU, max_tokens=1024
     if system:
         args["system"] = system
     if temperature is not None:
-        args["temperature"] = temperature
+        args["extra_body"] = {"temperature": temperature}   # SDK 1.0+ removed the temperature argument
     if tools:
         args["tools"] = tools
     if tool_choice:
@@ -563,7 +563,7 @@ def tool_input(resp):
 
 
 def run_with_tools(history, tools, handlers, *, module, model=HAIKU, system=None,
-                   max_tokens=1024, max_rounds=10):
+                   max_tokens=512, max_rounds=10):
     """Run Claude with tools until it answers. Returns (final reply, all replies)."""
     replies = []
     for _ in range(max_rounds):
@@ -620,7 +620,7 @@ def classify(text, labels, *, model=HAIKU, prompt_version="v1", module="m2"):
     """Return (label, reply). The forced tool call guarantees a valid label."""
     tool = label_tool(labels)
     prompt = PROMPTS[prompt_version].format(labels=", ".join(labels), text=text)
-    resp = ask(prompt, model=model, max_tokens=1024, tools=[tool],
+    resp = ask(prompt, model=model, max_tokens=512, tools=[tool],
                tool_choice={"type": "tool", "name": tool["name"]}, module=module)
     return tool_input(resp)["label"], resp
 ```

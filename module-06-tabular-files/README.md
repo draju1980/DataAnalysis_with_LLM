@@ -448,7 +448,7 @@ def log_call(resp, module, latency_ms, batch=False):
 
 
 # ── Module 1, Step 4 ──
-def ask(prompt=None, *, messages=None, system=None, model=HAIKU, max_tokens=1024,
+def ask(prompt=None, *, messages=None, system=None, model=HAIKU, max_tokens=512,
         temperature=None, tools=None, tool_choice=None, module="adhoc"):
     """Send one request to Claude, log it, and return the reply."""
     if messages is None:
@@ -457,7 +457,7 @@ def ask(prompt=None, *, messages=None, system=None, model=HAIKU, max_tokens=1024
     if system:
         args["system"] = system
     if temperature is not None:
-        args["temperature"] = temperature
+        args["extra_body"] = {"temperature": temperature}   # SDK 1.0+ removed the temperature argument
     if tools:
         args["tools"] = tools
     if tool_choice:
@@ -516,7 +516,7 @@ def tool_input(resp):
 
 
 def run_with_tools(history, tools, handlers, *, module, model=HAIKU, system=None,
-                   max_tokens=1024, max_rounds=10):
+                   max_tokens=512, max_rounds=10):
     """Run Claude with tools until it answers. Returns (final reply, all replies)."""
     replies = []
     for _ in range(max_rounds):
@@ -573,7 +573,7 @@ def classify(text, labels, *, model=HAIKU, prompt_version="v1", module="m2"):
     """Return (label, reply). The forced tool call guarantees a valid label."""
     tool = label_tool(labels)
     prompt = PROMPTS[prompt_version].format(labels=", ".join(labels), text=text)
-    resp = ask(prompt, model=model, max_tokens=1024, tools=[tool],
+    resp = ask(prompt, model=model, max_tokens=512, tools=[tool],
                tool_choice={"type": "tool", "name": tool["name"]}, module=module)
     return tool_input(resp)["label"], resp
 
@@ -601,7 +601,7 @@ def image_block(path, max_side=1568):
 
 # ── Module 3, Step 3 ──
 def ask_image(paths, question, *, schema=None, tool_name="record", model=HAIKU,
-              max_side=1568, max_tokens=1024, module="m3"):
+              max_side=1568, max_tokens=512, module="m3"):
     """Ask about one or more images. With a schema, return structured fields (a dict)."""
     if isinstance(paths, (str, Path)):
         paths = [paths]
@@ -661,7 +661,7 @@ def pdf_page_count(path):
     return len(PdfReader(path).pages)
 
 
-def ask_pdf(path, question, *, model=HAIKU, cache=False, max_tokens=1024, module="m4"):
+def ask_pdf(path, question, *, model=HAIKU, cache=False, max_tokens=512, module="m4"):
     """Ask a question about a PDF. Returns the full reply (use text_of to read it)."""
     messages = [{"role": "user", "content": [pdf_block(path, cache), {"type": "text", "text": question}]}]
     return ask(messages=messages, system=DOC_RULE, model=model, max_tokens=max_tokens, module=module)
@@ -700,7 +700,7 @@ def extract_pdf_fields(path, *, schema=INVOICE_SCHEMA, model=HAIKU, module="m4")
     messages = [{"role": "user", "content": [
         pdf_block(path),
         {"type": "text", "text": "Extract the fields. Use null for anything not present; never guess."}]}]
-    resp = ask(messages=messages, system=DOC_RULE, model=model, max_tokens=1024, tools=[tool],
+    resp = ask(messages=messages, system=DOC_RULE, model=model, max_tokens=512, tools=[tool],
                tool_choice={"type": "tool", "name": "record_fields"}, module=module)
     return tool_input(resp)
 
@@ -771,7 +771,7 @@ def label_speakers(recording, chunk=150, model=HAIKU):
                   "said, otherwise 'Speaker 1', 'Speaker 2', and keep names consistent. "
                   f"Speakers identified so far: {', '.join(known) or 'none'}.\n"
                   f"<transcript>\n{lines}\n</transcript>")
-        data = tool_input(ask(prompt, model=model, max_tokens=1024, tools=[SPEAKER_TOOL],
+        data = tool_input(ask(prompt, model=model, max_tokens=512, tools=[SPEAKER_TOOL],
                               tool_choice={"type": "tool", "name": "record_speakers"}, module="m5"))
         for x in data["speakers"]:
             db_rw.transcript_segments.update_one({"recording": recording, "i": x["i"]},
@@ -816,7 +816,7 @@ def analyze_audio(recording, chunk_minutes=10, model=HAIKU):
         prompt = ("Summarize this part of a recording. List action items with an owner and the time "
                   "they were agreed, and key moments with times. Use the [hh:mm:ss] times shown.\n"
                   f"<transcript>\n{text}\n</transcript>")
-        notes.append(tool_input(ask(prompt, model=model, max_tokens=1024, tools=[NOTES_TOOL],
+        notes.append(tool_input(ask(prompt, model=model, max_tokens=512, tools=[NOTES_TOOL],
                                     tool_choice={"type": "tool", "name": "record_notes"}, module="m5")))
 
     items = [{"recording": recording, **a} for n in notes for a in n["action_items"]]
@@ -826,7 +826,7 @@ def analyze_audio(recording, chunk_minutes=10, model=HAIKU):
     moments = [m for n in notes for m in n["key_moments"]]
     summary = text_of(ask("Combine these partial summaries of one recording into a single summary "
                           "of at most 300 words:\n\n" + "\n\n".join(n["summary"] for n in notes),
-                          model=model, max_tokens=1024, module="m5"))
+                          model=model, max_tokens=512, module="m5"))
     return summary, items, moments
 
 

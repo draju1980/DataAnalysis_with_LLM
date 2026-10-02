@@ -106,7 +106,7 @@ db_ro = MongoClient(os.environ["MONGODB_URI"]).course      # queries read with t
 ```
 
 - `max_retries=4`: the SDK already retries rate-limit (429), overload (529) and server errors with backoff. Don't write your own retry loop on top.
-- Every call in the course uses `model="claude-haiku-4-5-20251001"` and `max_tokens=1024`. Check Haiku's price on Anthropic's pricing page and correct `PRICES` if it has changed.
+- Every call in the course uses `model="claude-haiku-4-5-20251001"` and `max_tokens=512`. Check Haiku's price on Anthropic's pricing page and correct `PRICES` if it has changed.
 
 **Check:**
 
@@ -199,7 +199,7 @@ ok
 Append:
 
 ```python
-def ask(prompt=None, *, messages=None, system=None, model=HAIKU, max_tokens=1024,
+def ask(prompt=None, *, messages=None, system=None, model=HAIKU, max_tokens=512,
         temperature=None, tools=None, tool_choice=None, module="adhoc"):
     """Send one request to Claude, log it, and return the reply."""
     if messages is None:
@@ -208,7 +208,7 @@ def ask(prompt=None, *, messages=None, system=None, model=HAIKU, max_tokens=1024
     if system:
         args["system"] = system
     if temperature is not None:
-        args["temperature"] = temperature
+        args["extra_body"] = {"temperature": temperature}   # SDK 1.0+ removed the temperature argument
     if tools:
         args["tools"] = tools
     if tool_choice:
@@ -257,7 +257,7 @@ For long answers, streaming prints text as it's generated. Create `m01_stream.py
 from lib_claude_multimodal import client, log_call, HAIKU
 
 with client.messages.stream(
-    model=HAIKU, max_tokens=1024,
+    model=HAIKU, max_tokens=512,
     messages=[{"role": "user", "content": "Explain how Kubernetes liveness and readiness probes differ, in 6 sentences."}],
 ) as stream:
     for text in stream.text_stream:
@@ -285,7 +285,7 @@ for t in (1.0, 0.0):
     print(f"--- temperature {t}")
     for _ in range(4):
         r = ask("Suggest one unusual name for a cat. Reply with the name only.",
-                temperature=t, max_tokens=1024, module="m1")
+                temperature=t, max_tokens=512, module="m1")
         print(text_of(r))
 ```
 
@@ -364,7 +364,7 @@ def tool_input(resp):
 
 
 def run_with_tools(history, tools, handlers, *, module, model=HAIKU, system=None,
-                   max_tokens=1024, max_rounds=10):
+                   max_tokens=512, max_rounds=10):
     """Run Claude with tools until it answers. Returns (final reply, all replies)."""
     replies = []
     for _ in range(max_rounds):
@@ -560,7 +560,7 @@ def log_call(resp, module, latency_ms, batch=False):
 
 
 # ── Module 1, Step 4 ──
-def ask(prompt=None, *, messages=None, system=None, model=HAIKU, max_tokens=1024,
+def ask(prompt=None, *, messages=None, system=None, model=HAIKU, max_tokens=512,
         temperature=None, tools=None, tool_choice=None, module="adhoc"):
     """Send one request to Claude, log it, and return the reply."""
     if messages is None:
@@ -569,7 +569,7 @@ def ask(prompt=None, *, messages=None, system=None, model=HAIKU, max_tokens=1024
     if system:
         args["system"] = system
     if temperature is not None:
-        args["temperature"] = temperature
+        args["extra_body"] = {"temperature": temperature}   # SDK 1.0+ removed the temperature argument
     if tools:
         args["tools"] = tools
     if tool_choice:
@@ -628,7 +628,7 @@ def tool_input(resp):
 
 
 def run_with_tools(history, tools, handlers, *, module, model=HAIKU, system=None,
-                   max_tokens=1024, max_rounds=10):
+                   max_tokens=512, max_rounds=10):
     """Run Claude with tools until it answers. Returns (final reply, all replies)."""
     replies = []
     for _ in range(max_rounds):

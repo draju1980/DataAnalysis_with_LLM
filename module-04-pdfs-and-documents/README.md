@@ -127,7 +127,7 @@ def pdf_page_count(path):
     return len(PdfReader(path).pages)
 
 
-def ask_pdf(path, question, *, model=HAIKU, cache=False, max_tokens=1024, module="m4"):
+def ask_pdf(path, question, *, model=HAIKU, cache=False, max_tokens=512, module="m4"):
     """Ask a question about a PDF. Returns the full reply (use text_of to read it)."""
     messages = [{"role": "user", "content": [pdf_block(path, cache), {"type": "text", "text": question}]}]
     return ask(messages=messages, system=DOC_RULE, model=model, max_tokens=max_tokens, module=module)
@@ -184,7 +184,7 @@ def extract_pdf_fields(path, *, schema=INVOICE_SCHEMA, model=HAIKU, module="m4")
     messages = [{"role": "user", "content": [
         pdf_block(path),
         {"type": "text", "text": "Extract the fields. Use null for anything not present; never guess."}]}]
-    resp = ask(messages=messages, system=DOC_RULE, model=model, max_tokens=1024, tools=[tool],
+    resp = ask(messages=messages, system=DOC_RULE, model=model, max_tokens=512, tools=[tool],
                tool_choice={"type": "tool", "name": "record_fields"}, module=module)
     return tool_input(resp)
 ```
@@ -333,7 +333,7 @@ from lib_claude_multimodal import ask_pdf, text_of
 
 p = sorted(Path("data/m4/pdfs").glob("*.pdf"))[0]
 for q in ["Who issued this?", "What is the due date?", "List the line items briefly."]:
-    r = ask_pdf(p, q, cache=True, max_tokens=1024)
+    r = ask_pdf(p, q, cache=True, max_tokens=512)
     u = r.usage
     print(f"Q: {q}\n   written to cache: {u.cache_creation_input_tokens}, "
           f"read from cache: {u.cache_read_input_tokens}, uncached input: {u.input_tokens}")
@@ -481,7 +481,7 @@ def log_call(resp, module, latency_ms, batch=False):
 
 
 # ── Module 1, Step 4 ──
-def ask(prompt=None, *, messages=None, system=None, model=HAIKU, max_tokens=1024,
+def ask(prompt=None, *, messages=None, system=None, model=HAIKU, max_tokens=512,
         temperature=None, tools=None, tool_choice=None, module="adhoc"):
     """Send one request to Claude, log it, and return the reply."""
     if messages is None:
@@ -490,7 +490,7 @@ def ask(prompt=None, *, messages=None, system=None, model=HAIKU, max_tokens=1024
     if system:
         args["system"] = system
     if temperature is not None:
-        args["temperature"] = temperature
+        args["extra_body"] = {"temperature": temperature}   # SDK 1.0+ removed the temperature argument
     if tools:
         args["tools"] = tools
     if tool_choice:
@@ -549,7 +549,7 @@ def tool_input(resp):
 
 
 def run_with_tools(history, tools, handlers, *, module, model=HAIKU, system=None,
-                   max_tokens=1024, max_rounds=10):
+                   max_tokens=512, max_rounds=10):
     """Run Claude with tools until it answers. Returns (final reply, all replies)."""
     replies = []
     for _ in range(max_rounds):
@@ -606,7 +606,7 @@ def classify(text, labels, *, model=HAIKU, prompt_version="v1", module="m2"):
     """Return (label, reply). The forced tool call guarantees a valid label."""
     tool = label_tool(labels)
     prompt = PROMPTS[prompt_version].format(labels=", ".join(labels), text=text)
-    resp = ask(prompt, model=model, max_tokens=1024, tools=[tool],
+    resp = ask(prompt, model=model, max_tokens=512, tools=[tool],
                tool_choice={"type": "tool", "name": tool["name"]}, module=module)
     return tool_input(resp)["label"], resp
 
@@ -634,7 +634,7 @@ def image_block(path, max_side=1568):
 
 # ── Module 3, Step 3 ──
 def ask_image(paths, question, *, schema=None, tool_name="record", model=HAIKU,
-              max_side=1568, max_tokens=1024, module="m3"):
+              max_side=1568, max_tokens=512, module="m3"):
     """Ask about one or more images. With a schema, return structured fields (a dict)."""
     if isinstance(paths, (str, Path)):
         paths = [paths]
@@ -694,7 +694,7 @@ def pdf_page_count(path):
     return len(PdfReader(path).pages)
 
 
-def ask_pdf(path, question, *, model=HAIKU, cache=False, max_tokens=1024, module="m4"):
+def ask_pdf(path, question, *, model=HAIKU, cache=False, max_tokens=512, module="m4"):
     """Ask a question about a PDF. Returns the full reply (use text_of to read it)."""
     messages = [{"role": "user", "content": [pdf_block(path, cache), {"type": "text", "text": question}]}]
     return ask(messages=messages, system=DOC_RULE, model=model, max_tokens=max_tokens, module=module)
@@ -733,7 +733,7 @@ def extract_pdf_fields(path, *, schema=INVOICE_SCHEMA, model=HAIKU, module="m4")
     messages = [{"role": "user", "content": [
         pdf_block(path),
         {"type": "text", "text": "Extract the fields. Use null for anything not present; never guess."}]}]
-    resp = ask(messages=messages, system=DOC_RULE, model=model, max_tokens=1024, tools=[tool],
+    resp = ask(messages=messages, system=DOC_RULE, model=model, max_tokens=512, tools=[tool],
                tool_choice={"type": "tool", "name": "record_fields"}, module=module)
     return tool_input(resp)
 

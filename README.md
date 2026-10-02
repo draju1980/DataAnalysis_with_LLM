@@ -109,7 +109,7 @@ There are no quizzes or grades. A module is complete when its **Done when** chec
 
 | Tool | Used for | First needed |
 | --- | --- | --- |
-| Anthropic API, model `claude-haiku-4-5-20251001`, `max_tokens=1024` | All analysis | Module 0 |
+| Anthropic API, model `claude-haiku-4-5-20251001`, `max_tokens=512` | All analysis | Module 0 |
 | Python, Jupyter, python-dotenv | Code, notebooks, secrets from `.env` | Module 0 |
 | Docker, MongoDB `mongodb-atlas-local`, mongosh, pymongo | Local database with Vector Search | Module 0 |
 | Pillow | Resizing images | Module 3 |
