@@ -178,6 +178,8 @@ print(d.label.value_counts()); print('invalid:', (~d.label.isin(LABELS)).sum())"
 
 Shows counts per label and `invalid: 0`.
 
+If it shows `Series([], ...)` and `invalid: 100`, the `label` column is still empty: you haven't typed the labels yet, or your spreadsheet app didn't save back to `data/m2/labels.csv` as CSV. Fill in all 100 rows, save, and rerun the check before Step 4.
+
 ## Step 4 — Load the answer key into MongoDB
 
 Create `m02_load_items.py`:
