@@ -99,6 +99,21 @@ mkdir -p data/m2
 
 Save 600 product reviews (or news headlines) as `data/m2/reviews.csv` with two columns, `id` and `text`. Public review datasets on Kaggle or Hugging Face work well; keep `id` to letters, digits, `-` or `_`.
 
+**No dataset of your own? Use the course sample.** This downloads 5,000 English Amazon reviews (the `mteb/amazon_reviews_multi` test set on Hugging Face, about 1.3 MB) and keeps a random 600 as `reviews.csv`:
+
+```bash
+curl -fL -o data/m2/amazon_reviews.jsonl \
+  https://huggingface.co/datasets/mteb/amazon_reviews_multi/resolve/main/en/test.jsonl
+python -c "
+import pandas as pd
+d = pd.read_json('data/m2/amazon_reviews.jsonl', lines=True).sample(600, random_state=1)
+d['text'] = d.text.str.replace(r'\s+', ' ', regex=True)     # one line per review
+d[['id', 'text']].to_csv('data/m2/reviews.csv', index=False)
+print('wrote', len(d), 'reviews to data/m2/reviews.csv')"
+```
+
+The sample fits the default `positive` / `negative` / `neutral` labels in Step 2.
+
 ```
 id,text
 r001,"Battery died after two days, very disappointed."

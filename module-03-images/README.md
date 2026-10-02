@@ -81,6 +81,75 @@ mkdir -p data/m3/charts
 
 Put 20 chart screenshots (bar, line, pie; PNG or JPG) in `data/m3/charts/`. Pick charts whose true numbers you can find, e.g. from reports or dashboards you have the data for.
 
+**No charts of your own? Generate the course sample.** This draws 20 bar, line, pie and grouped-bar charts from fixed numbers, and saves those numbers in `data/m3/chart_source.csv`. That file is your source of truth in Step 7. Create `m03_make_charts.py`:
+
+```python
+"""Make 20 practice charts in data/m3/charts/ and record their true values in data/m3/chart_source.csv."""
+import random
+from pathlib import Path
+
+import matplotlib
+matplotlib.use("Agg")                     # draw to files, no window
+import matplotlib.pyplot as plt
+import pandas as pd
+
+random.seed(7)                            # same charts and numbers on every run
+out = Path("data/m3/charts")
+out.mkdir(parents=True, exist_ok=True)
+
+MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
+REGIONS = ["North", "South", "East", "West"]
+PRODUCTS = ["Laptops", "Phones", "Tablets", "Monitors", "Printers"]
+
+rows = []                                 # one row per plotted value: the answer key
+for n in range(1, 21):
+    name = f"chart{n:02d}.png"
+    kind = ["bar", "line", "pie", "grouped"][(n - 1) % 4]
+    fig, ax = plt.subplots(figsize=(7, 4.5), dpi=110)
+    if kind == "bar":
+        labels, series = PRODUCTS, "Units sold"
+        values = [random.randint(20, 400) for _ in labels]
+        bars = ax.bar(labels, values, color="#4C78A8")
+        if n % 8 == 1:                    # some charts print the numbers, some don't
+            ax.bar_label(bars)
+        ax.set_ylabel(series)
+        rows += [(name, series, l, v) for l, v in zip(labels, values)]
+    elif kind == "line":
+        labels = MONTHS
+        for series in ("Revenue (k$)", "Costs (k$)"):
+            values = [random.randint(50, 250) for _ in labels]
+            ax.plot(labels, values, marker="o", label=series)
+            rows += [(name, series, l, v) for l, v in zip(labels, values)]
+        ax.legend(); ax.grid(alpha=0.3)
+    elif kind == "pie":
+        labels, series = REGIONS, "Share of sales (%)"
+        cuts = sorted(random.sample(range(5, 95), 3))
+        values = [a - b for a, b in zip(cuts + [100], [0] + cuts)]   # four shares that sum to 100
+        ax.pie(values, labels=labels, autopct="%d%%")
+        rows += [(name, series, l, v) for l, v in zip(labels, values)]
+    else:                                 # grouped bars: two series side by side
+        labels = REGIONS
+        width = 0.38
+        for i, series in enumerate(("2025", "2026")):
+            values = [random.randint(10, 90) for _ in labels]
+            ax.bar([x + (i - 0.5) * width for x in range(len(labels))], values, width, label=series)
+            rows += [(name, series, l, v) for l, v in zip(labels, values)]
+        ax.set_xticks(range(len(labels)), labels); ax.legend(); ax.set_ylabel("Orders")
+    ax.set_title(f"Chart {n}: {kind} chart")
+    fig.tight_layout()
+    fig.savefig(out / name)
+    plt.close(fig)
+
+pd.DataFrame(rows, columns=["image_file", "series", "label", "value"]).to_csv(
+    "data/m3/chart_source.csv", index=False)
+print(f"wrote 20 charts to {out}/ and {len(rows)} true values to data/m3/chart_source.csv")
+```
+
+```bash
+pip install matplotlib
+python m03_make_charts.py
+```
+
 **Check:**
 
 ```bash
@@ -289,6 +358,8 @@ python m03_export_truth.py chart01.png chart02.png chart03.png chart04.png chart
 
 Open `data/m3/truth.csv` and **overwrite the `value` column with the true numbers** from your source data. Leave the other columns unchanged.
 
+If you generated the sample charts in Step 1, the true numbers are in `data/m3/chart_source.csv`: find the row with the same `image_file`, `series` and `label`. Claude may name a series or label slightly differently (e.g. `Revenue` instead of `Revenue (k$)`); match them by meaning, and keep Claude's spelling in `truth.csv`.
+
 **Check:** the CSV has rows for your 5 charts and you have corrected every value.
 
 ## Step 8 — Load the truth into MongoDB
@@ -360,6 +431,12 @@ print(ask_image([a, b], 'The first image is chart A, the second chart B. What ch
 ## Step 11 — Read text from a screenshot (OCR)
 
 Take a screenshot with printed text (a terminal, an error dialog, a receipt) and save it as `data/m3/screenshot.png`.
+
+**No screenshot handy?** Download Tesseract's standard OCR test image, a scanned paragraph in English, French, Italian, German, Spanish and Dutch:
+
+```bash
+curl -fL -o data/m3/screenshot.png https://tesseract-ocr.github.io/tessdoc/images/eurotext.png
+```
 
 ```bash
 python -c "

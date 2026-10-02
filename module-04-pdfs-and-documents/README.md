@@ -88,7 +88,57 @@ pip install pypdf
 mkdir -p data/m4/pdfs
 ```
 
-Copy at least 8 invoices, bank statements or broker contract notes into `data/m4/pdfs/`. Include **one scanned PDF** (a photo or scan, no selectable text). Then make **one corrupt PDF** by cutting a good one short:
+Copy at least 8 invoices, bank statements or broker contract notes into `data/m4/pdfs/`. Include **one scanned PDF** (a photo or scan, no selectable text).
+
+**No PDFs of your own? Use the course sample.** This downloads 9 real-world sample invoices from the open-source [invoice2data](https://github.com/invoice-x/invoice2data) test set (MIT licence; English, French and Dutch, 1–2 pages each):
+
+```bash
+for f in AmazonWebServices AzureInterior FlipkartInvoice NetpresseInvoice QualityHosting \
+         coolblue1 free_fiber oyo saeco; do
+  curl -fL -o data/m4/pdfs/$f.pdf \
+    https://raw.githubusercontent.com/invoice-x/invoice2data/master/tests/compare/$f.pdf
+done
+```
+
+Then make the scanned one: an invoice drawn as an image and saved as PDF, so it has no selectable text. Create `m04_make_scan.py`:
+
+```python
+"""Make a 'scanned' invoice: an image saved as PDF, so it has no selectable text."""
+import random
+
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
+
+random.seed(3)
+img = Image.new("RGB", (1240, 1754), (246, 244, 238))           # off-white, like paper
+d = ImageDraw.Draw(img)
+try:
+    font = ImageFont.truetype("DejaVuSans.ttf", 34)
+except OSError:
+    font = ImageFont.load_default(size=34)                      # Pillow 10.1+
+lines = ["INVOICE  INV-2026-0318", "Gulf Office Supplies LLC", "PO Box 1123, Dubai, UAE",
+         "Date: 2026-08-21        Due: 2026-09-20", "Bill to: Example Trading FZE", "",
+         "Item                     Qty    Unit     Amount",
+         "A4 paper (box)            10    45.00    450.00",
+         "Toner cartridge            2   310.00    620.00",
+         "Desk organiser             4    27.50    110.00", "",
+         "Subtotal                                1180.00",
+         "VAT 5%                                    59.00",
+         "TOTAL  AED                              1239.00"]
+for i, line in enumerate(lines):
+    d.text((90, 120 + i * 70), line, fill=(25, 25, 25), font=font)
+for _ in range(4000):                                           # scanner speckle
+    d.point((random.randrange(1240), random.randrange(1754)), fill=(120, 120, 120))
+img = img.rotate(0.8, expand=False, fillcolor=(246, 244, 238)).filter(ImageFilter.GaussianBlur(0.6))
+img.save("data/m4/pdfs/scanned_invoice.pdf", resolution=150)
+print("created data/m4/pdfs/scanned_invoice.pdf")
+```
+
+```bash
+pip install pillow          # already installed if you did Module 3
+python m04_make_scan.py
+```
+
+Whichever PDFs you use, now make **one corrupt PDF** by cutting a good one short:
 
 ```bash
 head -c 3000 "data/m4/pdfs/$(ls data/m4/pdfs | head -1)" > data/m4/pdfs/zz_corrupt.pdf

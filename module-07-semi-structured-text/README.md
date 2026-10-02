@@ -86,6 +86,15 @@ Use one of:
     > data/m7/app.log
   ```
 
+- **No log of your own? Use the course sample.** A 2,000-line Apache web-server error log from [loghub](https://github.com/logpai/loghub), a public collection of real system logs for research:
+
+  ```bash
+  curl -fL -o data/m7/app.log \
+    https://raw.githubusercontent.com/logpai/loghub/master/Apache/Apache_2k.log
+  ```
+
+  Other 2,000-line logs from the same collection work with the same command; replace `Apache/Apache_2k.log` with, for example, `OpenSSH/OpenSSH_2k.log`, `Linux/Linux_2k.log` or `Spark/Spark_2k.log`.
+
 **Check:** `wc -l data/m7/app.log` shows the line count, and `head data/m7/app.log` looks like log lines.
 
 ## Step 2 — Cut it down to a sample

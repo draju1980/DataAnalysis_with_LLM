@@ -83,6 +83,70 @@ Put three related files in **different formats** in `data/m6/`, for example:
 
 They should share at least one column you can join on (like `symbol` or month).
 
+**No files of your own? Generate the course sample.** This writes the three files above with made-up trades for July–September 2026. It builds in the quirks the next steps teach you to handle: two date formats in one column, an Excel sheet with title rows above the headers, and JSON with the records under a `"data"` key. They match the `SPEC` and example questions used later, so those work unchanged. Create `m06_make_files.py`:
+
+```python
+"""Make three related practice files in data/m6/: trades.csv, targets.xlsx and export.json."""
+import json
+import random
+from datetime import date, timedelta
+from pathlib import Path
+
+import pandas as pd
+
+random.seed(11)                            # same files on every run
+out = Path("data/m6")
+out.mkdir(parents=True, exist_ok=True)
+
+INSTRUMENTS = [  # symbol, name, asset class, sector, typical price
+    ("AAPL", "Apple Inc.", "equity", "Technology", 225),
+    ("MSFT", "Microsoft Corp.", "equity", "Technology", 430),
+    ("XOM", "Exxon Mobil Corp.", "equity", "Energy", 115),
+    ("JPM", "JPMorgan Chase & Co.", "equity", "Financials", 210),
+    ("SPY", "SPDR S&P 500 ETF", "etf", None, 560),
+    ("GLD", "SPDR Gold Shares", "etf", None, 235),
+    ("TLT", "iShares 20+ Year Treasury Bond ETF", "bond_etf", None, 98),
+]
+
+# trades.csv — quirk: two date formats mixed in one column (Step 5 fixes it)
+rows, day = [], date(2026, 7, 1)
+while day <= date(2026, 9, 30):
+    if day.weekday() < 5:
+        for _ in range(random.randint(1, 4)):
+            sym, _, _, _, px = random.choice(INSTRUMENTS)
+            fmt = "%d/%m/%Y" if random.random() < 0.3 else "%Y-%m-%d"
+            rows.append({"trade_date": day.strftime(fmt), "symbol": sym,
+                         "side": random.choice(["BUY", "SELL"]),
+                         "quantity": random.choice([10, 25, 50, 100, 200]),
+                         "price": round(px * random.uniform(0.94, 1.06), 2)})
+    day += timedelta(days=1)
+pd.DataFrame(rows).to_csv(out / "trades.csv", index=False)
+
+# targets.xlsx — quirks: the data is on the second sheet, "2026", under two title rows
+targets = pd.DataFrame([{"symbol": s, "month": m, "target_value": random.randint(20, 120) * 1000}
+                        for s, *_ in INSTRUMENTS for m in ("2026-07", "2026-08", "2026-09")])
+with pd.ExcelWriter(out / "targets.xlsx") as xl:
+    pd.DataFrame({"About": ["Monthly traded-value targets per symbol, in USD.",
+                            "Data is on the sheet named 2026."]}).to_excel(xl, sheet_name="README", index=False)
+    targets.to_excel(xl, sheet_name="2026", index=False, startrow=2)   # headers on row 2 (0-based)
+    sheet = xl.sheets["2026"]
+    sheet["A1"] = "Desk targets 2026"
+    sheet["A2"] = "Source: trading desk plan, v3"
+
+# export.json — quirks: records under a "data" key, nested fields, a missing sector
+export = {"exported_at": "2026-10-01T06:00:00Z", "count": len(INSTRUMENTS),
+          "data": [{"symbol": s, "name": n, "asset_class": a,
+                    "details": {"sector": sec, "currency": "USD", "exchange": "NYSE" if s in ("XOM", "JPM") else "NASDAQ"}}
+                   for s, n, a, sec, _ in INSTRUMENTS]}
+(out / "export.json").write_text(json.dumps(export, indent=2))
+
+print(f"wrote {len(rows)} trades, {len(targets)} targets and {len(INSTRUMENTS)} instruments to {out}/")
+```
+
+```bash
+python m06_make_files.py
+```
+
 **Check:**
 
 ```bash
