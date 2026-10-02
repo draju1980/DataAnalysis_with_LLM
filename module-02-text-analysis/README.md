@@ -165,6 +165,20 @@ d.to_csv('data/m2/labels.csv', index=False)"
 
 Open `data/m2/labels.csv` in Excel, Numbers or LibreOffice, type one label from Step 2 in every row, and save it as CSV. Decide hard cases consistently (e.g. "mixed" reviews → `neutral`). This is your answer key.
 
+**Using the course sample?** Its reviews carry star ratings (0–4), so you can pre-fill draft labels instead of typing all 100. 0–1 stars → `negative`, 2 → `neutral`, 3–4 → `positive`:
+
+```bash
+python -c "
+import pandas as pd
+stars = pd.read_json('data/m2/amazon_reviews.jsonl', lines=True).set_index('id').label
+d = pd.read_csv('data/m2/labels.csv')
+d['label'] = d.id.map(stars).map({0: 'negative', 1: 'negative', 2: 'neutral', 3: 'positive', 4: 'positive'})
+d.to_csv('data/m2/labels.csv', index=False)
+print('pre-filled', d.label.notna().sum(), 'labels from star ratings')"
+```
+
+Stars don't always match the text (a 2-star review can read as clearly negative), so skim the file and correct the rows you disagree with.
+
 **Check:**
 
 ```bash
