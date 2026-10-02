@@ -29,6 +29,7 @@ until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "M
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import ask, text_of, tool_input, DOC_RULE
 print('ok: ask(), tool_input() and DOC_RULE are in place')"
 ```
@@ -50,6 +51,7 @@ print('ok: ask(), tool_input() and DOC_RULE are in place')"
   step "Step 10  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 7:"'
 )
 python -c "
+print('\n')
 from lib_claude_multimodal import db_ro
 for r in db_ro.log_events.aggregate([{'\$group': {'_id': '\$source_file', 'n': {'\$sum': 1}}}]):
     print('log_events from', r['_id'], ':', r['n'], 'records')"
@@ -163,6 +165,7 @@ def extract_log_records(lines, first_line_no=1, model=HAIKU):
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import extract_log_records
 lines = open('data/m7/sample.log').readlines()[:50]
 recs = extract_log_records(lines)
@@ -214,6 +217,7 @@ A limitation to know: an event that straddles a 100-line boundary can be split i
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import db_ro
 print('records:', db_ro.log_events.count_documents({'source_file': 'sample.log'}))
 print('missing ts:', db_ro.log_events.count_documents({'source_file': 'sample.log', 'ts': None}))"
@@ -245,6 +249,7 @@ python m07_spotcheck.py
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import db_ro
 for r in db_ro.log_events.aggregate([
     {'\$match': {'source_file': 'sample.log', 'ts': {'\$ne': None}}},
@@ -277,6 +282,7 @@ Try it on the Compose file you wrote in Module 0:
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import ask_text_file
 print(ask_text_file('docker-compose.yml', 'Which ports are published, on which host interface, and which data is persisted?'))"
 ```

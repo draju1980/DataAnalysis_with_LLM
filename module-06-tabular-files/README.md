@@ -28,6 +28,7 @@ until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "M
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import ask, text_of, run_with_tools
 print('Module 1 ok')"
 ```
@@ -97,10 +98,11 @@ Before loading anything, look at what you have:
 ```bash
 head -5 data/m6/trades.csv
 python -c "
+print('\n')
 import pandas as pd
 x = pd.ExcelFile('data/m6/targets.xlsx'); print('sheets:', x.sheet_names)
 print(pd.read_excel(x, sheet_name=x.sheet_names[0], header=None).head(8))"
-python -c "import json; d=json.load(open('data/m6/export.json')); print(type(d).__name__, list(d)[:5] if isinstance(d, dict) else d[:1])"
+python -c "print('\n'); import json; d=json.load(open('data/m6/export.json')); print(type(d).__name__, list(d)[:5] if isinstance(d, dict) else d[:1])"
 ```
 
 Write these down in `notes/m06_quirks.md` (`mkdir -p notes` first), so you still have them after a break:
@@ -190,6 +192,7 @@ def describe_table(con, name, n=5):
 
 ```bash
 python -c "
+print('\n')
 from m06_tables import open_tables, SPEC
 from lib_claude_multimodal import describe_table
 con = open_tables()
@@ -247,6 +250,7 @@ def run_sql(con, sql, max_rows=200):
 
 ```bash
 python -c "
+print('\n')
 from m06_tables import open_tables
 from lib_claude_multimodal import run_sql
 con = open_tables()
@@ -288,6 +292,7 @@ def ask_data(con, question, tables, *, model=HAIKU):
 
 ```bash
 python -c "
+print('\n')
 from m06_tables import open_tables
 from lib_claude_multimodal import ask_data
 answer, sqls = ask_data(open_tables(), 'How many trades are there in total?', ['trades_clean', 'targets', 'instruments'])
@@ -310,6 +315,7 @@ Now compute each answer **yourself**, with your own SQL in DuckDB or pandas, and
 
 ```bash
 python -c "
+print('\n')
 from m06_tables import open_tables
 con = open_tables()
 print(con.execute('''SELECT symbol, sum(quantity*price) AS value FROM trades_clean

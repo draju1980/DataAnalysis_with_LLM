@@ -28,6 +28,7 @@ until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "M
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import ask, text_of, cost_of, log_call, tool_input, db_ro
 print('Module 1 ok;', db_ro.llm_calls.count_documents({}), 'calls logged so far')"
 ```
@@ -52,6 +53,7 @@ print('Module 1 ok;', db_ro.llm_calls.count_documents({}), 'calls logged so far'
   step "Step 11  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 2:"'
 )
 python -c "
+print('\n')
 from lib_claude_multimodal import db_ro
 print('eval_items: ', db_ro.eval_items.count_documents({}), '(Step 4 wants 100)')
 for r in db_ro.eval_results.aggregate([{'\$group': {'_id': '\$run_id', 'n': {'\$sum': 1}}}, {'\$sort': {'_id': 1}}]):
@@ -69,6 +71,7 @@ print('predictions:', db_ro.predictions.count_documents({}), '(Step 9 wants 600)
 
   ```bash
   python -c "
+  print('\n')
   from lib_claude_multimodal import db_rw
   print(db_rw.eval_results.delete_many({'run_id': '<the short run id>'}).deleted_count, 'deleted')"
   ```
@@ -77,6 +80,7 @@ print('predictions:', db_ro.predictions.count_documents({}), '(Step 9 wants 600)
 
   ```bash
   python -c "
+  print('\n')
   from lib_claude_multimodal import client
   for b in client.messages.batches.list(limit=5): print(b.id, b.processing_status, b.created_at)"
   ```
@@ -105,7 +109,7 @@ r002,"Does what it says. Nothing special."
 **Check:**
 
 ```bash
-python -c "import pandas as pd; d=pd.read_csv('data/m2/reviews.csv'); print(len(d), list(d.columns))"
+python -c "print('\n'); import pandas as pd; d=pd.read_csv('data/m2/reviews.csv'); print(len(d), list(d.columns))"
 ```
 
 Output prints:
@@ -127,7 +131,7 @@ LABELS = ["positive", "negative", "neutral"]
 **Check:**
 
 ```bash
-python -c "from m02_config import LABELS; print(LABELS)"
+python -c "print('\n'); from m02_config import LABELS; print(LABELS)"
 ```
 
 Output prints your labels.
@@ -150,6 +154,7 @@ Open `data/m2/labels.csv` in Excel, Numbers or LibreOffice, type one label from 
 
 ```bash
 python -c "
+print('\n')
 import pandas as pd
 from m02_config import LABELS
 d = pd.read_csv('data/m2/labels.csv')
@@ -222,6 +227,7 @@ def classify(text, labels, *, model=HAIKU, prompt_version="v1", module="m2"):
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import classify
 from m02_config import LABELS
 print(classify('Arrived broken and support never replied.', LABELS)[0])"
@@ -383,6 +389,7 @@ If the script is interrupted, the batch keeps running: rerun it with the printed
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import db_ro
 for r in db_ro.llm_calls.aggregate([
     {'\$match': {'module': {'\$in': ['m2', 'm2-batch']}}},

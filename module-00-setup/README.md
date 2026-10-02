@@ -106,7 +106,7 @@ Your prompt now starts with `(.venv)`. Run `source .venv/bin/activate` in every 
 **Check:**
 
 ```bash
-python -c "import anthropic, dotenv, pymongo; print('ok')"
+python -c "print('\n'); import anthropic, dotenv, pymongo; print('ok')"
 ```
 
 Output prints:

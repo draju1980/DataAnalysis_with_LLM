@@ -30,6 +30,7 @@ until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "M
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import run_with_tools, text_of, DOC_RULE, db_ro
 want = ['llm_calls', 'eval_items', 'eval_results', 'predictions', 'chart_values', 'chart_truth', 'invoices',
         'file_errors', 'transcript_segments', 'action_items', 'log_events']
@@ -170,7 +171,7 @@ def describe_mongo(sample=50):
 **Check:**
 
 ```bash
-python -c "from lib_claude_multimodal import describe_mongo; print(describe_mongo())"
+python -c "print('\n'); from lib_claude_multimodal import describe_mongo; print(describe_mongo())"
 ```
 
 Output prints every collection with its note and fields. Nested fields like `lines.amount` and dates (`datetime`) appear.
@@ -216,6 +217,7 @@ The four layers: `course_ro` can't write (server), blocked operators (checker), 
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import run_pipeline
 print('1 ok:', run_pipeline('llm_calls', '[{\"\$group\": {\"_id\": \"\$module\", \"n\": {\"\$sum\": 1}}}]')[:120])
 print('2 date:', run_pipeline('llm_calls', '[{\"\$match\": {\"ts\": {\"\$gte\": {\"\$date\": \"2026-01-01T00:00:00Z\"}}}}, {\"\$count\": \"n\"}]'))
@@ -260,6 +262,7 @@ def ask_mongo(question, *, model=HAIKU):
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import ask_mongo
 answer, pipes = ask_mongo('How much did each module cost in Claude API calls so far?')
 print(answer)"
@@ -324,6 +327,7 @@ Compare `notes/m08_answers.md` with `notes/m08_results.md`. For each mismatch, r
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import ask_mongo
 answer, pipes = ask_mongo('Copy all ERROR log events into a new collection called error_archive.')
 print(answer)"
@@ -345,6 +349,7 @@ Bypass your checker and send `$out` straight to the server as `course_ro`:
 
 ```bash
 python -c "
+print('\n')
 from pymongo.errors import OperationFailure
 from lib_claude_multimodal import db_ro
 try: list(db_ro.log_events.aggregate([{'\$match': {'severity': 'ERROR'}}, {'\$out': 'error_archive'}]))

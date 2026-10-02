@@ -30,6 +30,7 @@ until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "M
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import classify, ask_mongo, PROMPTS, db_ro
 from m02_config import LABELS
 print('prompt versions (M2):', list(PROMPTS))
@@ -194,7 +195,7 @@ Then, inside `ask()`, replace the `log_call(...)` line with these two lines:
 **Check:**
 
 ```bash
-LOG_JSON=1 python -c "from lib_claude_multimodal import ask; ask('Say OK', max_tokens=1024, module='m10')"
+LOG_JSON=1 python -c "print('\n'); from lib_claude_multimodal import ask; ask('Say OK', max_tokens=1024, module='m10')"
 ```
 
 Prints one JSON line with `"event": "llm_call"` — the format log platforms (Loki, CloudWatch, Elastic) ingest.
@@ -365,6 +366,7 @@ git branch -D test-bad-prompt
 ```bash
 docker compose --profile jobs run --rm pdf-extractor
 python -c "
+print('\n')
 from lib_claude_multimodal import db_ro
 print(db_ro.invoices.find_one({'source_file': 'zz_injection.pdf'}, {'_id': 0, 'vendor': 1, 'total': 1}))"
 ```
@@ -418,6 +420,7 @@ def redact(text):
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import redact
 print(redact('Mail raju@example.com, call +971 50 123 4567, IBAN AE070331234567890123456'))"
 ```

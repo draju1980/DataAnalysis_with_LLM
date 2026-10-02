@@ -29,6 +29,7 @@ until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "M
 
 ```bash
 python -c "
+print('\n')
 import os
 from dotenv import load_dotenv
 from pymongo import MongoClient
@@ -110,7 +111,7 @@ db_ro = MongoClient(os.environ["MONGODB_URI"]).course      # queries read with t
 **Check:**
 
 ```bash
-python -c "import lib_claude_multimodal; print('ok')"
+python -c "print('\n'); import lib_claude_multimodal; print('ok')"
 ```
 
 Output prints:
@@ -149,7 +150,7 @@ def cost_of(resp, batch=False):
 **Check:**
 
 ```bash
-python -c "from lib_claude_multimodal import text_of, cost_of; print('ok')"
+python -c "print('\n'); from lib_claude_multimodal import text_of, cost_of; print('ok')"
 ```
 
 Output prints:
@@ -184,7 +185,7 @@ From now on, every cost question in the course is a query on `llm_calls`.
 **Check:**
 
 ```bash
-python -c "from lib_claude_multimodal import log_call; print('ok')"
+python -c "print('\n'); from lib_claude_multimodal import log_call; print('ok')"
 ```
 
 Output prints:
@@ -227,6 +228,7 @@ def ask(prompt=None, *, messages=None, system=None, model=HAIKU, max_tokens=1024
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import ask, text_of, cost_of
 r = ask('In one sentence, what is a Docker volume?', module='m1')
 print(text_of(r)); print(r.usage); print('cost USD', cost_of(r))"
@@ -240,6 +242,7 @@ The call from Step 4 is now a document in `llm_calls`. Read it with the read-onl
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import db_ro
 for d in db_ro.llm_calls.find({}, {'_id': 0}).sort('ts', -1).limit(3): print(d)"
 ```
@@ -341,6 +344,7 @@ CALC_TOOL = {
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import calc
 print(calc('1,847 * 0.05'))
 try: calc('__import__(\"os\").system(\"ls\")')
@@ -392,7 +396,7 @@ def run_with_tools(history, tools, handlers, *, module, model=HAIKU, system=None
 **Check:**
 
 ```bash
-python -c "from lib_claude_multimodal import run_with_tools, tool_input; print('ok')"
+python -c "print('\n'); from lib_claude_multimodal import run_with_tools, tool_input; print('ok')"
 ```
 
 Output prints:

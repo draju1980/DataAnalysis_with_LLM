@@ -29,6 +29,7 @@ until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "M
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import ask, text_of, tool_input, image_block
 print('Modules 1-3 ok')"
 ```
@@ -52,6 +53,7 @@ print('Modules 1-3 ok')"
   step "Step 12  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 4:"'
 )
 python -c "
+print('\n')
 from lib_claude_multimodal import db_ro
 print('invoices:         ', db_ro.invoices.count_documents({}), '(Step 5 wants one per good PDF)')
 print('m4 file_errors:   ', db_ro.file_errors.count_documents({'module': 'm4'}), '(Step 5 wants 1, the corrupt file)')
@@ -66,6 +68,7 @@ print('injection stored: ', db_ro.invoices.count_documents({'source_file': 'zz_i
 
   ```bash
   python -c "
+  print('\n')
   from lib_claude_multimodal import db_rw
   print(db_rw.file_errors.delete_many({'module': 'm4'}).deleted_count, 'old error rows removed')"
   ```
@@ -134,6 +137,7 @@ def ask_pdf(path, question, *, model=HAIKU, cache=False, max_tokens=1024, module
 
 ```bash
 python -c "
+print('\n')
 from pathlib import Path
 from lib_claude_multimodal import ask_pdf, text_of, pdf_page_count
 p = sorted(Path('data/m4/pdfs').glob('*.pdf'))[0]
@@ -189,6 +193,7 @@ def extract_pdf_fields(path, *, schema=INVOICE_SCHEMA, model=HAIKU, module="m4")
 
 ```bash
 python -c "
+print('\n')
 from pathlib import Path
 from lib_claude_multimodal import extract_pdf_fields
 p = sorted(Path('data/m4/pdfs').glob('*.pdf'))[0]
@@ -201,6 +206,7 @@ Prints invoice number, date, vendor, currency and total matching the PDF.
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import pdf_page_count
 try: pdf_page_count('data/m4/pdfs/zz_corrupt.pdf')
 except Exception as e: print('caught:', type(e).__name__, e)"
@@ -251,6 +257,7 @@ An invoice and its lines are **one document**, with the lines embedded as an arr
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import db_ro
 print('invoices:', db_ro.invoices.count_documents({}))
 for e in db_ro.file_errors.find({'module': 'm4'}, {'_id': 0, 'source_file': 1, 'error': 1}): print('error:', e)"
@@ -307,6 +314,7 @@ Test it on any multi-page PDF with one page per part:
 
 ```bash
 python -c "
+print('\n')
 from pathlib import Path
 from lib_claude_multimodal import split_pdf, pdf_page_count
 p = max(Path('data/m4/pdfs').glob('*.pdf'), key=lambda f: f.stat().st_size if f.name != 'zz_corrupt.pdf' else 0)
@@ -360,6 +368,7 @@ print("created data/m4/pdfs/zz_injection.pdf")
 python m04_make_injection.py
 python m04_extract_folder.py
 python -c "
+print('\n')
 from lib_claude_multimodal import db_ro
 print(db_ro.invoices.find_one({'source_file': 'zz_injection.pdf'}, {'_id': 0, 'vendor': 1, 'total': 1}))"
 ```
@@ -372,6 +381,7 @@ Export to a CSV you can open next to the PDFs:
 
 ```bash
 python -c "
+print('\n')
 import pandas as pd
 from lib_claude_multimodal import db_ro
 rows = list(db_ro.invoices.find({}, {'_id': 0, 'lines': 0}))

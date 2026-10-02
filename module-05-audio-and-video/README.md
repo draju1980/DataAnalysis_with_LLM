@@ -30,6 +30,7 @@ until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "M
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import ask, text_of, tool_input, ask_image
 print('Modules 1-4 ok')"
 ```
@@ -53,6 +54,7 @@ print('Modules 1-4 ok')"
   step "Step 11  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 5:"'
 )
 python -c "
+print('\n')
 from lib_claude_multimodal import db_ro
 for r in db_ro.transcript_segments.aggregate([{'\$group': {'_id': '\$recording', 'segments': {'\$sum': 1},
         'labelled': {'\$sum': {'\$cond': [{'\$ne': ['\$speaker', None]}, 1, 0]}}}}]):
@@ -132,6 +134,7 @@ def transcribe(path, model_size="small"):
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import transcribe, fmt_ts
 segs = transcribe('data/m5/test-clip.wav')
 print(len(segs), 'segments'); [print(fmt_ts(s['start_s']), s['text']) for s in segs[:5]]"
@@ -154,6 +157,7 @@ def save_segments(recording, segments):
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import transcribe, save_segments, db_ro
 save_segments('test-clip', transcribe('data/m5/test-clip.wav'))
 print(db_ro.transcript_segments.count_documents({'recording': 'test-clip'}))"
@@ -202,6 +206,7 @@ Passing `known` speakers from chunk to chunk keeps names consistent across a lon
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import label_speakers, db_ro, fmt_ts
 print(label_speakers('test-clip'))
 for s in db_ro.transcript_segments.find({'recording': 'test-clip'}).sort('i').limit(8):
@@ -265,6 +270,7 @@ def analyze_audio(recording, chunk_minutes=10, model=HAIKU):
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import analyze_audio
 summary, items, moments = analyze_audio('test-clip')
 print(summary); print(items); print(moments)"
@@ -329,6 +335,7 @@ Transcription of an hour on CPU can take 10–30 minutes with `small`. Let it ru
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import db_ro, fmt_ts
 print('Action items:')
 for a in db_ro.action_items.find({'recording': 'q3-call'}, {'_id': 0}): print(' ', a)

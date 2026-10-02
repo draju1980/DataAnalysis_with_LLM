@@ -28,6 +28,7 @@ until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "M
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import ask, text_of, tool_input, classify
 print('Modules 1-2 ok')"
 ```
@@ -53,6 +54,7 @@ print('Modules 1-2 ok')"
   step "Step 12  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 3:"'
 )
 python -c "
+print('\n')
 from lib_claude_multimodal import db_ro
 print('charts extracted:', len(db_ro.chart_values.distinct('image_file')), '(Step 6 wants 20)')
 print('chart_truth rows:', db_ro.chart_truth.count_documents({}), '(Step 8 wants your truth.csv row count)')"
@@ -120,6 +122,7 @@ def image_block(path, max_side=1568):
 
 ```bash
 python -c "
+print('\n')
 from pathlib import Path
 from lib_claude_multimodal import image_block
 p = sorted(Path('data/m3/charts').iterdir())[0]
@@ -152,6 +155,7 @@ def ask_image(paths, question, *, schema=None, tool_name="record", model=HAIKU,
 
 ```bash
 python -c "
+print('\n')
 from pathlib import Path
 from lib_claude_multimodal import ask_image
 p = sorted(Path('data/m3/charts').iterdir())[0]
@@ -214,6 +218,7 @@ CHART_PROMPT = ("Extract every data point shown in this chart. Use series names 
 
 ```bash
 python -c "
+print('\n')
 from pathlib import Path
 from lib_claude_multimodal import ask_image, CHART_SCHEMA, CHART_PROMPT
 p = sorted(Path('data/m3/charts').iterdir())[0]
@@ -258,7 +263,7 @@ The `key` field (file | series | label) is what you join on in Step 9.
 **Check:** the script prints 20 lines of `<file>: N values`. Then run:
 
 ```bash
-python -c "from lib_claude_multimodal import db_ro; print(db_ro.chart_values.count_documents({}))"
+python -c "print('\n'); from lib_claude_multimodal import db_ro; print(db_ro.chart_values.count_documents({}))"
 ```
 
 Output prints the total.
@@ -343,6 +348,7 @@ python m03_errors.py
 
 ```bash
 python -c "
+print('\n')
 from pathlib import Path
 from lib_claude_multimodal import ask_image
 a, b = sorted(Path('data/m3/charts').iterdir())[:2]
@@ -357,6 +363,7 @@ Take a screenshot with printed text (a terminal, an error dialog, a receipt) and
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import ask_image
 print(ask_image('data/m3/screenshot.png', 'Transcribe all text in this image exactly, preserving line breaks.'))"
 ```

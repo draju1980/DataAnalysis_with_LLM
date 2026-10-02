@@ -31,6 +31,7 @@ until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "M
 
 ```bash
 python -c "
+print('\n')
 from pathlib import Path
 from lib_claude_multimodal import ask_pdf, fmt_ts, run_pipeline, describe_mongo, PIPELINE_TOOL, DOC_RULE, db_ro
 print('PDFs (M4):               ', len(list(Path('data/m4/pdfs').glob('*.pdf'))))
@@ -57,6 +58,7 @@ print('log events (M7):         ', db_ro.log_events.count_documents({}))"
   step "Step 12  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 9:"'
 )
 python -c "
+print('\n')
 from lib_claude_multimodal import db_rw
 print('chunks:  ', db_rw.chunks.count_documents({}), '| with embedding:', db_rw.chunks.count_documents({'embedding': {'\$exists': True}}))
 for i in db_rw.chunks.list_search_indexes(): print('index:   ', i['name'], 'ready' if i.get('queryable') else 'building')"
@@ -71,7 +73,7 @@ for i in db_rw.chunks.list_search_indexes(): print('index:   ', i['name'], 'read
 - After a restart, the search engine needs a moment to load the index. If a search returns nothing or errors, rerun this; it finds the existing index and waits until it's ready:
 
   ```bash
-  python -c "from lib_claude_multimodal import create_chunk_index; print(create_chunk_index(), 'is ready')"
+  python -c "print('\n'); from lib_claude_multimodal import create_chunk_index; print(create_chunk_index(), 'is ready')"
   ```
 - Step 9 is interactive: paste each answer into `notes/m09_results.md` as you go, so a break doesn't lose them. Step 10 marks them ✅ or ❌ in the same file, also one at a time.
 - Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-9) at the end of the page.
@@ -97,7 +99,7 @@ SEARCH_ROUTE = "vector"        # "vector" (Route A) or "text" (Route B)
 **Check:**
 
 ```bash
-python -c "from lib_claude_multimodal import SEARCH_ROUTE; print(SEARCH_ROUTE)"
+python -c "print('\n'); from lib_claude_multimodal import SEARCH_ROUTE; print(SEARCH_ROUTE)"
 ```
 
 Output prints your choice.
@@ -114,6 +116,7 @@ Skip this step on Route B.
 
 ```bash
 python -c "
+print('\n')
 import lib_claude_multimodal, voyageai          # importing lib_claude_multimodal loads .env
 v = voyageai.Client().embed(['hello'], model='voyage-3.5', input_type='document').embeddings[0]
 print(len(v), 'dimensions')"
@@ -167,6 +170,7 @@ def cite(chunk):
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import build_chunks, db_ro
 print(build_chunks(), 'chunks')
 for r in db_ro.chunks.aggregate([{'\$group': {'_id': '\$modality', 'n': {'\$sum': 1}}}]): print(r)"
@@ -198,13 +202,13 @@ def embed_chunks():
 ```
 
 ```bash
-python -c "from lib_claude_multimodal import embed_chunks; print(embed_chunks(), 'chunks embedded')"
+python -c "print('\n'); from lib_claude_multimodal import embed_chunks; print(embed_chunks(), 'chunks embedded')"
 ```
 
 **Check:** the number equals Step 3's total. Then run:
 
 ```bash
-python -c "from lib_claude_multimodal import db_ro; print(db_ro.chunks.count_documents({'embedding': {'\$exists': False}}))\"
+python -c "print('\n'); from lib_claude_multimodal import db_ro; print(db_ro.chunks.count_documents({'embedding': {'\$exists': False}}))"
 ```
 
 Output prints:
@@ -238,7 +242,7 @@ def create_chunk_index():
 ```
 
 ```bash
-python -c "from lib_claude_multimodal import create_chunk_index; print(create_chunk_index(), 'is ready')"
+python -c "print('\n'); from lib_claude_multimodal import create_chunk_index; print(create_chunk_index(), 'is ready')"
 ```
 
 If you get a "not authorized" error, create the index once as admin with mongosh (paste password 1), then run the command above again — it finds the index and waits for it:
@@ -286,6 +290,7 @@ def search_chunks(question, modality=None, k=5):
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import search_chunks, cite
 for h in search_chunks('What did the CFO say about pricing?'): print(cite(h), '|', h['content'][:100])"
 ```
@@ -312,6 +317,7 @@ def answer_with_sources(question, modality=None, k=8, model=HAIKU):
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import answer_with_sources
 print(answer_with_sources('What did the CFO say about pricing?'))"
 ```
@@ -382,6 +388,7 @@ Take one small PDF and ask the same question two ways:
 
 ```bash
 python -c "
+print('\n')
 from pathlib import Path
 from lib_claude_multimodal import ask_pdf, answer_with_sources, text_of
 p = sorted(Path('data/m4/pdfs').glob('*.pdf'))[0]

@@ -22,6 +22,7 @@ until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "M
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import (ask, extract_pdf_fields, load_tables, ask_image, transcribe, extract_log_records,
     ask_text_file, run_pipeline, build_chunks, create_chunk_index, search_chunks, redact)
 print('all module functions ok')" && test -f m09_assistant.py && test -f threat-model.md && echo "M9 assistant and M10 threat model: ok"
@@ -44,6 +45,7 @@ print('all module functions ok')" && test -f m09_assistant.py && test -f threat-
   step "Step 10  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Capstone:"'
 )
 python -c "
+print('\n')
 from lib_claude_multimodal import db_ro
 r = list(db_ro.llm_calls.aggregate([{'\$match': {'module': 'capstone'}},
     {'\$group': {'_id': None, 'calls': {'\$sum': 1}, 'cost': {'\$sum': '\$cost_usd'}}}]))
@@ -127,6 +129,7 @@ Rebuild chunks and the index from Module 9 so the new material is searchable:
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import build_chunks, create_chunk_index, SEARCH_ROUTE
 print(build_chunks(), 'chunks')
 if SEARCH_ROUTE == 'vector':
@@ -160,6 +163,7 @@ Create `capstone_eval.py` that reads `capstone/test_questions.csv`, asks each qu
 
 ```bash
 python -c "
+print('\n')
 from lib_claude_multimodal import db_ro
 r = next(db_ro.llm_calls.aggregate([{'\$match': {'module': 'capstone'}},
     {'\$group': {'_id': None, 'calls': {'\$sum': 1}, 'cost': {'\$sum': '\$cost_usd'}}}]))
