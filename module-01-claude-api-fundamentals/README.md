@@ -12,7 +12,63 @@
 - **The reply is a list of blocks.** Usually one `text` block; with tools, also `tool_use` blocks. `stop_reason` says why it stopped: `end_turn` (finished), `max_tokens` (cut off — a bug to fix), `tool_use` (Claude wants your code to run a function).
 - **Tools.** You describe a function with a JSON schema. Claude asks for it with a `tool_use` block; your code runs it and sends back a `tool_result`. Every later module uses this.
 
-> Start of session: `cd DataAnalysis_with_LLM && source .venv/bin/activate && docker compose up -d`
+## Before you start or resume
+
+You probably won't finish this module in one sitting. Run these three blocks at the start of **every** session.
+
+**1. Start the session**
+
+```bash
+cd DataAnalysis_with_LLM
+source .venv/bin/activate
+docker compose up -d
+until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "MongoDB ready"
+```
+
+**2. Check the prerequisites** (Module 0)
+
+```bash
+python -c "
+import os
+from dotenv import load_dotenv
+from pymongo import MongoClient
+load_dotenv()
+for name in ('MONGODB_URI_RW', 'MONGODB_URI'):
+    MongoClient(os.environ[name], serverSelectionTimeoutMS=5000).course.command('ping')
+print('Module 0: .env and both database users ok')"
+```
+
+**Check:** prints `Module 0: … ok`. If not, run the "Before you start or resume" check in [Module 0](../module-00-setup/README.md#before-you-start-or-resume).
+
+**3. Find where you stopped**
+
+```bash
+(
+  step() { if eval "$2" >/dev/null 2>&1; then echo "done  $1"; else echo "todo  $1"; fi; }
+  step "Step 1   claude_multimodal.py imports"  'python -c "import claude_multimodal"'
+  step "Step 2   text_of(), cost_of()"          'grep -qF "def cost_of(" claude_multimodal.py'
+  step "Step 3   log_call()"                    'grep -qF "def log_call(" claude_multimodal.py'
+  step "Step 4   ask()"                         'grep -qF "def ask(" claude_multimodal.py'
+  step "Step 6   m01_stream.py"                 'test -f m01_stream.py'
+  step "Step 7   m01_temperature.py"            'test -f m01_temperature.py'
+  step "Step 8   calc() and CALC_TOOL"          'grep -qF "def calc(" claude_multimodal.py'
+  step "Step 9   run_with_tools()"              'grep -qF "def run_with_tools(" claude_multimodal.py'
+  step "Step 10  m01_chat.py"                   'test -f m01_chat.py'
+  step "Step 11  m01_costs.py"                  'test -f m01_costs.py'
+  step "Step 12  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 1:"'
+)
+```
+
+**Check:** resume at the first `todo` line. Step 5 only reads the log, so it has no line.
+
+**Resuming safely**
+
+- Never paste an "Append to `claude_multimodal.py`" block a second time: a function defined twice silently uses the last copy. If a step's line says `done`, skip its append.
+- If the Step 1 line says `todo` but the file exists, the file has an error, often a block pasted halfway before a break. Run `python -c "import claude_multimodal"` to see the line, and fix it in place.
+- Steps 4–7 and 10 call the API again when rerun. Each call costs a fraction of a cent and adds a row to `llm_calls`, which is fine.
+- Step 11 compares the cost before and after one chat session. Do the "before", the chat, and the "after" in the same sitting.
+- Not sure your `claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-claude_multimodalpy-after-module-1) at the end of the page.
+- **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never `docker compose down -v`: it deletes the database.
 
 ---
 
@@ -374,6 +430,182 @@ git push
 ```
 
 **Check:** `git status --short` shows nothing left to commit except files you chose not to add.
+
+## Complete `claude_multimodal.py` after Module 1
+
+Use this to cross-check your file once the steps are done, or after a break. It is every block the course has told you to add to `claude_multimodal.py` through Module 1, in order. The `# ── Module N, Step M ──` lines only show which step added the code below them; your file doesn't need them.
+
+To compare automatically, save the file below as `data/expected.py` (`data/` is git-ignored, so it never gets committed), then:
+
+```bash
+diff -Bw <(grep -v '^# ── ' data/expected.py) claude_multimodal.py && echo "your file matches"
+```
+
+`-Bw` ignores blank lines and spacing. Every other line `diff` prints is a real difference: a missing step, a block pasted twice, or a typo.
+
+<details>
+<summary>Show the complete file (155 lines)</summary>
+
+```python
+# ── Module 1, Step 1 ──
+"""Shared helpers for the Multimodal Data Analysis with Claude course."""
+import os
+import time
+from datetime import datetime, timezone
+
+import anthropic
+from dotenv import load_dotenv
+from pymongo import MongoClient
+
+load_dotenv()  # reads .env from the project root
+
+HAIKU = "claude-haiku-4-5-20251001"     # the one model used throughout the course
+
+# USD per million tokens: (input, output). Check Anthropic's pricing page.
+PRICES = {
+    HAIKU: (1.00, 5.00),
+}
+
+client = anthropic.Anthropic(max_retries=4, timeout=120.0)
+db_rw = MongoClient(os.environ["MONGODB_URI_RW"]).course   # scripts write with this
+db_ro = MongoClient(os.environ["MONGODB_URI"]).course      # queries read with this
+
+
+# ── Module 1, Step 2 ──
+def text_of(resp):
+    """Join all text blocks of a reply into one string."""
+    return "".join(b.text for b in resp.content if b.type == "text")
+
+
+def _price(model):
+    for name, price in PRICES.items():
+        if model.startswith(name) or name.startswith(model):
+            return price
+    return (None, None)
+
+
+def cost_of(resp, batch=False):
+    """Cost of one reply in USD, or None if the model's price isn't filled in."""
+    pin, pout = _price(resp.model)
+    if pin is None or pout is None:
+        print(f"WARNING: no price for {resp.model}; fill in PRICES")
+        return None
+    cost = (resp.usage.input_tokens * pin + resp.usage.output_tokens * pout) / 1e6
+    return cost * 0.5 if batch else cost   # the Batches API costs half
+
+
+# ── Module 1, Step 3 ──
+def log_call(resp, module, latency_ms, batch=False):
+    """Save tokens, cost and latency of one reply to the llm_calls collection."""
+    db_rw.llm_calls.insert_one({
+        "ts": datetime.now(timezone.utc),       # a real datetime, never a string
+        "module": module,
+        "model": resp.model,
+        "input_tokens": resp.usage.input_tokens,
+        "output_tokens": resp.usage.output_tokens,
+        "cost_usd": cost_of(resp, batch),
+        "latency_ms": latency_ms,
+        "stop_reason": resp.stop_reason,
+    })
+
+
+# ── Module 1, Step 4 ──
+def ask(prompt=None, *, messages=None, system=None, model=HAIKU, max_tokens=1024,
+        temperature=None, tools=None, tool_choice=None, module="adhoc"):
+    """Send one request to Claude, log it, and return the reply."""
+    if messages is None:
+        messages = [{"role": "user", "content": prompt}]
+    args = dict(model=model, max_tokens=max_tokens, messages=messages)
+    if system:
+        args["system"] = system
+    if temperature is not None:
+        args["temperature"] = temperature
+    if tools:
+        args["tools"] = tools
+    if tool_choice:
+        args["tool_choice"] = tool_choice
+    start = time.perf_counter()
+    resp = client.messages.create(**args)
+    log_call(resp, module, int((time.perf_counter() - start) * 1000))
+    if resp.stop_reason == "max_tokens":
+        print(f"WARNING: reply cut off at max_tokens={max_tokens}")
+    return resp
+
+
+# ── Module 1, Step 8 ──
+import ast
+import operator
+
+_OPS = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
+        ast.Div: operator.truediv, ast.Mod: operator.mod, ast.Pow: operator.pow,
+        ast.USub: operator.neg, ast.UAdd: operator.pos}
+
+
+def calc(expression):
+    """Evaluate +, -, *, /, %, ** on numbers only."""
+    def ev(node):
+        if isinstance(node, ast.Expression):
+            return ev(node.body)
+        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+            return node.value
+        if isinstance(node, ast.BinOp) and type(node.op) in _OPS:
+            left, right = ev(node.left), ev(node.right)
+            if isinstance(node.op, ast.Pow) and abs(right) > 100:
+                raise ValueError("exponent too large")
+            return _OPS[type(node.op)](left, right)
+        if isinstance(node, ast.UnaryOp) and type(node.op) in _OPS:
+            return _OPS[type(node.op)](ev(node.operand))
+        raise ValueError("only numbers and + - * / % ** are allowed")
+    result = ev(ast.parse(expression.replace(",", ""), mode="eval"))
+    return round(result, 10) if isinstance(result, float) else result   # 92.35, not 92.35000000000001
+
+
+CALC_TOOL = {
+    "name": "calculator",
+    "description": "Evaluate an arithmetic expression. Use it for every calculation.",
+    "input_schema": {
+        "type": "object",
+        "properties": {"expression": {"type": "string", "description": "e.g. 1847 * 0.05"}},
+        "required": ["expression"],
+    },
+}
+
+
+# ── Module 1, Step 9 ──
+def tool_input(resp):
+    """Return the input of the first tool_use block (used with forced tool calls)."""
+    return next(b.input for b in resp.content if b.type == "tool_use")
+
+
+def run_with_tools(history, tools, handlers, *, module, model=HAIKU, system=None,
+                   max_tokens=1024, max_rounds=10):
+    """Run Claude with tools until it answers. Returns (final reply, all replies)."""
+    replies = []
+    for _ in range(max_rounds):
+        resp = ask(messages=history, tools=tools, model=model, system=system,
+                   max_tokens=max_tokens, module=module)
+        replies.append(resp)
+        history.append({"role": "assistant", "content": resp.content})
+        if resp.stop_reason != "tool_use":
+            return resp, replies
+        results = []
+        for block in resp.content:
+            if block.type != "tool_use":
+                continue
+            print(f"  [tool] {block.name} {block.input}")
+            try:
+                output = handlers[block.name](**block.input)
+                results.append({"type": "tool_result", "tool_use_id": block.id,
+                                "content": str(output)})
+            except Exception as e:  # send the error back so Claude can fix its call
+                results.append({"type": "tool_result", "tool_use_id": block.id,
+                                "content": f"Error: {e}", "is_error": True})
+        history.append({"role": "user", "content": results})
+    raise RuntimeError("too many tool rounds")
+```
+
+</details>
+
 
 ## Done when
 

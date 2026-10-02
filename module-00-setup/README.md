@@ -12,6 +12,36 @@
 - **Model.** The whole course uses one model, `claude-haiku-4-5-20251001` (Claude Haiku 4.5), with `max_tokens=1024` on every call. `max_tokens` is the longest reply Claude may write.
 - **Why a database.** Every later module saves Claude's results into MongoDB so you can check accuracy and cost with one query. The read-only user you create here is what makes it safe to let Claude write queries in Module 8.
 
+## Before you start or resume
+
+Setup can take more than one sitting: installing Docker or waiting for API credit, for example. At the start of every session, open a terminal in the project folder (`cd DataAnalysis_with_LLM`) and run this to see which steps are already done. It uses only the shell, so it works before the Python environment exists.
+
+```bash
+(
+  step() { if eval "$2" >/dev/null 2>&1; then echo "done  $1"; else echo "todo  $1"; fi; }
+  step "Step 0   origin is your fork"         'git remote get-url origin | grep -v draju1980'
+  step "Step 1   .gitignore protects .env"    'grep -qxF .env .gitignore'
+  step "Step 2   Python environment"          '.venv/bin/python -c "import anthropic, dotenv, pymongo"'
+  step "Step 3   Docker and mongosh"          'docker compose version && mongosh --version'
+  step "Step 7   .env has all four values"    'test $(grep -cE "^(ANTHROPIC_API_KEY|MONGO_ROOT_PASSWORD|MONGODB_URI_RW|MONGODB_URI)=." .env) -eq 4 && test -f .env.example'
+  step "Step 9   MongoDB is healthy"          'docker compose ps mongodb | grep -q "(healthy)"'
+  step "Step 11  course_rw can log in"        'mongosh "$(grep "^MONGODB_URI_RW=" .env | cut -d= -f2-)&serverSelectionTimeoutMS=3000" --quiet --eval "quit(db.runCommand({connectionStatus: 1}).authInfo.authenticatedUsers.some(u => u.user === \"course_rw\") ? 0 : 1)"'
+  step "Step 11  course_ro can log in"        'mongosh "$(grep "^MONGODB_URI=" .env | cut -d= -f2-)&serverSelectionTimeoutMS=3000" --quiet --eval "quit(db.runCommand({connectionStatus: 1}).authInfo.authenticatedUsers.some(u => u.user === \"course_ro\") ? 0 : 1)"'
+  step "Step 13  notebook saved"              'test -f notebooks/m00_setup.ipynb'
+  step "Step 14  setup committed"             'git log --oneline --author="$(git config user.email)" | grep -q "Module 0:"'
+)
+```
+
+**Check:** resume at the first `todo` line. Steps 4–6 and 8 happen in the Anthropic Console or print to the screen, so they have no line of their own: Step 7 being `done` means you finished them. If MongoDB was stopped, the Step 9 and 11 lines show `todo` until you run `docker compose up -d` and wait a minute.
+
+**Resuming safely**
+
+- Once Step 2 is done, start every new terminal with `source .venv/bin/activate`. Once Step 9 is done, also run `docker compose up -d`.
+- The API key is shown only once (Step 4). If you lost it before putting it in `.env`, create a new key and delete the old one in the Console.
+- Don't generate new passwords (Step 6) after Step 11 unless you also put them in `.env` and rerun Step 11: the users keep the passwords they were created with.
+- Steps 9, 11 and 12 are safe to rerun. Step 11 drops and recreates both users.
+- **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never run `docker compose down -v` to pause: `-v` deletes the database volumes, and you would have to redo Steps 9–12.
+
 ---
 
 ## Step 0 — Fork the course repo to your GitHub account

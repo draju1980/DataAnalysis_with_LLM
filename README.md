@@ -16,13 +16,17 @@ An 11-module, self-paced course on analyzing text, images, PDFs, audio, tabular 
 
 ### Start of every session
 
-Every time you open a new terminal to work on the course:
+No module is meant to be done in one sitting. Every module page opens with a **Before you start or resume** section. Run it each time you sit down: it starts your environment, checks that the earlier modules are in place, and prints `done` / `todo` for each step so you can see where you stopped. It also lists which steps are safe to rerun and which are slow or costly to repeat.
+
+The core of it, every time you open a new terminal:
 
 ```bash
 cd DataAnalysis_with_LLM
 source .venv/bin/activate
 docker compose up -d
 ```
+
+To stop for the day, run `docker compose stop` or leave it running; your data stays. Don't use `docker compose down -v` to pause: it deletes the database.
 
 ## About the course
 
@@ -70,7 +74,7 @@ By the end of the course you can:
 
 ## How the local database helps you learn faster
 
-Every module saves what Claude produces into MongoDB, so checking accuracy, comparing prompts or adding up cost takes one query. `docker compose down -v` resets it in seconds (then repeat Module 0 Steps 7–8).
+Every module saves what Claude produces into MongoDB, so checking accuracy, comparing prompts or adding up cost takes one query. `docker compose down -v` resets it in seconds (then repeat Module 0 Steps 9–12).
 
 | Module | Collection | What one query tells you |
 | --- | --- | --- |

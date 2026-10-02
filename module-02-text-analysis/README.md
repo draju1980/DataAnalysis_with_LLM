@@ -11,7 +11,78 @@
 - **Evaluation is the core skill.** Never judge a prompt by eye. Label examples by hand, run the prompt over them, compute accuracy, change one thing, rerun, compare.
 - **XML tags separate data from instructions.** Put the text inside `<review>…</review>` so Claude never mistakes it for instructions.
 
-> Start of session: `cd DataAnalysis_with_LLM && source .venv/bin/activate && docker compose up -d`
+## Before you start or resume
+
+This module takes about a week, so you'll stop and restart several times. Run these three blocks at the start of **every** session.
+
+**1. Start the session**
+
+```bash
+cd DataAnalysis_with_LLM
+source .venv/bin/activate
+docker compose up -d
+until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "MongoDB ready"
+```
+
+**2. Check the prerequisites** (Module 1)
+
+```bash
+python -c "
+from claude_multimodal import ask, text_of, cost_of, log_call, tool_input, db_ro
+print('Module 1 ok;', db_ro.llm_calls.count_documents({}), 'calls logged so far')"
+```
+
+**Check:** prints `Module 1 ok`. An `ImportError` names the Module 1 function that's missing.
+
+**3. Find where you stopped**
+
+```bash
+(
+  step() { if eval "$2" >/dev/null 2>&1; then echo "done  $1"; else echo "todo  $1"; fi; }
+  step "Step 1   data/m2/reviews.csv + pandas"  'test -f data/m2/reviews.csv && python -c "import pandas"'
+  step "Step 2   m02_config.py"                 'test -f m02_config.py'
+  step "Step 3   data/m2/labels.csv"            'test -f data/m2/labels.csv'
+  step "Step 4   m02_load_items.py"             'test -f m02_load_items.py'
+  step "Step 5   classify()"                    'grep -qF "def classify(" claude_multimodal.py'
+  step "Step 6   m02_eval.py"                   'test -f m02_eval.py'
+  step "Step 7   m02_report.py"                 'test -f m02_report.py'
+  step "Step 8   prompt v2"                     'grep -qF "\"v2\":" claude_multimodal.py'
+  step "Step 9   m02_batch.py"                  'test -f m02_batch.py'
+  step "Step 11  notes/m02_report.md"           'test -f notes/m02_report.md'
+  step "Step 11  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 2:"'
+)
+python -c "
+from claude_multimodal import db_ro
+print('eval_items: ', db_ro.eval_items.count_documents({}), '(Step 4 wants 100)')
+for r in db_ro.eval_results.aggregate([{'\$group': {'_id': '\$run_id', 'n': {'\$sum': 1}}}, {'\$sort': {'_id': 1}}]):
+    print('eval run:   ', r['_id'], r['n'], 'items (Steps 6 and 8 want 100 each)')
+print('predictions:', db_ro.predictions.count_documents({}), '(Step 9 wants 600)')"
+```
+
+**Check:** resume at the first `todo` line, or at the first count that's short.
+
+**Resuming safely**
+
+- **Step 3 (hand labeling) can take several sessions.** Save `labels.csv` often. Don't rerun the command that creates the template once you've started: it overwrites the file and erases your labels.
+- Step 4 is safe to rerun: `replace_one(..., upsert=True)` overwrites, never duplicates.
+- Each `m02_eval.py` run gets a new `run_id`. If a run stopped before `100/100`, the counts above show it with fewer than 100 items, and it would skew the report. Delete it, then rerun:
+
+  ```bash
+  python -c "
+  from claude_multimodal import db_rw
+  print(db_rw.eval_results.delete_many({'run_id': '<the short run id>'}).deleted_count, 'deleted')"
+  ```
+
+- **Step 9 runs on Anthropic's side.** If your terminal closes while the script prints `waiting…`, the batch keeps running and you still pay for it. Don't submit a new one: copy the `batch msgbatch_…` id the script printed and resume with `python m02_batch.py v2 <batch id>`. (If it stopped while storing results, the rerun logs those calls to `llm_calls` a second time. `predictions` stays correct, and Step 10's per-call average is unaffected.) Lost the id? List your recent batches:
+
+  ```bash
+  python -c "
+  from claude_multimodal import client
+  for b in client.messages.batches.list(limit=5): print(b.id, b.processing_status, b.created_at)"
+  ```
+
+- Not sure your `claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-claude_multimodalpy-after-module-2) at the end of the page.
+- **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never `docker compose down -v`: it deletes the database.
 
 ---
 
@@ -262,7 +333,10 @@ requests = [{
                       PROMPTS[prompt_version].format(labels=", ".join(LABELS), text=r.text)}],
     }} for r in df.itertuples()]
 
-batch = client.messages.batches.create(requests=requests)
+if len(sys.argv) > 2:                      # resume: python m02_batch.py v2 <batch id>
+    batch = client.messages.batches.retrieve(sys.argv[2])
+else:
+    batch = client.messages.batches.create(requests=requests)
 print("batch", batch.id, "submitted")
 while client.messages.batches.retrieve(batch.id).processing_status != "ended":
     time.sleep(30)
@@ -284,6 +358,8 @@ print("predictions:", db_rw.predictions.count_documents({}))
 ```bash
 python m02_batch.py v2      # use your best prompt version
 ```
+
+If the script is interrupted, the batch keeps running: rerun it with the printed id, `python m02_batch.py v2 <batch id>`, to wait for that batch and collect its results instead of paying for a new one.
 
 **Check:** prints `predictions: 600`.
 
@@ -314,6 +390,220 @@ git push
 ```
 
 **Check:** the commit is pushed; `data/` is not in it.
+
+## Complete `claude_multimodal.py` after Module 2
+
+Use this to cross-check your file once the steps are done, or after a break. It is every block the course has told you to add to `claude_multimodal.py` through Module 2, in order, with the earlier edits applied. The `# ── Module N, Step M ──` lines only show which step added the code below them; your file doesn't need them.
+
+Your `"v2"` prompt will differ: Step 8 asks you to adapt its rules and examples to your own mistakes.
+
+To compare automatically, save the file below as `data/expected.py` (`data/` is git-ignored, so it never gets committed), then:
+
+```bash
+diff -Bw <(grep -v '^# ── ' data/expected.py) claude_multimodal.py && echo "your file matches"
+```
+
+`-Bw` ignores blank lines and spacing. Every other line `diff` prints is a real difference: a missing step, a block pasted twice, or a typo.
+
+<details>
+<summary>Show the complete file (191 lines)</summary>
+
+```python
+# ── Module 1, Step 1 ──
+"""Shared helpers for the Multimodal Data Analysis with Claude course."""
+import os
+import time
+from datetime import datetime, timezone
+
+import anthropic
+from dotenv import load_dotenv
+from pymongo import MongoClient
+
+load_dotenv()  # reads .env from the project root
+
+HAIKU = "claude-haiku-4-5-20251001"     # the one model used throughout the course
+
+# USD per million tokens: (input, output). Check Anthropic's pricing page.
+PRICES = {
+    HAIKU: (1.00, 5.00),
+}
+
+client = anthropic.Anthropic(max_retries=4, timeout=120.0)
+db_rw = MongoClient(os.environ["MONGODB_URI_RW"]).course   # scripts write with this
+db_ro = MongoClient(os.environ["MONGODB_URI"]).course      # queries read with this
+
+
+# ── Module 1, Step 2 ──
+def text_of(resp):
+    """Join all text blocks of a reply into one string."""
+    return "".join(b.text for b in resp.content if b.type == "text")
+
+
+def _price(model):
+    for name, price in PRICES.items():
+        if model.startswith(name) or name.startswith(model):
+            return price
+    return (None, None)
+
+
+def cost_of(resp, batch=False):
+    """Cost of one reply in USD, or None if the model's price isn't filled in."""
+    pin, pout = _price(resp.model)
+    if pin is None or pout is None:
+        print(f"WARNING: no price for {resp.model}; fill in PRICES")
+        return None
+    cost = (resp.usage.input_tokens * pin + resp.usage.output_tokens * pout) / 1e6
+    return cost * 0.5 if batch else cost   # the Batches API costs half
+
+
+# ── Module 1, Step 3 ──
+def log_call(resp, module, latency_ms, batch=False):
+    """Save tokens, cost and latency of one reply to the llm_calls collection."""
+    db_rw.llm_calls.insert_one({
+        "ts": datetime.now(timezone.utc),       # a real datetime, never a string
+        "module": module,
+        "model": resp.model,
+        "input_tokens": resp.usage.input_tokens,
+        "output_tokens": resp.usage.output_tokens,
+        "cost_usd": cost_of(resp, batch),
+        "latency_ms": latency_ms,
+        "stop_reason": resp.stop_reason,
+    })
+
+
+# ── Module 1, Step 4 ──
+def ask(prompt=None, *, messages=None, system=None, model=HAIKU, max_tokens=1024,
+        temperature=None, tools=None, tool_choice=None, module="adhoc"):
+    """Send one request to Claude, log it, and return the reply."""
+    if messages is None:
+        messages = [{"role": "user", "content": prompt}]
+    args = dict(model=model, max_tokens=max_tokens, messages=messages)
+    if system:
+        args["system"] = system
+    if temperature is not None:
+        args["temperature"] = temperature
+    if tools:
+        args["tools"] = tools
+    if tool_choice:
+        args["tool_choice"] = tool_choice
+    start = time.perf_counter()
+    resp = client.messages.create(**args)
+    log_call(resp, module, int((time.perf_counter() - start) * 1000))
+    if resp.stop_reason == "max_tokens":
+        print(f"WARNING: reply cut off at max_tokens={max_tokens}")
+    return resp
+
+
+# ── Module 1, Step 8 ──
+import ast
+import operator
+
+_OPS = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
+        ast.Div: operator.truediv, ast.Mod: operator.mod, ast.Pow: operator.pow,
+        ast.USub: operator.neg, ast.UAdd: operator.pos}
+
+
+def calc(expression):
+    """Evaluate +, -, *, /, %, ** on numbers only."""
+    def ev(node):
+        if isinstance(node, ast.Expression):
+            return ev(node.body)
+        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+            return node.value
+        if isinstance(node, ast.BinOp) and type(node.op) in _OPS:
+            left, right = ev(node.left), ev(node.right)
+            if isinstance(node.op, ast.Pow) and abs(right) > 100:
+                raise ValueError("exponent too large")
+            return _OPS[type(node.op)](left, right)
+        if isinstance(node, ast.UnaryOp) and type(node.op) in _OPS:
+            return _OPS[type(node.op)](ev(node.operand))
+        raise ValueError("only numbers and + - * / % ** are allowed")
+    result = ev(ast.parse(expression.replace(",", ""), mode="eval"))
+    return round(result, 10) if isinstance(result, float) else result   # 92.35, not 92.35000000000001
+
+
+CALC_TOOL = {
+    "name": "calculator",
+    "description": "Evaluate an arithmetic expression. Use it for every calculation.",
+    "input_schema": {
+        "type": "object",
+        "properties": {"expression": {"type": "string", "description": "e.g. 1847 * 0.05"}},
+        "required": ["expression"],
+    },
+}
+
+
+# ── Module 1, Step 9 ──
+def tool_input(resp):
+    """Return the input of the first tool_use block (used with forced tool calls)."""
+    return next(b.input for b in resp.content if b.type == "tool_use")
+
+
+def run_with_tools(history, tools, handlers, *, module, model=HAIKU, system=None,
+                   max_tokens=1024, max_rounds=10):
+    """Run Claude with tools until it answers. Returns (final reply, all replies)."""
+    replies = []
+    for _ in range(max_rounds):
+        resp = ask(messages=history, tools=tools, model=model, system=system,
+                   max_tokens=max_tokens, module=module)
+        replies.append(resp)
+        history.append({"role": "assistant", "content": resp.content})
+        if resp.stop_reason != "tool_use":
+            return resp, replies
+        results = []
+        for block in resp.content:
+            if block.type != "tool_use":
+                continue
+            print(f"  [tool] {block.name} {block.input}")
+            try:
+                output = handlers[block.name](**block.input)
+                results.append({"type": "tool_result", "tool_use_id": block.id,
+                                "content": str(output)})
+            except Exception as e:  # send the error back so Claude can fix its call
+                results.append({"type": "tool_result", "tool_use_id": block.id,
+                                "content": f"Error: {e}", "is_error": True})
+        history.append({"role": "user", "content": results})
+    raise RuntimeError("too many tool rounds")
+
+
+# ── Module 2, Step 5 ──
+PROMPTS = {
+    "v1": ("Classify the review inside <review> tags as one of: {labels}.\n"
+           "<review>\n{text}\n</review>"),
+    "v2": ("Classify the sentiment of the review inside <review> tags as one of: {labels}.\n"
+           "Rules: mixed or lukewarm reviews are neutral; judge the product, not the delivery.\n"
+           "Examples:\n"
+           "<review>Love it, works perfectly.</review> -> positive\n"
+           "<review>Stopped working after a week.</review> -> negative\n"
+           "<review>Okay for the price, nothing special.</review> -> neutral\n"
+           "<review>\n{text}\n</review>"),
+}
+
+
+def label_tool(labels):
+    """A tool whose only input is one label from a fixed list."""
+    return {
+        "name": "record_label",
+        "description": "Record the single best label for the text.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"label": {"type": "string", "enum": labels}},
+            "required": ["label"],
+        },
+    }
+
+
+def classify(text, labels, *, model=HAIKU, prompt_version="v1", module="m2"):
+    """Return (label, reply). The forced tool call guarantees a valid label."""
+    tool = label_tool(labels)
+    prompt = PROMPTS[prompt_version].format(labels=", ".join(labels), text=text)
+    resp = ask(prompt, model=model, max_tokens=1024, tools=[tool],
+               tool_choice={"type": "tool", "name": tool["name"]}, module=module)
+    return tool_input(resp)["label"], resp
+```
+
+</details>
+
 
 ## Done when
 

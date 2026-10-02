@@ -11,7 +11,62 @@
 - **Bigger images cost more tokens.** Resize before sending; there is no benefit above about 1568 px on the long side.
 - **Know what to trust.** Vision is strong at description, layout and printed text; weaker at exact counts, tiny text and precise values read off a chart. You measure this in Step 9.
 
-> Start of session: `cd DataAnalysis_with_LLM && source .venv/bin/activate && docker compose up -d`
+## Before you start or resume
+
+You'll likely spread this module over several sessions. Run these three blocks at the start of **every** session.
+
+**1. Start the session**
+
+```bash
+cd DataAnalysis_with_LLM
+source .venv/bin/activate
+docker compose up -d
+until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "MongoDB ready"
+```
+
+**2. Check the prerequisites** (Modules 1–2)
+
+```bash
+python -c "
+from claude_multimodal import ask, text_of, tool_input, classify
+print('Modules 1-2 ok')"
+```
+
+**Check:** prints `Modules 1-2 ok`. An `ImportError` names the missing function and so the module to finish.
+
+**3. Find where you stopped**
+
+```bash
+(
+  step() { if eval "$2" >/dev/null 2>&1; then echo "done  $1"; else echo "todo  $1"; fi; }
+  step "Step 1   20 charts + Pillow"            'test $(ls data/m3/charts | wc -l) -ge 20 && python -c "import PIL"'
+  step "Step 2   image_block()"                 'grep -qF "def image_block(" claude_multimodal.py'
+  step "Step 3   ask_image()"                   'grep -qF "def ask_image(" claude_multimodal.py'
+  step "Step 4   m03_size_cost.py"              'test -f m03_size_cost.py'
+  step "Step 5   CHART_SCHEMA"                  'grep -qF "CHART_SCHEMA =" claude_multimodal.py'
+  step "Step 6   m03_extract.py"                'test -f m03_extract.py'
+  step "Step 7   data/m3/truth.csv"             'test -f data/m3/truth.csv'
+  step "Step 8   m03_load_truth.py"             'test -f m03_load_truth.py'
+  step "Step 9   m03_errors.py"                 'test -f m03_errors.py'
+  step "Step 11  data/m3/screenshot.png"        'test -f data/m3/screenshot.png'
+  step "Step 12  notes/m03_decision.md"         'test -f notes/m03_decision.md'
+  step "Step 12  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 3:"'
+)
+python -c "
+from claude_multimodal import db_ro
+print('charts extracted:', len(db_ro.chart_values.distinct('image_file')), '(Step 6 wants 20)')
+print('chart_truth rows:', db_ro.chart_truth.count_documents({}), '(Step 8 wants your truth.csv row count)')"
+```
+
+**Check:** resume at the first `todo` line, or at the first count that's short.
+
+**Resuming safely**
+
+- **Never rerun `m03_export_truth.py` after you've typed in true values.** It overwrites `data/m3/truth.csv` and erases your corrections. If you need to export again, rename the old file first.
+- `m03_extract.py` is safe to rerun: it replaces each chart's values instead of adding to them. It does call the API for all 20 charts again.
+- Step 8 is safe to rerun: it empties `chart_truth` before loading.
+- Not sure your `claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-claude_multimodalpy-after-module-3) at the end of the page.
+- **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never `docker compose down -v`: it deletes the database.
 
 ---
 
@@ -303,6 +358,280 @@ git push
 ```
 
 **Check:** pushed; no images from `data/` in the commit.
+
+## Complete `claude_multimodal.py` after Module 3
+
+Use this to cross-check your file once the steps are done, or after a break. It is every block the course has told you to add to `claude_multimodal.py` through Module 3, in order, with the earlier edits applied. The `# ── Module N, Step M ──` lines only show which step added the code below them; your file doesn't need them.
+
+To compare automatically, save the file below as `data/expected.py` (`data/` is git-ignored, so it never gets committed), then:
+
+```bash
+diff -Bw <(grep -v '^# ── ' data/expected.py) claude_multimodal.py && echo "your file matches"
+```
+
+`-Bw` ignores blank lines and spacing. Every other line `diff` prints is a real difference: a missing step, a block pasted twice, or a typo.
+
+<details>
+<summary>Show the complete file (253 lines)</summary>
+
+```python
+# ── Module 1, Step 1 ──
+"""Shared helpers for the Multimodal Data Analysis with Claude course."""
+import os
+import time
+from datetime import datetime, timezone
+
+import anthropic
+from dotenv import load_dotenv
+from pymongo import MongoClient
+
+load_dotenv()  # reads .env from the project root
+
+HAIKU = "claude-haiku-4-5-20251001"     # the one model used throughout the course
+
+# USD per million tokens: (input, output). Check Anthropic's pricing page.
+PRICES = {
+    HAIKU: (1.00, 5.00),
+}
+
+client = anthropic.Anthropic(max_retries=4, timeout=120.0)
+db_rw = MongoClient(os.environ["MONGODB_URI_RW"]).course   # scripts write with this
+db_ro = MongoClient(os.environ["MONGODB_URI"]).course      # queries read with this
+
+
+# ── Module 1, Step 2 ──
+def text_of(resp):
+    """Join all text blocks of a reply into one string."""
+    return "".join(b.text for b in resp.content if b.type == "text")
+
+
+def _price(model):
+    for name, price in PRICES.items():
+        if model.startswith(name) or name.startswith(model):
+            return price
+    return (None, None)
+
+
+def cost_of(resp, batch=False):
+    """Cost of one reply in USD, or None if the model's price isn't filled in."""
+    pin, pout = _price(resp.model)
+    if pin is None or pout is None:
+        print(f"WARNING: no price for {resp.model}; fill in PRICES")
+        return None
+    cost = (resp.usage.input_tokens * pin + resp.usage.output_tokens * pout) / 1e6
+    return cost * 0.5 if batch else cost   # the Batches API costs half
+
+
+# ── Module 1, Step 3 ──
+def log_call(resp, module, latency_ms, batch=False):
+    """Save tokens, cost and latency of one reply to the llm_calls collection."""
+    db_rw.llm_calls.insert_one({
+        "ts": datetime.now(timezone.utc),       # a real datetime, never a string
+        "module": module,
+        "model": resp.model,
+        "input_tokens": resp.usage.input_tokens,
+        "output_tokens": resp.usage.output_tokens,
+        "cost_usd": cost_of(resp, batch),
+        "latency_ms": latency_ms,
+        "stop_reason": resp.stop_reason,
+    })
+
+
+# ── Module 1, Step 4 ──
+def ask(prompt=None, *, messages=None, system=None, model=HAIKU, max_tokens=1024,
+        temperature=None, tools=None, tool_choice=None, module="adhoc"):
+    """Send one request to Claude, log it, and return the reply."""
+    if messages is None:
+        messages = [{"role": "user", "content": prompt}]
+    args = dict(model=model, max_tokens=max_tokens, messages=messages)
+    if system:
+        args["system"] = system
+    if temperature is not None:
+        args["temperature"] = temperature
+    if tools:
+        args["tools"] = tools
+    if tool_choice:
+        args["tool_choice"] = tool_choice
+    start = time.perf_counter()
+    resp = client.messages.create(**args)
+    log_call(resp, module, int((time.perf_counter() - start) * 1000))
+    if resp.stop_reason == "max_tokens":
+        print(f"WARNING: reply cut off at max_tokens={max_tokens}")
+    return resp
+
+
+# ── Module 1, Step 8 ──
+import ast
+import operator
+
+_OPS = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
+        ast.Div: operator.truediv, ast.Mod: operator.mod, ast.Pow: operator.pow,
+        ast.USub: operator.neg, ast.UAdd: operator.pos}
+
+
+def calc(expression):
+    """Evaluate +, -, *, /, %, ** on numbers only."""
+    def ev(node):
+        if isinstance(node, ast.Expression):
+            return ev(node.body)
+        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+            return node.value
+        if isinstance(node, ast.BinOp) and type(node.op) in _OPS:
+            left, right = ev(node.left), ev(node.right)
+            if isinstance(node.op, ast.Pow) and abs(right) > 100:
+                raise ValueError("exponent too large")
+            return _OPS[type(node.op)](left, right)
+        if isinstance(node, ast.UnaryOp) and type(node.op) in _OPS:
+            return _OPS[type(node.op)](ev(node.operand))
+        raise ValueError("only numbers and + - * / % ** are allowed")
+    result = ev(ast.parse(expression.replace(",", ""), mode="eval"))
+    return round(result, 10) if isinstance(result, float) else result   # 92.35, not 92.35000000000001
+
+
+CALC_TOOL = {
+    "name": "calculator",
+    "description": "Evaluate an arithmetic expression. Use it for every calculation.",
+    "input_schema": {
+        "type": "object",
+        "properties": {"expression": {"type": "string", "description": "e.g. 1847 * 0.05"}},
+        "required": ["expression"],
+    },
+}
+
+
+# ── Module 1, Step 9 ──
+def tool_input(resp):
+    """Return the input of the first tool_use block (used with forced tool calls)."""
+    return next(b.input for b in resp.content if b.type == "tool_use")
+
+
+def run_with_tools(history, tools, handlers, *, module, model=HAIKU, system=None,
+                   max_tokens=1024, max_rounds=10):
+    """Run Claude with tools until it answers. Returns (final reply, all replies)."""
+    replies = []
+    for _ in range(max_rounds):
+        resp = ask(messages=history, tools=tools, model=model, system=system,
+                   max_tokens=max_tokens, module=module)
+        replies.append(resp)
+        history.append({"role": "assistant", "content": resp.content})
+        if resp.stop_reason != "tool_use":
+            return resp, replies
+        results = []
+        for block in resp.content:
+            if block.type != "tool_use":
+                continue
+            print(f"  [tool] {block.name} {block.input}")
+            try:
+                output = handlers[block.name](**block.input)
+                results.append({"type": "tool_result", "tool_use_id": block.id,
+                                "content": str(output)})
+            except Exception as e:  # send the error back so Claude can fix its call
+                results.append({"type": "tool_result", "tool_use_id": block.id,
+                                "content": f"Error: {e}", "is_error": True})
+        history.append({"role": "user", "content": results})
+    raise RuntimeError("too many tool rounds")
+
+
+# ── Module 2, Step 5 ──
+PROMPTS = {
+    "v1": ("Classify the review inside <review> tags as one of: {labels}.\n"
+           "<review>\n{text}\n</review>"),
+    "v2": ("Classify the sentiment of the review inside <review> tags as one of: {labels}.\n"
+           "Rules: mixed or lukewarm reviews are neutral; judge the product, not the delivery.\n"
+           "Examples:\n"
+           "<review>Love it, works perfectly.</review> -> positive\n"
+           "<review>Stopped working after a week.</review> -> negative\n"
+           "<review>Okay for the price, nothing special.</review> -> neutral\n"
+           "<review>\n{text}\n</review>"),
+}
+
+
+def label_tool(labels):
+    """A tool whose only input is one label from a fixed list."""
+    return {
+        "name": "record_label",
+        "description": "Record the single best label for the text.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"label": {"type": "string", "enum": labels}},
+            "required": ["label"],
+        },
+    }
+
+
+def classify(text, labels, *, model=HAIKU, prompt_version="v1", module="m2"):
+    """Return (label, reply). The forced tool call guarantees a valid label."""
+    tool = label_tool(labels)
+    prompt = PROMPTS[prompt_version].format(labels=", ".join(labels), text=text)
+    resp = ask(prompt, model=model, max_tokens=1024, tools=[tool],
+               tool_choice={"type": "tool", "name": tool["name"]}, module=module)
+    return tool_input(resp)["label"], resp
+
+
+# ── Module 3, Step 2 ──
+import base64
+import io
+from pathlib import Path
+from PIL import Image
+
+
+def image_block(path, max_side=1568):
+    """Resize an image so its long side is at most max_side px and return a content block."""
+    img = Image.open(path)
+    img.thumbnail((max_side, max_side))           # keeps aspect ratio; never enlarges
+    fmt = "PNG" if img.mode in ("RGBA", "LA", "P") else "JPEG"
+    if fmt == "JPEG" and img.mode != "RGB":
+        img = img.convert("RGB")
+    buf = io.BytesIO()
+    img.save(buf, format=fmt)
+    return {"type": "image",
+            "source": {"type": "base64", "media_type": f"image/{fmt.lower()}",
+                       "data": base64.b64encode(buf.getvalue()).decode()}}
+
+
+# ── Module 3, Step 3 ──
+def ask_image(paths, question, *, schema=None, tool_name="record", model=HAIKU,
+              max_side=1568, max_tokens=1024, module="m3"):
+    """Ask about one or more images. With a schema, return structured fields (a dict)."""
+    if isinstance(paths, (str, Path)):
+        paths = [paths]
+    content = [image_block(p, max_side) for p in paths] + [{"type": "text", "text": question}]
+    messages = [{"role": "user", "content": content}]
+    if schema is None:
+        return text_of(ask(messages=messages, model=model, max_tokens=max_tokens, module=module))
+    tool = {"name": tool_name, "description": "Record the extracted data.", "input_schema": schema}
+    resp = ask(messages=messages, model=model, max_tokens=max_tokens, tools=[tool],
+               tool_choice={"type": "tool", "name": tool_name}, module=module)
+    return tool_input(resp)
+
+
+# ── Module 3, Step 5 ──
+CHART_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "title": {"type": ["string", "null"]},
+        "points": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "series": {"type": "string", "description": "legend name, or 'value' if only one series"},
+                    "label": {"type": "string", "description": "x-axis label or category, exactly as printed"},
+                    "value": {"type": "number"},
+                },
+                "required": ["series", "label", "value"],
+            },
+        },
+    },
+    "required": ["title", "points"],
+}
+
+CHART_PROMPT = ("Extract every data point shown in this chart. Use series names and axis labels "
+                "exactly as printed. If a value is not printed, estimate it from the axis.")
+```
+
+</details>
+
 
 ## Done when
 

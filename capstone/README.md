@@ -5,7 +5,60 @@
 **You start with:** all modules done — every function in `claude_multimodal.py`, the evaluation habit, the container and CI setup, and the threat model template.
 **You finish with:** one real project that uses at least four input formats, stores results in MongoDB, meets the Module 10 standard, and is written up with accuracy, cost per run and a threat model.
 
-> Start of session: `cd DataAnalysis_with_LLM && source .venv/bin/activate && docker compose up -d`
+## Before you start or resume
+
+The capstone takes about two weeks. Run these three blocks at the start of **every** session.
+
+**1. Start the session**
+
+```bash
+cd DataAnalysis_with_LLM
+source .venv/bin/activate
+docker compose up -d
+until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "MongoDB ready"
+```
+
+**2. Check the prerequisites** (all modules)
+
+```bash
+python -c "
+from claude_multimodal import (ask, extract_pdf_fields, load_tables, ask_image, transcribe, extract_log_records,
+    ask_text_file, run_pipeline, build_chunks, create_chunk_index, search_chunks, redact)
+print('all module functions ok')" && test -f m09_assistant.py && test -f threat-model.md && echo "M9 assistant and M10 threat model: ok"
+```
+
+**Check:** prints both `ok` lines. An `ImportError` names the missing function and so the module to finish.
+
+**3. Find where you stopped**
+
+```bash
+(
+  step() { if eval "$2" >/dev/null 2>&1; then echo "done  $1"; else echo "todo  $1"; fi; }
+  step "Step 1   capstone/PLAN.md"              'test -f capstone/PLAN.md'
+  step "Step 2   inputs in data/capstone"       'test -n "$(find data/capstone -type f | head -1)"'
+  step "Step 3   capstone/test_questions.csv"   'test -f capstone/test_questions.csv'
+  step "Step 4   capstone_ingest.py"            'test -f capstone_ingest.py'
+  step "Step 6   capstone_assistant.py"         'test -f capstone_assistant.py'
+  step "Step 7   capstone/results.csv"          'test -f capstone_eval.py && test -f capstone/results.csv'
+  step "Step 10  threat model + write-up"       'test -f capstone/threat-model.md && test -f capstone/WRITEUP.md'
+  step "Step 10  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Capstone:"'
+)
+python -c "
+from claude_multimodal import db_ro
+r = list(db_ro.llm_calls.aggregate([{'\$match': {'module': 'capstone'}},
+    {'\$group': {'_id': None, 'calls': {'\$sum': 1}, 'cost': {'\$sum': '\$cost_usd'}}}]))
+print('capstone calls so far:', r[0]['calls'] if r else 0, '| cost \$%.4f' % ((r[0]['cost'] or 0) if r else 0))
+for m in db_ro.chunks.aggregate([{'\$group': {'_id': '\$modality', 'n': {'\$sum': 1}}}]): print('chunks:', m)"
+```
+
+**Check:** resume at the first `todo` line. Steps 5, 8 and 9 leave no single file: Step 5 is done when the chunk counts include your capstone sources, Step 8 when you have a cost-per-run number, Step 9 when the container, CI and injection checks pass.
+
+**Resuming safely**
+
+- **Make `capstone_ingest.py` safe to rerun**, because you will rerun it: replace or upsert by source file, as Modules 3–5 and 7 do, so a second run never duplicates documents.
+- Step 5 calls `build_chunks()`, which deletes every chunk and embedding first. Rerun it only after ingesting new material.
+- Step 8 divides by the number of runs. If you ingested more than once while building, count every run, or note the cost before your final clean run and subtract it.
+- **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never `docker compose down -v`: it deletes the database.
 
 ---
 
