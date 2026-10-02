@@ -80,10 +80,11 @@ for r in db_ro.transcript_segments.aggregate([{'\$group': {'_id': '\$recording',
 **1. Install the packages**
 
 ```bash
-pip install faster-whisper imageio-ffmpeg
+pip install faster-whisper imageio-ffmpeg "av<19"
 ```
 
 - `faster-whisper` is the local Whisper model that turns speech into text.
+- `"av<19"` holds back PyAV, the audio reader faster-whisper uses: PyAV 19 changed a function faster-whisper 1.2.1 calls, and `transcribe()` fails with `open() got an unexpected keyword argument 'metadata_errors'`.
 - `imageio-ffmpeg` ships a ready-built ffmpeg inside the pip package, so it works the same on macOS, Linux and Windows, with no `brew` or `apt`.
 
 **Check:** the last line starts with `Successfully installed` (or every package says `Requirement already satisfied`).
@@ -188,16 +189,27 @@ def fmt_ts(seconds):
 
 
 def transcribe(path, model_size="small"):
-    """Transcribe audio locally. Returns a list of {start_s, end_s, text}."""
+    """Transcribe audio locally, printing progress. Returns a list of {start_s, end_s, text}."""
     from faster_whisper import WhisperModel
-    model = WhisperModel(model_size, device="cpu", compute_type="int8")
-    segments, _info = model.transcribe(str(path), vad_filter=True)
-    return [{"start_s": round(s.start, 1), "end_s": round(s.end, 1), "text": s.text.strip()}
-            for s in segments]
+    from huggingface_hub import snapshot_download
+    print(f"1/2 Whisper '{model_size}' model (downloaded once, then reused)", flush=True)
+    model_dir = snapshot_download(f"Systran/faster-whisper-{model_size}")
+    model = WhisperModel(model_dir, device="cpu", compute_type="int8")
+    segments, info = model.transcribe(str(path), vad_filter=True)
+    print(f"2/2 transcribing {fmt_ts(info.duration)} of audio", flush=True)
+    out = []
+    for s in segments:
+        out.append({"start_s": round(s.start, 1), "end_s": round(s.end, 1), "text": s.text.strip()})
+        print(f"\r    {fmt_ts(s.end)} / {fmt_ts(info.duration)}  ({s.end / info.duration:.0%})",
+              end="", flush=True)
+    print()
+    return out
 ```
 
 - `model_size`: `tiny` / `base` are fast but less accurate; `small` is a good start; `medium` is slower and more accurate.
-- The first run downloads the Whisper model (a few hundred MB).
+- **Progress:** `1/2` downloads the model the first time (about 480 MB for `small`, with a progress bar); later runs find it in the cache and skip straight on. `2/2` updates one line as it goes: how far into the audio Whisper has got, and the percentage.
+- Whisper only reports progress at the end of each piece of speech, so the line can pause for several seconds, or longer during silence. That's normal; **don't press Ctrl+Z**, which pauses the program instead of stopping it (use Ctrl+C to stop).
+- `snapshot_download` uses the same model cache as faster-whisper, and it works for `tiny`, `base`, `small` and `medium`.
 
 **Check:**
 
@@ -209,7 +221,7 @@ segs = transcribe('data/m5/test-clip.wav')
 print(len(segs), 'segments'); [print(fmt_ts(s['start_s']), s['text']) for s in segs[:5]]"
 ```
 
-Prints a segment count and the first lines with timestamps, matching what you hear.
+Prints `1/2 …`, a download bar on the first run, `2/2 transcribing 00:03:00 of audio` with a line that counts up to `100%`, then a segment count and the first lines with timestamps, matching what you hear. The 3-minute clip takes about a minute on a laptop CPU.
 
 ## Step 4 — Add `save_segments()` and store the clip's transcript
 
@@ -823,12 +835,21 @@ def fmt_ts(seconds):
 
 
 def transcribe(path, model_size="small"):
-    """Transcribe audio locally. Returns a list of {start_s, end_s, text}."""
+    """Transcribe audio locally, printing progress. Returns a list of {start_s, end_s, text}."""
     from faster_whisper import WhisperModel
-    model = WhisperModel(model_size, device="cpu", compute_type="int8")
-    segments, _info = model.transcribe(str(path), vad_filter=True)
-    return [{"start_s": round(s.start, 1), "end_s": round(s.end, 1), "text": s.text.strip()}
-            for s in segments]
+    from huggingface_hub import snapshot_download
+    print(f"1/2 Whisper '{model_size}' model (downloaded once, then reused)", flush=True)
+    model_dir = snapshot_download(f"Systran/faster-whisper-{model_size}")
+    model = WhisperModel(model_dir, device="cpu", compute_type="int8")
+    segments, info = model.transcribe(str(path), vad_filter=True)
+    print(f"2/2 transcribing {fmt_ts(info.duration)} of audio", flush=True)
+    out = []
+    for s in segments:
+        out.append({"start_s": round(s.start, 1), "end_s": round(s.end, 1), "text": s.text.strip()})
+        print(f"\r    {fmt_ts(s.end)} / {fmt_ts(info.duration)}  ({s.end / info.duration:.0%})",
+              end="", flush=True)
+    print()
+    return out
 
 
 # ── Module 5, Step 4 ──
