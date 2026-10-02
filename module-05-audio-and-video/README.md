@@ -121,22 +121,42 @@ Put a one-hour recording (earnings call, meeting; mp3, m4a, wav or mp4) in `data
 
 **No recording of your own? Use the course sample.** The [AMI Meeting Corpus](https://groups.inf.ed.ac.uk/ami/corpus/) (CC BY 4.0) has real recordings of four people designing a TV remote control. This downloads two meetings, ES2002a (21 min) and ES2002b (38 min), about 110 MB, and the overhead camera video for Step 10 (60 MB). It then joins the two meetings into one 59-minute file named `q3-call.mp3`, so every command in this module works unchanged:
 
+Run these as four separate cells, checking each one before the next.
+
+*a. Download the originals* (about 170 MB):
+
 ```bash
 mkdir -p data/m5/ami
 AMI=https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus
 curl -fL -o data/m5/ami/ES2002a.wav          $AMI/ES2002a/audio/ES2002a.Mix-Headset.wav
 curl -fL -o data/m5/ami/ES2002b.wav          $AMI/ES2002b/audio/ES2002b.Mix-Headset.wav
 curl -fL -o data/m5/ami/ES2002a.Overhead.avi $AMI/ES2002a/video/ES2002a.Overhead.avi
+```
 
-# the hour-long recording: both meetings, one after the other
-ffmpeg -y -loglevel error -i data/m5/ami/ES2002a.wav -i data/m5/ami/ES2002b.wav \
+**Check:** `ls -lh data/m5/ami` lists `ES2002a.Overhead.avi` (about 60M), `ES2002a.wav` (about 39M) and `ES2002b.wav` (about 70M).
+
+*b. Make the hour-long recording*, both meetings one after the other:
+
+```bash
+ffmpeg -nostdin -y -loglevel error -i data/m5/ami/ES2002a.wav -i data/m5/ami/ES2002b.wav \
   -filter_complex "[0:a][1:a]concat=n=2:v=0:a=1" -b:a 64k data/m5/q3-call.mp3
+```
 
-# the video for Step 10: first 10 minutes of the camera, with the meeting audio added
-ffmpeg -y -loglevel error -i data/m5/ami/ES2002a.Overhead.avi -i data/m5/ami/ES2002a.wav \
+**Check:** `ls -lh data/m5/q3-call.mp3` shows a file of about 28M. `-nostdin` stops ffmpeg from reading the keyboard; without it, ffmpeg swallows any lines pasted after it and they never run.
+
+*c. Make the video for Step 10*, the first 10 minutes of the camera with the meeting audio added (takes a minute or two):
+
+```bash
+ffmpeg -nostdin -y -loglevel error -i data/m5/ami/ES2002a.Overhead.avi -i data/m5/ami/ES2002a.wav \
   -map 0:v -map 1:a -t 600 -c:v libx264 -c:a aac -shortest data/m5/demo.mp4
+```
 
-rm -r data/m5/ami          # the originals are no longer needed
+**Check:** `ls -lh data/m5/demo.mp4` shows the file.
+
+*d. Delete the originals*, only once b and c both passed:
+
+```bash
+rm -r data/m5/ami
 ```
 
 Expect four speakers (a project manager, a marketing expert, a user-interface designer and an industrial designer) and, in ES2002b, decisions and action items for the next meeting.
@@ -148,7 +168,7 @@ Expect four speakers (a project manager, a marketing expert, a user-interface de
 Build and test every step on a short clip first; run the full hour only at Step 8.
 
 ```bash
-ffmpeg -y -loglevel error -i data/m5/q3-call.mp3 -t 180 -ac 1 -ar 16000 data/m5/test-clip.wav
+ffmpeg -nostdin -y -loglevel error -i data/m5/q3-call.mp3 -t 180 -ac 1 -ar 16000 data/m5/test-clip.wav
 ```
 
 - `-t 180` keeps the first 180 seconds.
@@ -401,7 +421,7 @@ For a video (`data/m5/demo.mp4`; if you used the course sample, Step 1 already m
 
 ```bash
 mkdir -p data/m5/frames
-ffmpeg -y -loglevel error -i data/m5/demo.mp4 -vf fps=1/30 data/m5/frames/%04d.jpg
+ffmpeg -nostdin -y -loglevel error -i data/m5/demo.mp4 -vf fps=1/30 data/m5/frames/%04d.jpg
 python m05_process.py data/m5/demo.mp4          # transcript + notes, as in Step 7
 ```
 
