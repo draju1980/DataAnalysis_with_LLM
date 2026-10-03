@@ -136,10 +136,8 @@ Rebuild chunks and the index from Module 9 so the new material is searchable:
 ```bash
 python -c "
 print('\n')
-from lib_claude_multimodal import build_chunks, create_chunk_index, SEARCH_ROUTE
+from lib_claude_multimodal import build_chunks, create_chunk_index
 print(build_chunks(), 'chunks')
-if SEARCH_ROUTE == 'vector':
-    from lib_claude_multimodal import embed_chunks; print(embed_chunks(), 'embedded')
 print(create_chunk_index(), 'ready')"
 ```
 

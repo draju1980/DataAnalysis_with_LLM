@@ -205,7 +205,6 @@ ANTHROPIC_API_KEY=sk-ant-...
 MONGO_ROOT_PASSWORD=<password 1>
 MONGODB_URI_RW=mongodb://course_rw:<password 2>@127.0.0.1:27017/course?authSource=admin&directConnection=true
 MONGODB_URI=mongodb://course_ro:<password 3>@127.0.0.1:27017/course?authSource=admin&directConnection=true
-VOYAGE_API_KEY=pa...
 ```
 
 Rules: no `export`, no spaces around `=`, no quotes around values.
@@ -291,7 +290,7 @@ docker compose up -d
 
 What this does:
 
-- Runs MongoDB **and** its search engine (`mongot`, needed for vector search in Module 9) in one container.
+- Runs MongoDB **and** its search engine (`mongot`, needed for full-text search in Module 9) in one container.
 - `8.0` pins the MongoDB version so the setup doesn't change under you.
 - `127.0.0.1:27017:27017` makes the database reachable **only from your machine**.
 - Compose reads `${MONGO_ROOT_PASSWORD}` from `.env` (Step 7); only that one value goes into the container.

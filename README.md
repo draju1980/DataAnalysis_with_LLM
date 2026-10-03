@@ -58,7 +58,7 @@ By the end of the course you can:
 3. Build an evaluation set and measure a prompt's accuracy and cost, then compare prompts and models with evidence.
 4. Decide which tasks can run unattended and which need a human check, based on measured error rates.
 5. Let Claude answer questions by querying data (DuckDB SQL and MongoDB aggregation pipelines) without ever inventing numbers.
-6. Combine several formats with vector search and give answers with checkable citations.
+6. Combine several formats with full-text search and give answers with checkable citations.
 7. Guard a Claude pipeline against prompt injection and unsafe queries with least-privilege users and query checks.
 8. Package a pipeline with secrets management, logging and evaluation in CI.
 
@@ -75,7 +75,7 @@ By the end of the course you can:
 | 6 | [Tabular files](module-06-tabular-files/README.md) | 1 week | 1 | `load_tables()`, `describe_table()`, `ask_data()` | 10 answers verified |
 | 7 | [Logs, XML, HTML, YAML](module-07-semi-structured-text/README.md) | 3–4 days | 6 | Log extractor into `log_events` | Count matches grep; 20 records checked |
 | 8 | [MongoDB](module-08-mongodb/README.md) | 1 week | 1–7 | `describe_mongo()`, `run_pipeline()`, `ask_mongo()` | 10 `$lookup` answers verified; writes blocked twice |
-| 9 | [Combining modalities + vector search](module-09-combining-modalities-vector-search/README.md) | 1 week | 4, 5, 7, 8 | Chunks, vector index, `search_chunks()`, assistant | 10 answers with checkable sources |
+| 9 | [Combining modalities + document search](module-09-combining-modalities-vector-search/README.md) | 1 week | 4, 5, 7, 8 | Chunks, search index, `search_chunks()`, assistant | 10 answers with checkable sources |
 | 10 | [Production and security](module-10-production-and-security/README.md) | Ongoing | 0–9 | Container, CI eval gate, backups, threat model | Worse prompt fails CI; injections have no effect |
 | — | [Capstone](capstone/README.md) | 2 weeks | All | One real multi-format project | Accuracy, cost and threat model written up |
 
@@ -133,13 +133,12 @@ There are no quizzes or grades. A module is complete when its **Done when** chec
 | --- | --- | --- |
 | Anthropic API, model `claude-haiku-4-5-20251001`, `max_tokens=512` | All analysis | Module 0 |
 | Python, Jupyter, python-dotenv | Code, notebooks, secrets from `.env` | Module 0 |
-| Docker, MongoDB `mongodb-atlas-local`, mongosh, pymongo | Local database with Vector Search | Module 0 |
+| Docker, MongoDB `mongodb-atlas-local`, mongosh, pymongo | Local database with full-text search | Module 0 |
 | Pillow | Resizing images | Module 3 |
 | pypdf | Counting, splitting and reading PDF pages | Module 4 |
 | faster-whisper, imageio-ffmpeg | Transcription and video frames (the one non-Claude model); ffmpeg comes from pip | Module 5 |
 | pandas, DuckDB, openpyxl, pyarrow | Tabular files and SQL on files | Module 6 |
 | grep, jq | Pre-filtering logs | Module 7 |
-| Voyage AI (optional) | Embeddings; skip it to stay Claude-only with `$search` | Module 9 |
 | MongoDB Database Tools | Backups (`mongodump`, `mongorestore`) | Module 10 |
 
 ## Progress checklist

@@ -555,7 +555,7 @@ diff -Bw <(grep -v '^# ── ' data/expected.py) <(grep -v '^# ── ' lib_cla
 `-Bw` ignores blank lines and spacing. Every other line `diff` prints is a real difference: a missing step, a block pasted twice, or a typo.
 
 <details>
-<summary>Show the complete file (837 lines)</summary>
+<summary>Show the complete file (799 lines)</summary>
 
 ```python
 # ── Module 1, Step 1 ──
@@ -1254,10 +1254,6 @@ def ask_mongo(question, *, model=HAIKU):
 
 
 # ── Module 9, Step 1 ──
-SEARCH_ROUTE = "vector"        # "vector" (Route A) or "text" (Route B)
-
-
-# ── Module 9, Step 3 ──
 def build_chunks():
     """Rebuild chunks from PDFs (per page), transcripts (8 segments) and WARN+ log events."""
     from pypdf import PdfReader
@@ -1297,37 +1293,13 @@ def cite(chunk):
     return chunk["source_file"]
 
 
-# ── Module 9, Step 4 ──
-def embed(texts, input_type):
-    """Voyage embeddings in batches of 128. input_type is 'document' or 'query'."""
-    import voyageai
-    vo = voyageai.Client()
-    vectors = []
-    for k in range(0, len(texts), 128):
-        vectors += vo.embed(texts[k:k + 128], model="voyage-3.5", input_type=input_type).embeddings
-    return vectors
-
-
-def embed_chunks():
-    """Add an embedding to every chunk that doesn't have one yet."""
-    todo = list(db_rw.chunks.find({"embedding": {"$exists": False}}, {"content": 1}))
-    for doc, vec in zip(todo, embed([d["content"] for d in todo], "document")):
-        db_rw.chunks.update_one({"_id": doc["_id"]}, {"$set": {"embedding": vec}})
-    return len(todo)
-
-
-# ── Module 9, Step 5 ──
+# ── Module 9, Step 2 ──
 def create_chunk_index():
-    """Create the index for SEARCH_ROUTE and wait until it can be queried."""
+    """Create the full-text index on chunks and wait until it can be queried."""
     from pymongo.operations import SearchIndexModel
-    if SEARCH_ROUTE == "vector":
-        name, model = "chunks_vec", SearchIndexModel(name="chunks_vec", type="vectorSearch", definition={
-            "fields": [{"type": "vector", "path": "embedding", "numDimensions": 1024, "similarity": "cosine"},
-                       {"type": "filter", "path": "modality"}]})
-    else:
-        name, model = "chunks_text", SearchIndexModel(name="chunks_text", type="search", definition={
-            "mappings": {"dynamic": False, "fields": {
-                "content": {"type": "string"}, "modality": {"type": "token"}}}})
+    name, model = "chunks_text", SearchIndexModel(name="chunks_text", type="search", definition={
+        "mappings": {"dynamic": False, "fields": {
+            "content": {"type": "string"}, "modality": {"type": "token"}}}})
     if not any(i["name"] == name for i in db_rw.chunks.list_search_indexes()):
         db_rw.chunks.create_search_index(model)
     while not next(i for i in db_rw.chunks.list_search_indexes() if i["name"] == name).get("queryable"):
@@ -1336,28 +1308,20 @@ def create_chunk_index():
     return name
 
 
-# ── Module 9, Step 6 ──
+# ── Module 9, Step 3 ──
 def search_chunks(question, modality=None, k=5):
     """Find the k most relevant chunks (optionally only pdf / transcript / log)."""
     project = {"$project": {"_id": 0, "modality": 1, "source_file": 1, "page": 1, "start_s": 1,
                             "line": 1, "content": 1}}
-    if SEARCH_ROUTE == "vector":
-        stage = {"index": "chunks_vec", "path": "embedding", "queryVector": embed([question], "query")[0],
-                 "numCandidates": 100, "limit": k}
-        if modality:
-            stage["filter"] = {"modality": modality}
-        pipeline = [{"$vectorSearch": stage}, project]
-    else:
-        terms = text_of(ask("Rewrite this question as 3-8 search keywords, space-separated, "
-                            f"nothing else:\n{question}", max_tokens=512, module="m9"))
-        search = {"index": "chunks_text", "compound": {"must": [{"text": {"query": terms, "path": "content"}}]}}
-        if modality:
-            search["compound"]["filter"] = [{"equals": {"path": "modality", "value": modality}}]
-        pipeline = [{"$search": search}, {"$limit": k}, project]
-    return list(db_ro.chunks.aggregate(pipeline))
+    terms = text_of(ask("Rewrite this question as 3-8 search keywords, space-separated, "
+                        f"nothing else:\n{question}", max_tokens=512, module="m9"))
+    search = {"index": "chunks_text", "compound": {"must": [{"text": {"query": terms, "path": "content"}}]}}
+    if modality:
+        search["compound"]["filter"] = [{"equals": {"path": "modality", "value": modality}}]
+    return list(db_ro.chunks.aggregate([{"$search": search}, {"$limit": k}, project]))
 
 
-# ── Module 9, Step 7 ──
+# ── Module 9, Step 4 ──
 def answer_with_sources(question, modality=None, k=8, model=HAIKU):
     """Answer from retrieved chunks only, citing them as [1], [2]…"""
     hits = search_chunks(question, modality, k)

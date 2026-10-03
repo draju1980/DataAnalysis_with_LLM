@@ -1,18 +1,19 @@
-# Module 9 — Combining modalities and vector search (1 week)
+# Module 9 — Combining modalities and document search (1 week)
 
 [← Module 8](../module-08-mongodb/README.md) · [Syllabus](../README.md) · [Next: Module 10 →](../module-10-production-and-security/README.md)
 
 **You start with:** Modules 4, 5, 7 and 8 done — PDFs in `data/m4/pdfs`, `transcript_segments`, `log_events`, and `run_pipeline()`.
-**You finish with:** a `chunks` collection built from PDFs, transcripts and logs; a search index; `search_chunks()` and `answer_with_sources()`; and an assistant that picks between searching documents and querying data, citing a source you can open for every answer.
+**You finish with:** a `chunks` collection built from PDFs, transcripts and logs; a full-text search index in your local MongoDB; `search_chunks()` and `answer_with_sources()`; and an assistant that picks between searching documents and querying data, citing a source you can open for every answer.
+
+**What this lab is about.** So far each module handled one kind of data on its own. Here you put PDFs, call transcripts and log events into one searchable collection, so a single question can be answered from all three. Claude never sees everything at once: you search for the few passages that matter, hand only those to Claude, and make it cite where each claim came from. Everything runs on your machine with the MongoDB from Module 8 and the Claude API; no other service or key is needed.
 
 ## Key ideas (read once)
 
 - **Retrieval (RAG).** Split content into chunks, find the chunks most relevant to a question, and put only those in the prompt.
-- **Two ways to find relevant chunks:**
-  - **Route A — vector search (by meaning).** Each chunk becomes an *embedding* (a list of numbers representing its meaning). Anthropic doesn't offer an embedding model and recommends Voyage AI — a second, non-Claude model.
-  - **Route B — full-text search (by words), Claude-only.** MongoDB's `$search` matches words; Claude first rewrites the question into search terms. It misses paraphrases but needs no extra model.
+- **Full-text search, Claude-only.** MongoDB's `$search` (the `mongot` search engine in your local Docker setup) finds chunks that contain the question's words. Claude first rewrites the question into search keywords, which helps when your wording differs from the source's. It can miss paraphrases ("revenue fell" vs "sales dropped").
+- **Why not vector search?** Vector search compares *embeddings* (lists of numbers representing meaning) and needs an embedding model. Claude doesn't provide one, so it would mean signing up for a second, non-Claude service. Word search is enough for this lab.
 - **Citations.** Every chunk keeps its source file plus page, timestamp or line, so every answer points back to something you can open.
-- **Retrieval isn't always better.** A small document that fits in the prompt often answers better sent whole (Step 11).
+- **Retrieval isn't always better.** A small document that fits in the prompt often answers better sent whole (Step 8).
 
 ## Before you start or resume
 
@@ -46,31 +47,27 @@ print('log events (M7):         ', db_ro.log_events.count_documents({}))"
 ```bash
 (
   step() { if eval "$2" >/dev/null 2>&1; then echo "done  $1"; else echo "todo  $1"; fi; }
-  step "Step 1   SEARCH_ROUTE chosen"           'grep -q "^SEARCH_ROUTE" lib_claude_multimodal.py'
-  step "Step 2   Voyage key (Route A only)"     'grep -q "^VOYAGE_API_KEY=." .env && python -c "import voyageai"'
-  step "Step 3   build_chunks()"                'grep -qF "def build_chunks(" lib_claude_multimodal.py'
-  step "Step 4   embed_chunks() (Route A only)" 'grep -qF "def embed_chunks(" lib_claude_multimodal.py'
-  step "Step 5   create_chunk_index()"          'grep -qF "def create_chunk_index(" lib_claude_multimodal.py'
-  step "Step 6   search_chunks()"               'grep -qF "def search_chunks(" lib_claude_multimodal.py'
-  step "Step 7   answer_with_sources()"         'grep -qF "def answer_with_sources(" lib_claude_multimodal.py'
-  step "Step 8   m09_assistant.py"              'test -f m09_assistant.py'
-  step "Step 9   questions + results"           'test -f data/m9/questions.txt && test -f notes/m09_results.md'
-  step "Step 12  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 9:"'
+  step "Step 1  build_chunks()"                'grep -qF "def build_chunks(" lib_claude_multimodal.py'
+  step "Step 2  create_chunk_index()"          'grep -qF "def create_chunk_index(" lib_claude_multimodal.py'
+  step "Step 3  search_chunks()"               'grep -qF "def search_chunks(" lib_claude_multimodal.py'
+  step "Step 4  answer_with_sources()"         'grep -qF "def answer_with_sources(" lib_claude_multimodal.py'
+  step "Step 5  m09_assistant.py"              'test -f m09_assistant.py'
+  step "Step 6  questions + results"           'test -f data/m9/questions.txt && test -f notes/m09_results.md'
+  step "Step 9  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 9:"'
 )
 python -c "
 print('\n')
 from lib_claude_multimodal import db_rw
-print('chunks:  ', db_rw.chunks.count_documents({}), '| with embedding:', db_rw.chunks.count_documents({'embedding': {'\$exists': True}}))
+print('chunks:  ', db_rw.chunks.count_documents({}))
 for i in db_rw.chunks.list_search_indexes(): print('index:   ', i['name'], 'ready' if i.get('queryable') else 'building')"
 ```
 
-**Check:** resume at the first `todo` line. On Route B, Steps 2 and 4 stay `todo`; that's expected.
+**Check:** resume at the first `todo` line. `chunks: 0` and no `index:` line just mean you haven't reached Steps 1 and 2 yet.
 
 **Resuming safely**
 
-- **`build_chunks()` deletes every chunk, embeddings included.** Rerun Step 3 only when your sources changed; on Route A, rerun Step 4 straight after it, which embeds everything again and costs Voyage tokens.
-- `embed_chunks()` only embeds chunks that have no embedding yet, so if it stops partway, run it again and it carries on.
-- Step 9 is interactive: paste each answer into `notes/m09_results.md` as you go, so a break doesn't lose them. Step 10 marks them ✅ or ❌ in the same file, also one at a time.
+- **`build_chunks()` deletes every chunk and rebuilds them.** It's free and quick, so rerun Step 1 whenever your sources change. The search index stays and picks up the new chunks by itself.
+- Step 6 is interactive: paste each answer into `notes/m09_results.md` as you go, so a break doesn't lose them. Step 7 marks them ✅ or ❌ in the same file, also one at a time.
 - Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-9) at the end of the page.
 - **To stop for the day**, stop MongoDB (or leave it running; your data stays):
 
@@ -82,60 +79,9 @@ for i in db_rw.chunks.list_search_indexes(): print('index:   ', i['name'], 'read
 
 ---
 
-## Step 1 — Choose your route
+## Step 1 — Build the `chunks` collection
 
-Decide now; Steps 2, 4, 5 and 6 depend on it.
-
-| | Route A — vector | Route B — text |
-| --- | --- | --- |
-| Finds | Similar meaning ("revenue fell" ≈ "sales dropped") | Matching words |
-| Needs | A Voyage AI API key (non-Claude model) | Nothing extra |
-
-Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1), with your choice:
-
-```python
-SEARCH_ROUTE = "vector"        # "vector" (Route A) or "text" (Route B)
-```
-
-**Check:**
-
-```bash
-python -c "print('\n'); from lib_claude_multimodal import SEARCH_ROUTE; print(SEARCH_ROUTE)"
-```
-
-Output prints your choice.
-
-## Step 2 — Route A only: set up Voyage AI
-
-Skip this step on Route B.
-
-1. Create an API key at voyageai.com.
-2. Install the client:
-
-   ```bash
-   pip install voyageai
-   ```
-
-3. Open `.env` in your editor and add a line with your key: `VOYAGE_API_KEY=pa-...`
-4. Add the name, with no value, to `.env.example`:
-
-   ```bash
-   echo 'VOYAGE_API_KEY=' >> .env.example
-   ```
-
-**Check:**
-
-```bash
-python -c "
-print('\n')
-import lib_claude_multimodal, voyageai          # importing lib_claude_multimodal loads .env
-v = voyageai.Client().embed(['hello'], model='voyage-3.5', input_type='document').embeddings[0]
-print(len(v), 'dimensions')"
-```
-
-Prints `1024 dimensions`.
-
-## Step 3 — Build the `chunks` collection
+**What you're doing:** turning three kinds of data into one collection of short, searchable text pieces called *chunks*. Each PDF page becomes a chunk, every 8 transcript segments become a chunk, and each WARN, ERROR or FATAL log event becomes a chunk. Every chunk records where it came from (file plus page, timestamp or line), so answers can cite it later. You also add `cite()`, which turns that origin into a readable label such as `invoice.pdf p.2`.
 
 Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1):
 
@@ -187,63 +133,21 @@ print(build_chunks(), 'chunks')
 for r in db_ro.chunks.aggregate([{'\$group': {'_id': '\$modality', 'n': {'\$sum': 1}}}]): print(r)"
 ```
 
-**Check:** prints a total and a count for `pdf`, `transcript` and `log`.
+**Check:** prints a total and a count for `pdf`, `transcript` and `log`. An `EOF marker not found` warning is pypdf skipping the corrupt PDF from Module 4; that's expected.
 
-## Step 4 — Route A only: embed the chunks
+## Step 2 — Create the search index and wait until it's ready
 
-Skip this step on Route B. Append:
-
-```python
-def embed(texts, input_type):
-    """Voyage embeddings in batches of 128. input_type is 'document' or 'query'."""
-    import voyageai
-    vo = voyageai.Client()
-    vectors = []
-    for k in range(0, len(texts), 128):
-        vectors += vo.embed(texts[k:k + 128], model="voyage-3.5", input_type=input_type).embeddings
-    return vectors
-
-
-def embed_chunks():
-    """Add an embedding to every chunk that doesn't have one yet."""
-    todo = list(db_rw.chunks.find({"embedding": {"$exists": False}}, {"content": 1}))
-    for doc, vec in zip(todo, embed([d["content"] for d in todo], "document")):
-        db_rw.chunks.update_one({"_id": doc["_id"]}, {"$set": {"embedding": vec}})
-    return len(todo)
-```
-
-```bash
-python -c "print('\n'); from lib_claude_multimodal import embed_chunks; print(embed_chunks(), 'chunks embedded')"
-```
-
-**Check:** the number equals Step 3's total. Then run:
-
-```bash
-python -c "print('\n'); from lib_claude_multimodal import db_ro; print(db_ro.chunks.count_documents({'embedding': {'\$exists': False}}))"
-```
-
-Output prints:
-
-```
-0
-```
-
-## Step 5 — Create the search index and wait until it's ready
+**What you're doing:** telling MongoDB's search engine to index the `content` of every chunk (so it can find words fast) and the `modality` field (so a search can be limited to PDFs, transcripts or logs). Building takes a few seconds to a minute, so the function waits until the index can be queried. It's safe to run again: if the index already exists, it only waits for it.
 
 Append:
 
 ```python
 def create_chunk_index():
-    """Create the index for SEARCH_ROUTE and wait until it can be queried."""
+    """Create the full-text index on chunks and wait until it can be queried."""
     from pymongo.operations import SearchIndexModel
-    if SEARCH_ROUTE == "vector":
-        name, model = "chunks_vec", SearchIndexModel(name="chunks_vec", type="vectorSearch", definition={
-            "fields": [{"type": "vector", "path": "embedding", "numDimensions": 1024, "similarity": "cosine"},
-                       {"type": "filter", "path": "modality"}]})
-    else:
-        name, model = "chunks_text", SearchIndexModel(name="chunks_text", type="search", definition={
-            "mappings": {"dynamic": False, "fields": {
-                "content": {"type": "string"}, "modality": {"type": "token"}}}})
+    name, model = "chunks_text", SearchIndexModel(name="chunks_text", type="search", definition={
+        "mappings": {"dynamic": False, "fields": {
+            "content": {"type": "string"}, "modality": {"type": "token"}}}})
     if not any(i["name"] == name for i in db_rw.chunks.list_search_indexes()):
         db_rw.chunks.create_search_index(model)
     while not next(i for i in db_rw.chunks.list_search_indexes() if i["name"] == name).get("queryable"):
@@ -258,28 +162,19 @@ python -c "print('\n'); from lib_claude_multimodal import create_chunk_index; pr
 
 If you get a "not authorized" error, create the index once as admin with mongosh (paste password 1), then run the command above again — it finds the index and waits for it:
 
-Route A:
-
-```bash
-mongosh "mongodb://admin@127.0.0.1:27017/admin?directConnection=true" --quiet --eval '
-  db.getSiblingDB("course").chunks.createSearchIndex("chunks_vec", "vectorSearch",
-    {fields: [{type: "vector", path: "embedding", numDimensions: 1024, similarity: "cosine"},
-              {type: "filter", path: "modality"}]})'
-```
-
-Route B:
-
 ```bash
 mongosh "mongodb://admin@127.0.0.1:27017/admin?directConnection=true" --quiet --eval '
   db.getSiblingDB("course").chunks.createSearchIndex("chunks_text", "search",
     {mappings: {dynamic: false, fields: {content: {type: "string"}, modality: {type: "token"}}}})'
 ```
 
-**Check:** prints `chunks_vec is ready` (Route A) or `chunks_text is ready` (Route B).
+**Check:** prints `chunks_text is ready`.
 
 After a restart, the search engine needs a moment to load the index. If a search in a later step returns nothing or errors, rerun the command above; it finds the existing index and waits until it's ready.
 
-## Step 6 — Add `search_chunks()` and test it
+## Step 3 — Add `search_chunks()` and test it
+
+**What you're doing:** writing the retrieval half of RAG. `search_chunks()` asks Claude to turn the question into a few keywords, runs MongoDB's `$search` with them, and returns the `k` best-matching chunks with their sources. Passing a `modality` limits the search to one kind of data.
 
 Append:
 
@@ -288,34 +183,28 @@ def search_chunks(question, modality=None, k=5):
     """Find the k most relevant chunks (optionally only pdf / transcript / log)."""
     project = {"$project": {"_id": 0, "modality": 1, "source_file": 1, "page": 1, "start_s": 1,
                             "line": 1, "content": 1}}
-    if SEARCH_ROUTE == "vector":
-        stage = {"index": "chunks_vec", "path": "embedding", "queryVector": embed([question], "query")[0],
-                 "numCandidates": 100, "limit": k}
-        if modality:
-            stage["filter"] = {"modality": modality}
-        pipeline = [{"$vectorSearch": stage}, project]
-    else:
-        terms = text_of(ask("Rewrite this question as 3-8 search keywords, space-separated, "
-                            f"nothing else:\n{question}", max_tokens=512, module="m9"))
-        search = {"index": "chunks_text", "compound": {"must": [{"text": {"query": terms, "path": "content"}}]}}
-        if modality:
-            search["compound"]["filter"] = [{"equals": {"path": "modality", "value": modality}}]
-        pipeline = [{"$search": search}, {"$limit": k}, project]
-    return list(db_ro.chunks.aggregate(pipeline))
+    terms = text_of(ask("Rewrite this question as 3-8 search keywords, space-separated, "
+                        f"nothing else:\n{question}", max_tokens=512, module="m9"))
+    search = {"index": "chunks_text", "compound": {"must": [{"text": {"query": terms, "path": "content"}}]}}
+    if modality:
+        search["compound"]["filter"] = [{"equals": {"path": "modality", "value": modality}}]
+    return list(db_ro.chunks.aggregate([{"$search": search}, {"$limit": k}, project]))
 ```
 
-**Check:** ask about something you know is in one of your sources:
+**Check:** ask about the Apache log from Module 7:
 
 ```bash
 python -c "
 print('\n')
 from lib_claude_multimodal import search_chunks, cite
-for h in search_chunks('What did the CFO say about pricing?'): print(cite(h), '|', h['content'][:100])"
+for h in search_chunks('Which errors did mod_jk report?'): print(cite(h), '|', h['content'][:100])"
 ```
 
-Prints 5 sources; the right one is among them.
+Prints up to 5 lines, each starting with a source such as `app.log line 1045`, and at least one is a `mod_jk ERROR` event. Some lines can come from other sources: word search ranks any chunk that shares a keyword. If nothing prints, use words that actually appear in your sources, because at least one keyword has to match.
 
-## Step 7 — Add `answer_with_sources()`
+## Step 4 — Add `answer_with_sources()`
+
+**What you're doing:** writing the generation half of RAG. `answer_with_sources()` numbers the chunks from `search_chunks()`, sends only those to Claude, and tells it to answer from them alone and mark each claim with its source number. The sources list is printed under the answer, so you can check every claim.
 
 Append:
 
@@ -337,14 +226,16 @@ def answer_with_sources(question, modality=None, k=8, model=HAIKU):
 python -c "
 print('\n')
 from lib_claude_multimodal import answer_with_sources
-print(answer_with_sources('What did the CFO say about pricing?'))"
+print(answer_with_sources('Which errors did mod_jk report?'))"
 ```
 
-Prints an answer with `[n]` markers and a source list with files, pages, times or lines.
+Prints an answer about the `mod_jk` error states with `[n]` markers, then a source list such as `[3] app.log line 1889`. Check one: `sed -n '1889p' data/m7/app.log` shows the line the answer cites.
 
-## Step 8 — Build the assistant that picks the right tool
+## Step 5 — Build the assistant that picks the right tool
 
-Some questions need documents (Step 7), others need numbers from collections (Module 8). Create `m09_assistant.py`:
+**What you're doing:** combining this module's document search with Module 8's database queries in one chat. Some questions need documents ("What risks were mentioned on the call?"), others need numbers from collections ("How many ERROR events per service?"). You give Claude both as tools and let it choose per question. This script is a standalone program, not part of the shared library.
+
+Create `m09_assistant.py`:
 
 ```python
 from lib_claude_multimodal import (run_with_tools, run_pipeline, search_chunks, cite, describe_mongo,
@@ -388,7 +279,9 @@ Try one document question ("What risks were mentioned on the call?") and one num
 
 **Check:** the first uses `search_documents` and cites files; the second uses `run_pipeline` and cites a collection.
 
-## Step 9 — Run 10 test questions
+## Step 6 — Run 10 test questions
+
+**What you're doing:** testing the assistant on realistic questions across all three kinds of data and keeping the answers, so you can check them in the next step.
 
 Make the folder:
 
@@ -400,13 +293,17 @@ Write 10 questions in `data/m9/questions.txt`: at least three each for PDFs, tra
 
 **Check:** 10 answers, each with at least one citation.
 
-## Step 10 — Open every citation
+## Step 7 — Open every citation
 
-For each answer, open the cited source — the PDF page, the recording at that timestamp, the log line (`sed -n '<line>p' data/m7/sample.log`) — and confirm it says what the answer claims. Mark each answer ✅ or ❌ in `notes/m09_results.md`.
+**What you're doing:** checking that the citations are real. A citation is only useful if the source says what the answer claims.
 
-**Check:** all 10 are ✅. For any ❌, see whether retrieval missed the right chunk (try a different `k` or route) or Claude misread it.
+For each answer, open the cited source — the PDF page, the recording at that timestamp, the log line (for `app.log line 1889`, run `sed -n '1889p' data/m7/app.log`) — and confirm it says what the answer claims. Mark each answer ✅ or ❌ in `notes/m09_results.md`.
 
-## Step 11 — See when retrieval doesn't help
+**Check:** all 10 are ✅. For any ❌, see whether retrieval missed the right chunk (try a different `k` or rephrase the question with the source's words) or Claude misread it.
+
+## Step 8 — See when retrieval doesn't help
+
+**What you're doing:** comparing retrieval with the simpler approach from Module 4, sending the whole PDF to Claude. This shows when search is worth it and when it isn't.
 
 Take one small PDF and ask the same question two ways:
 
@@ -423,10 +320,12 @@ print('RETRIEVAL:', answer_with_sources(q, modality='pdf'))"
 
 **Check:** note which answer is better and which cost more (`python m01_costs.py` style query on module `m4` vs `m9`). Small documents usually answer better whole; retrieval wins when the material is too big for one prompt.
 
-## Step 12 — Commit
+## Step 9 — Commit
+
+**What you're doing:** saving your work. Only code and notes go into git; your data and `.env` stay out.
 
 ```bash
-git add lib_claude_multimodal.py m09_*.py notes/m09_results.md .env.example
+git add lib_claude_multimodal.py m09_*.py notes/m09_results.md
 git commit -m "Module 9: chunks, search index, cited answers, assistant"
 git push
 ```
@@ -437,8 +336,6 @@ git push
 
 Use this to cross-check your file once the steps are done, or after a break. It is every block the course has told you to add to `lib_claude_multimodal.py` through Module 9, in order, with the earlier edits applied. The `# ── Module N, Step M ──` lines show which step added the code below them. Each step's block starts with its own marker line, so pasting it keeps your file labelled in step order; if your file is missing some markers, that's fine — the diff below ignores them.
 
-This is the Route A file. On Route B, `SEARCH_ROUTE` is `"text"` and `embed()` and `embed_chunks()` (Step 4) aren't there.
-
 To compare automatically, save the file below as `data/expected.py` (`data/` is git-ignored, so it never gets committed), then:
 
 ```bash
@@ -448,7 +345,7 @@ diff -Bw <(grep -v '^# ── ' data/expected.py) <(grep -v '^# ── ' lib_cla
 `-Bw` ignores blank lines and spacing. Every other line `diff` prints is a real difference: a missing step, a block pasted twice, or a typo.
 
 <details>
-<summary>Show the complete file (805 lines)</summary>
+<summary>Show the complete file (767 lines)</summary>
 
 ```python
 # ── Module 1, Step 1 ──
@@ -1143,10 +1040,6 @@ def ask_mongo(question, *, model=HAIKU):
 
 
 # ── Module 9, Step 1 ──
-SEARCH_ROUTE = "vector"        # "vector" (Route A) or "text" (Route B)
-
-
-# ── Module 9, Step 3 ──
 def build_chunks():
     """Rebuild chunks from PDFs (per page), transcripts (8 segments) and WARN+ log events."""
     from pypdf import PdfReader
@@ -1186,37 +1079,13 @@ def cite(chunk):
     return chunk["source_file"]
 
 
-# ── Module 9, Step 4 ──
-def embed(texts, input_type):
-    """Voyage embeddings in batches of 128. input_type is 'document' or 'query'."""
-    import voyageai
-    vo = voyageai.Client()
-    vectors = []
-    for k in range(0, len(texts), 128):
-        vectors += vo.embed(texts[k:k + 128], model="voyage-3.5", input_type=input_type).embeddings
-    return vectors
-
-
-def embed_chunks():
-    """Add an embedding to every chunk that doesn't have one yet."""
-    todo = list(db_rw.chunks.find({"embedding": {"$exists": False}}, {"content": 1}))
-    for doc, vec in zip(todo, embed([d["content"] for d in todo], "document")):
-        db_rw.chunks.update_one({"_id": doc["_id"]}, {"$set": {"embedding": vec}})
-    return len(todo)
-
-
-# ── Module 9, Step 5 ──
+# ── Module 9, Step 2 ──
 def create_chunk_index():
-    """Create the index for SEARCH_ROUTE and wait until it can be queried."""
+    """Create the full-text index on chunks and wait until it can be queried."""
     from pymongo.operations import SearchIndexModel
-    if SEARCH_ROUTE == "vector":
-        name, model = "chunks_vec", SearchIndexModel(name="chunks_vec", type="vectorSearch", definition={
-            "fields": [{"type": "vector", "path": "embedding", "numDimensions": 1024, "similarity": "cosine"},
-                       {"type": "filter", "path": "modality"}]})
-    else:
-        name, model = "chunks_text", SearchIndexModel(name="chunks_text", type="search", definition={
-            "mappings": {"dynamic": False, "fields": {
-                "content": {"type": "string"}, "modality": {"type": "token"}}}})
+    name, model = "chunks_text", SearchIndexModel(name="chunks_text", type="search", definition={
+        "mappings": {"dynamic": False, "fields": {
+            "content": {"type": "string"}, "modality": {"type": "token"}}}})
     if not any(i["name"] == name for i in db_rw.chunks.list_search_indexes()):
         db_rw.chunks.create_search_index(model)
     while not next(i for i in db_rw.chunks.list_search_indexes() if i["name"] == name).get("queryable"):
@@ -1225,28 +1094,20 @@ def create_chunk_index():
     return name
 
 
-# ── Module 9, Step 6 ──
+# ── Module 9, Step 3 ──
 def search_chunks(question, modality=None, k=5):
     """Find the k most relevant chunks (optionally only pdf / transcript / log)."""
     project = {"$project": {"_id": 0, "modality": 1, "source_file": 1, "page": 1, "start_s": 1,
                             "line": 1, "content": 1}}
-    if SEARCH_ROUTE == "vector":
-        stage = {"index": "chunks_vec", "path": "embedding", "queryVector": embed([question], "query")[0],
-                 "numCandidates": 100, "limit": k}
-        if modality:
-            stage["filter"] = {"modality": modality}
-        pipeline = [{"$vectorSearch": stage}, project]
-    else:
-        terms = text_of(ask("Rewrite this question as 3-8 search keywords, space-separated, "
-                            f"nothing else:\n{question}", max_tokens=512, module="m9"))
-        search = {"index": "chunks_text", "compound": {"must": [{"text": {"query": terms, "path": "content"}}]}}
-        if modality:
-            search["compound"]["filter"] = [{"equals": {"path": "modality", "value": modality}}]
-        pipeline = [{"$search": search}, {"$limit": k}, project]
-    return list(db_ro.chunks.aggregate(pipeline))
+    terms = text_of(ask("Rewrite this question as 3-8 search keywords, space-separated, "
+                        f"nothing else:\n{question}", max_tokens=512, module="m9"))
+    search = {"index": "chunks_text", "compound": {"must": [{"text": {"query": terms, "path": "content"}}]}}
+    if modality:
+        search["compound"]["filter"] = [{"equals": {"path": "modality", "value": modality}}]
+    return list(db_ro.chunks.aggregate([{"$search": search}, {"$limit": k}, project]))
 
 
-# ── Module 9, Step 7 ──
+# ── Module 9, Step 4 ──
 def answer_with_sources(question, modality=None, k=8, model=HAIKU):
     """Answer from retrieved chunks only, citing them as [1], [2]…"""
     hits = search_chunks(question, modality, k)
@@ -1263,8 +1124,8 @@ def answer_with_sources(question, modality=None, k=8, model=HAIKU):
 
 ## Done when
 
-- [ ] Step 10: on 10 test questions, every answer cites a source you opened and confirmed.
-- [ ] Step 8: the assistant chooses between documents and database correctly.
-- [ ] Step 11: you can say when retrieval beats sending the whole document.
+- [ ] Step 7: on 10 test questions, every answer cites a source you opened and confirmed.
+- [ ] Step 5: the assistant chooses between documents and database correctly.
+- [ ] Step 8: you can say when retrieval beats sending the whole document.
 
 **Next:** [Module 10 — Production and security](../module-10-production-and-security/README.md)

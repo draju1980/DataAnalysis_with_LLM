@@ -1181,4 +1181,4 @@ def ask_mongo(question, *, model=HAIKU):
 - [ ] Step 9: a write request through `ask_mongo()` is rejected by the checker.
 - [ ] Step 10: the same write sent directly is rejected by the server.
 
-**Next:** [Module 9 — Combining modalities and vector search](../module-09-combining-modalities-vector-search/README.md)
+**Next:** [Module 9 — Combining modalities and document search](../module-09-combining-modalities-vector-search/README.md)
