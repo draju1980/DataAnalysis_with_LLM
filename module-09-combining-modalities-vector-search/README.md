@@ -275,7 +275,7 @@ while True:
 python m09_assistant.py
 ```
 
-Try one document question ("What risks were mentioned on the call?") and one number question ("How many ERROR events per service?").
+Try one document question ("What risks were mentioned on the call?") and one number question ("How many ERROR events per service?"). The script keeps asking for questions until you type `quit` or `exit` at the `question>` prompt.
 
 **Check:** the first uses `search_documents` and cites files; the second uses `run_pipeline` and cites a collection.
 
