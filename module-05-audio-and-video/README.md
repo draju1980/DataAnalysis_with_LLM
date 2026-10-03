@@ -5,6 +5,8 @@
 **You start with:** Module 4 done — `ask()`, `tool_input()`, `ask_image()` and the extract → store → check pattern.
 **You finish with:** `transcribe()`, `save_segments()`, `label_speakers()` and `analyze_audio()`; one command (`m05_process.py`) that turns a one-hour recording into a summary, action items with owners, and timestamped key moments; and a video example that combines frames with the transcript.
 
+**What this lab is about.** Meetings and calls hold a lot of information that never gets written down. Here you turn an hour-long recording into a searchable, timestamped transcript in MongoDB, let Claude work out who is speaking, and produce a summary with action items and key moments, all from one command. You build and test every piece on a 3-minute clip first, so mistakes are cheap, and finish by combining video frames with the transcript.
+
 ## Key ideas (read once)
 
 - **Claude doesn't take audio.** Audio is two steps: transcribe to text with Whisper (running locally), then analyze the text with Claude. Video adds a third: sample frames and send them as images.
@@ -90,7 +92,7 @@ for r in db_ro.transcript_segments.aggregate([{'\$group': {'_id': '\$recording',
           db_ro.action_items.count_documents({'recording': r['_id']}), 'action items')"
 ```
 
-**Check:** resume at the first `todo` line. The command above lists each recording already in MongoDB: segments mean it's transcribed (Steps 3–4), speakers mean Step 5 ran, action items mean Step 6 ran.
+**Check:** resume at the first `todo` line. The command above lists each recording already in MongoDB: segments mean it's transcribed (Steps 3–4), speakers mean Step 5 ran, action items mean Step 6 ran. It prints nothing until Step 4 has stored the first transcript; that's expected on a first session.
 
 **Resuming safely**
 
@@ -110,6 +112,8 @@ for r in db_ro.transcript_segments.aggregate([{'\$group': {'_id': '\$recording',
 ---
 
 ## Step 1 — Install faster-whisper and ffmpeg, add a recording
+
+**What you're doing:** installing the two tools Claude can't replace here, Whisper (speech to text) and ffmpeg (converting audio and video), and getting a recording to work on. With the course sample you also build the one-hour test recording and the short video used in Step 10.
 
 **1. Install the packages**
 
@@ -165,6 +169,8 @@ ffmpeg -version | head -1
 **Check:** prints `ffmpeg version 7.1 …` (or newer).
 
 **4. Add a recording**
+
+Make the folder for recordings:
 
 ```bash
 mkdir -p data/m5
@@ -225,7 +231,7 @@ Run the check:
 ls -lh data/m5/q3-call.mp3
 ```
 
-**Check:** shows a file of about 28M.
+**Check:** shows `q3-call.mp3` at about 27M.
 
 - `-stats` prints that progress line; `-loglevel error` hides everything else unless something goes wrong.
 - `-nostdin` stops ffmpeg from reading the keyboard; without it, ffmpeg swallows any lines pasted after it and they never run.
@@ -245,13 +251,15 @@ Confirm the file exists:
 ls -lh data/m5/demo.mp4
 ```
 
-**Check:** shows `demo.mp4`.
+**Check:** shows `demo.mp4` at about 13M.
 
 *d. Delete the originals*, only once b and c both passed:
 
 ```bash
 rm -r data/m5/ami
 ```
+
+It prints nothing when it succeeds.
 
 Expect four speakers (a project manager, a marketing expert, a user-interface designer and an industrial designer) and, in ES2002b, decisions and action items for the next meeting.
 
@@ -265,11 +273,13 @@ ls data/m5
 
 ## Step 2 — Make a 3-minute test clip
 
-Build and test every step on a short clip first; run the full hour only at Step 8.
+**What you're doing:** cutting the first 3 minutes of the recording into a small file in the format Whisper expects. Transcribing an hour takes up to half an hour, so you build and test every step on this clip first and only run the full hour at Step 8.
 
 ```bash
 ffmpeg -nostdin -y -loglevel error -stats -i data/m5/q3-call.mp3 -t 180 -ac 1 -ar 16000 data/m5/test-clip.wav
 ```
+
+**Check:** the progress line ends near `time=00:03:00`.
 
 - `-t 180` keeps the first 180 seconds.
 - `-ac 1 -ar 16000` converts to mono 16 kHz, the format Whisper uses.
@@ -283,6 +293,8 @@ python -c "print('\n'); import wave; w = wave.open('data/m5/test-clip.wav'); pri
 **Check:** prints `180`.
 
 ## Step 3 — Add `transcribe()` and transcribe the clip
+
+**What you're doing:** adding the speech-to-text step. `transcribe()` runs Whisper on your own machine and returns the speech as short segments, each with its start and end time, so every later answer can point back to a moment in the recording. `fmt_ts()` turns seconds into a readable `hh:mm:ss`.
 
 Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1):
 
@@ -326,9 +338,11 @@ segs = transcribe('data/m5/test-clip.wav')
 print(len(segs), 'segments'); [print(fmt_ts(s['start_s']), s['text']) for s in segs[:5]]"
 ```
 
-Prints `1/2 …`, a download bar on the first run, `2/2 transcribing 00:03:00 of audio` with a line that counts up to `100%`, then a segment count and the first lines with timestamps, matching what you hear. The 3-minute clip takes about a minute on a laptop CPU.
+Prints `1/2 …`, a download bar on the first run, `2/2 transcribing 00:03:00 of audio` with a line that counts up to `100%`, then a segment count (about 40 with the course sample) and the first lines with timestamps, matching what you hear. The first segment starts a few seconds in (about `00:00:04` with the sample), because Whisper skips the silence at the start. The 3-minute clip takes about a minute on a laptop CPU.
 
 ## Step 4 — Add `save_segments()` and store the clip's transcript
+
+**What you're doing:** storing the transcript in MongoDB, one document per segment, numbered in order. Once it's stored, the slow transcription never has to be repeated, and later steps (and Module 9) can query it.
 
 Append to the shared library `lib_claude_multimodal.py`:
 
@@ -353,6 +367,8 @@ print(db_ro.transcript_segments.count_documents({'recording': 'test-clip'}))"
 **Check:** shows the same `1/2` and `2/2` progress as Step 3 (about a minute: it transcribes again), then `saved N segments for 'test-clip' to MongoDB`, then the count read back from MongoDB. Both numbers equal the segment count from Step 3.
 
 ## Step 5 — Add `label_speakers()` and label the clip
+
+**What you're doing:** working out who said each segment. Whisper only gives text, so Claude reads the numbered segments and infers speakers from turn-taking, names and roles, then the labels are saved back onto the segments in MongoDB.
 
 Append to the shared library `lib_claude_multimodal.py`:
 
@@ -398,7 +414,7 @@ def label_speakers(recording, chunk=150, model=HAIKU, max_tokens=4096):
 ```
 
 - Passing `known` speakers from chunk to chunk keeps names consistent across a long recording.
-- It prints one line per part sent to Claude, with the time range it covers; a one-hour recording is usually 4–7 parts (150 segments each).
+- It prints one line per part sent to Claude, with the time range it covers; a one-hour recording is usually 5–8 parts (150 segments each; the course sample has about 1,100 segments, so 8 parts).
 - `max_tokens=4096`: each label is about 10–15 output tokens (`{"i": 42, "speaker": "Project Manager"}`), so 150 segments need up to about 2,300. The course default of 512 cuts the reply off after about 40 segments. `max_tokens` is only a ceiling: you pay for the tokens Claude actually writes, not the limit.
 - If the reply is cut off anyway, the function stops with `RuntimeError: speaker labels cut off at max_tokens=…` instead of saving half the labels. Call it with a higher limit (`label_speakers('test-clip', max_tokens=8192)`) or smaller parts (`chunk=100`); rerunning is safe because each label overwrites the last.
 
@@ -411,9 +427,11 @@ for s in db_ro.transcript_segments.find({'recording': 'test-clip'}).sort('i').li
     print(fmt_ts(s['start_s']), s['speaker'], '-', s['text'])"
 ```
 
-**Check:** prints `speakers: part 1/1 (00:00:00-00:02:5…)` and `speakers: done, N found`, then the list of speakers and the first segments with sensible speaker names. Listen to the clip and note any wrong labels.
+**Check:** prints `speakers: part 1/1 (00:00:04-00:02:56)` (or close to it: the times are the clip's first and last segments) and `speakers: done, N found`, then the list of speakers and the first segments with sensible speaker names. With the course sample the list has the four people who introduce themselves, `Laura`, `David`, `Andrew` and `Greg`, plus one or two `Speaker N` for lines Claude couldn't place. Listen to the clip and note any wrong labels.
 
 ## Step 6 — Add `analyze_audio()` and analyze the clip
+
+**What you're doing:** turning the labelled transcript into useful notes. `analyze_audio()` cuts the transcript into 10-minute parts, asks Claude for a summary, action items with owners and times, and key moments for each part, then combines the part summaries into one. Action items are also stored in MongoDB so you can query them.
 
 Append to the shared library `lib_claude_multimodal.py`:
 
@@ -488,6 +506,8 @@ print(summary); print(items); print(moments)"
 
 ## Step 7 — Chain everything into one command
 
+**What you're doing:** joining Steps 2–6 into one script, so any recording goes from audio file to a Markdown report with a single command. You test it on the clip, where it's quick and cheap.
+
 Create `m05_process.py`. It runs Steps 2–6 for any recording and writes a Markdown report.
 
 ```python
@@ -531,15 +551,40 @@ python m05_process.py data/m5/test-clip.wav
 
 ## Step 8 — Process the full hour in one command
 
+**What you're doing:** running the script you tested on the clip on the full one-hour recording, and timing it. Then you check a few of the timestamps it reports, because a summary is only useful if its times point to the right moments.
+
 ```bash
 time python m05_process.py data/m5/q3-call.mp3
 ```
 
 Transcription of an hour on CPU can take 10–30 minutes with `small`. Let it run: under `1/5` the ffmpeg line counts up to `time=00:59:…`, under `2/5` the Whisper line counts up to `100%`, then steps 3/5 and 4/5 print one line per part. If a line stops moving for several minutes, press Ctrl+C (never Ctrl+Z) and rerun; a finished transcript is never redone.
 
-**Check:** `data/m5/q3-call-notes.md` exists with a summary, action items with owners and times, and key moments. Jump to three of the timestamps in the recording and confirm they're right.
+**Check:** prints `5/5 wrote data/m5/q3-call-notes.md`, then `time`'s summary of how long it took. With the course sample, 3/5 shows about 8 speaker parts (about 1,100 segments, 150 per part) and 4/5 shows analysis parts `1/6` to `6/6`.
+
+Look at the notes:
+
+```bash
+cat data/m5/q3-call-notes.md
+```
+
+**Check:** a summary, action items with owners and times, and key moments. With the course sample the key moments start with the project kick-off and the team introductions at about `00:01:12`.
+
+Now confirm three of the timestamps. This prints what was said in the minute from one time (replace `00:01:12` with a time from your notes, and run it three times):
+
+```bash
+python -c "
+print('\n')
+from lib_claude_multimodal import db_ro, fmt_ts
+t = sum(int(x) * 60 ** i for i, x in enumerate(reversed('00:01:12'.split(':'))))
+for s in db_ro.transcript_segments.find({'recording': 'q3-call', 'start_s': {'\$gte': t - 10, '\$lte': t + 60}}).sort('i'):
+    print(fmt_ts(s['start_s']), s.get('speaker') or '?', '|', s['text'])"
+```
+
+**Check:** prints timestamped lines starting just before that time, and they match the note. With the course sample at `00:01:12`, Laura says she is the project manager and the others introduce themselves. To hear it instead, play `data/m5/q3-call.mp3` from that time in any audio player.
 
 ## Step 9 — Query the recording in MongoDB
+
+**What you're doing:** using the stored data directly, without Claude. Because the action items and every timestamped segment are in MongoDB, you can list the action items or search the whole call for a word (here "pricing") and get back who said it and when.
 
 ```bash
 python -c "
@@ -552,9 +597,11 @@ for s in db_ro.transcript_segments.find({'recording': 'q3-call', 'text': {'\$reg
     print(' ', fmt_ts(s['start_s']), s['speaker'], '-', s['text'])"
 ```
 
-**Check:** action items match the notes file, and the pricing mentions have speakers and timestamps.
+**Check:** prints `Action items:` followed by several items, each a dict with `recording`, `owner`, `item` and `at`, matching the notes file; then `Mentions of pricing:` followed by a handful of lines, each with a timestamp, a speaker and the text (with the course sample they're about the remote's price and production cost).
 
 ## Step 10 — Video: combine frames with the transcript
+
+**What you're doing:** extending the audio pipeline to video. You save one still frame every 30 seconds, transcribe the video's audio with the same script, and then send Claude the frames and the transcript for a 2-minute window together, so its answer covers both what was shown and what was said.
 
 This uses a video, `data/m5/demo.mp4` (if you used the course sample, Step 1 already made it).
 
@@ -576,7 +623,7 @@ Run the check:
 ls data/m5/frames
 ```
 
-**Check:** lists about 20 frames (`0001.jpg`, `0002.jpg`, …) for the 10-minute sample. Frame `0001.jpg` is at 0:00, `0002.jpg` at 0:30, and so on.
+**Check:** lists 20 frames (`0001.jpg` to `0020.jpg`) for the 10-minute sample. Frame `0001.jpg` is at 0:00, `0002.jpg` at 0:30, and so on.
 
 Transcribe the video's audio, label speakers and write notes, exactly as Step 7 did for the clip (a few minutes for 10 minutes of video):
 
@@ -609,9 +656,11 @@ Ask about the window from 1:00 to 3:00 (the two numbers are seconds):
 python m05_video_window.py 60 180
 ```
 
-**Check:** first prints `sending 4 frames and N transcript lines (00:01:00-00:03:00) to Claude…`, then an answer that mentions things only visible in the frames (slides, screens) together with what was said.
+**Check:** first prints `sending 4 frames and N transcript lines (00:01:00-00:03:00) to Claude…`, then an answer that mentions things only visible in the frames together with what was said. With the course sample's overhead camera that means the room: people around a table, laptops, a whiteboard or screen.
 
 ## Step 11 — Commit
+
+**What you're doing:** saving your work to git. Only the code goes in: the library and this module's scripts, never the recordings, transcripts or frames in `data/`.
 
 Stage the library and this module's scripts (never `data/`, which holds the recordings):
 

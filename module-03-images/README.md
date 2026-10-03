@@ -5,6 +5,8 @@
 **You start with:** Module 2 done — `ask()`, `tool_input()` and the evaluation habit.
 **You finish with:** `image_block()` and `ask_image()`; numbers extracted from 20 charts into MongoDB; a measured error rate; and a written decision on which image tasks can run without a human check.
 
+**What this lab is about.** You send images to Claude and get back descriptions, transcribed text, and numbers read off charts. Since a chart reading can look right and still be wrong, you compare Claude's numbers against the true values for 5 charts and measure how far off it is. That measured error rate is what lets you decide, with evidence, which image tasks are safe to automate and which still need a person to check them.
+
 ## Key ideas (read once)
 
 - **Images go in as content blocks**, base64-encoded, next to your text question. Supported: JPEG, PNG, GIF, WebP.
@@ -80,8 +82,17 @@ print('chart_truth rows:', db_ro.chart_truth.count_documents({}), '(Step 8 wants
 
 ## Step 1 — Install Pillow and collect 20 charts
 
+**What you're doing:** setting up the image library and gathering 20 charts to test on. You need charts whose true numbers you know, because Step 9 compares Claude's readings against them.
+
+Install Pillow, the library that opens and resizes images:
+
 ```bash
 pip install pillow
+```
+
+Create the folder for the charts:
+
+```bash
 mkdir -p data/m3/charts
 ```
 
@@ -161,19 +172,23 @@ print(f"wrote 20 charts to {out}/ and {len(rows)} true values to data/m3/chart_s
 python m03_make_charts.py
 ```
 
-**Check:**
+**Check:** prints `wrote 20 charts to data/m3/charts/ and 145 true values to data/m3/chart_source.csv`.
+
+Whichever charts you use, count them:
 
 ```bash
 ls data/m3/charts | wc -l
 ```
 
-Output prints:
+**Check:** output prints:
 
 ```
 20
 ```
 
 ## Step 2 — Add `image_block()` to `lib_claude_multimodal.py`
+
+**What you're doing:** adding a helper that turns an image file into the form the API accepts: shrunk to a sensible size and base64-encoded inside a content block. Every image request in the course goes through it.
 
 It resizes an image and wraps it as an API content block. Append:
 
@@ -209,9 +224,11 @@ p = sorted(Path('data/m3/charts').iterdir())[0]
 b = image_block(p); print(p.name, b['source']['media_type'], len(b['source']['data']), 'chars')"
 ```
 
-Prints a file name, a media type and a size.
+Prints the first file name, its media type and the encoded size, e.g. `chart01.png image/png 24104 chars` for the course sample (your size may differ slightly).
 
 ## Step 3 — Add `ask_image()` and describe one chart
+
+**What you're doing:** adding the function you'll use to ask questions about images. It sends one or more images plus your question; without a schema it returns Claude's text answer, and with a schema it returns structured fields (used from Step 5 on).
 
 Append:
 
@@ -242,9 +259,11 @@ p = sorted(Path('data/m3/charts').iterdir())[0]
 print(ask_image(p, 'Describe this chart: type, title, axes, and the main trend.'))"
 ```
 
-Prints a sensible description of your first chart.
+Prints a sensible description of your first chart. For the course sample that's `chart01.png`: a bar chart titled `Chart 1: bar chart` with `Units sold` for Laptops, Phones, Tablets, Monitors and Printers.
 
 ## Step 4 — See how image size drives cost
+
+**What you're doing:** sending the same chart at a small and a large size and comparing the input tokens you pay for. This shows why resizing matters and where shrinking starts to lose detail.
 
 Send the same chart at two sizes and compare input tokens. Create `m03_size_cost.py`:
 
@@ -263,9 +282,11 @@ for side in (400, 1568):
 python m03_size_cost.py
 ```
 
-**Check:** the 1568 px version uses several times more input tokens. Note whether the small version still read the title correctly — small images are cheaper but lose fine text.
+**Check:** two lines, `max_side=400: … input tokens -> …` and `max_side=1568: … input tokens -> …`. The 1568 px version uses several times more input tokens. (The course sample charts are 770 × 495 px, so the 1568 version sends them at full size; `image_block()` never enlarges.) Note whether the small version still read the title correctly — small images are cheaper but lose fine text.
 
 ## Step 5 — Define the chart schema and extract one chart
+
+**What you're doing:** describing the exact shape of data you want back from a chart (a title plus a list of series / label / value points) and testing it on one chart. With a schema, Claude fills in fields you can store and compare instead of writing prose.
 
 Append the schema to `lib_claude_multimodal.py`:
 
@@ -306,9 +327,11 @@ d = ask_image(p, CHART_PROMPT, schema=CHART_SCHEMA, tool_name='record_chart')
 print(d['title']); [print(x) for x in d['points'][:5]]"
 ```
 
-Prints the title and the first data points as dicts.
+Prints the title and up to 5 data points as dicts. For the course sample's `chart01.png`: `Chart 1: bar chart`, then 5 points such as `{'series': 'value', 'label': 'Laptops', 'value': 185}` (the series name may differ, e.g. `Units sold`).
 
 ## Step 6 — Extract all 20 charts into MongoDB
+
+**What you're doing:** running the Step 5 extraction over every chart and saving each data point as a document in `chart_values`. Each point gets a `key` (file, series, label) so it can be matched to its true value later.
 
 Create `m03_extract.py`:
 
@@ -340,15 +363,19 @@ python m03_extract.py
 
 The `key` field (file | series | label) is what you join on in Step 9.
 
-**Check:** the script prints 20 lines of `<file>: N values`. Then run:
+**Check:** the script prints 20 lines of `<file>: N values`, e.g. `chart01.png: 5 values`. For the course sample, bar charts have 5 values, line charts 12, pie charts 4 and grouped-bar charts 8.
+
+Count all stored values:
 
 ```bash
 python -c "print('\n'); from lib_claude_multimodal import db_ro; print(db_ro.chart_values.count_documents({}))"
 ```
 
-Output prints the total.
+**Check:** prints the total; `145` for the course sample if Claude read every point.
 
 ## Step 7 — Export 5 charts' values to fill in the truth
+
+**What you're doing:** creating the answer key for 5 charts. You export what Claude read (so file, series and label match exactly) and then replace each value with the true number; the difference between the two is the error you measure in Step 9.
 
 Choose 5 charts whose real numbers you know. Export what Claude read so the series and labels match exactly. Create `m03_export_truth.py`:
 
@@ -367,13 +394,29 @@ print(len(rows), "rows written to data/m3/truth.csv")
 python m03_export_truth.py chart01.png chart02.png chart03.png chart04.png chart05.png
 ```
 
+**Check:** prints `34 rows written to data/m3/truth.csv` for the course sample (5 + 12 + 4 + 8 + 5 values), or your own total.
+
 Open `data/m3/truth.csv` and **overwrite the `value` column with the true numbers** from your source data. Leave the other columns unchanged.
 
-If you generated the sample charts in Step 1, the true numbers are in `data/m3/chart_source.csv`: find the row with the same `image_file`, `series` and `label`. Claude may name a series or label slightly differently (e.g. `Revenue` instead of `Revenue (k$)`); match them by meaning, and keep Claude's spelling in `truth.csv`.
+If you generated the sample charts in Step 1, the true numbers are in `data/m3/chart_source.csv`: find the row with the same `image_file`, `series` and `label`. Claude may name a series or label slightly differently (e.g. `Revenue` instead of `Revenue (k$)`); match them by meaning, and keep Claude's spelling in `truth.csv`. To see the true values for one chart, e.g. `chart02.png`:
 
-**Check:** the CSV has rows for your 5 charts and you have corrected every value.
+```bash
+grep chart02.png data/m3/chart_source.csv
+```
+
+**Check:** prints 12 lines such as `chart02.png,Revenue (k$),Jan,…` for the course sample.
+
+When you've finished editing, look at the start of your file:
+
+```bash
+head data/m3/truth.csv
+```
+
+**Check:** the header `image_file,series,label,value`, then rows for your 5 charts. The CSV has rows for all 5 charts and you have corrected every value.
 
 ## Step 8 — Load the truth into MongoDB
+
+**What you're doing:** copying your corrected `truth.csv` into the `chart_truth` collection, with the same `key` field as `chart_values`, so one query can line up each reading with its true value.
 
 Create `m03_load_truth.py`:
 
@@ -392,9 +435,11 @@ print("chart_truth:", db_rw.chart_truth.count_documents({}))
 python m03_load_truth.py
 ```
 
-**Check:** prints the same row count as Step 7.
+**Check:** prints `chart_truth: 34` for the course sample: the same row count as Step 7.
 
 ## Step 9 — Measure the error rate
+
+**What you're doing:** joining Claude's readings to the true values and computing how far off each one is. The result tells you how often Claude reads a chart exactly and which kinds of charts it gets wrong.
 
 Create `m03_errors.py`:
 
@@ -422,9 +467,11 @@ for r in rows[:10]:
 python m03_errors.py
 ```
 
-**Check:** prints how many values were exact, how many were more than 5% off, and the 10 worst misses. Look at those charts: are they dense, small-text, unlabeled bars, log scales?
+**Check:** prints `34 values checked` for the course sample (fewer if some series or labels in `truth.csv` don't match Claude's spelling), then how many values were exact, how many were more than 5% off, and the 10 worst misses. Look at those charts: are they dense, small-text, unlabeled bars, log scales?
 
 ## Step 10 — Compare two images in one request
+
+**What you're doing:** sending two images in one request so Claude can compare them directly, instead of describing each one separately and comparing the descriptions yourself.
 
 `ask_image()` takes a list, so Claude can compare images directly:
 
@@ -437,17 +484,21 @@ a, b = sorted(Path('data/m3/charts').iterdir())[:2]
 print(ask_image([a, b], 'The first image is chart A, the second chart B. What changed between them?'))"
 ```
 
-**Check:** the answer refers to both charts by A and B.
+**Check:** the answer refers to both charts by A and B. For the course sample, A is `chart01.png` (a bar chart of units sold) and B is `chart02.png` (a line chart of revenue and costs).
 
 ## Step 11 — Read text from a screenshot (OCR)
 
+**What you're doing:** testing Claude on printed text in an image (OCR), one of the tasks vision is strong at. You check its transcription line by line to see whether it could replace typing the text yourself.
+
 Take a screenshot with printed text (a terminal, an error dialog, a receipt) and save it as `data/m3/screenshot.png`.
 
-**No screenshot handy?** Download Tesseract's standard OCR test image, a scanned paragraph in English, French, Italian, German, Spanish and Dutch:
+**No screenshot handy?** Download Tesseract's standard OCR test image, a scanned paragraph in English, German, French, Italian, Spanish and Portuguese:
 
 ```bash
 curl -fL -o data/m3/screenshot.png https://tesseract-ocr.github.io/tessdoc/images/eurotext.png
 ```
+
+Ask Claude to transcribe it:
 
 ```bash
 python -c "
@@ -456,15 +507,29 @@ from lib_claude_multimodal import ask_image
 print(ask_image('data/m3/screenshot.png', 'Transcribe all text in this image exactly, preserving line breaks.'))"
 ```
 
-**Check:** compare the output to the screenshot line by line; note any misread characters.
+**Check:** prints the text of the image. For the Tesseract sample that's 13 lines, starting `The (quick) [brown] {fox} jumps!` and ending `salta sobre o cão preguiçoso.` Compare the output to the image line by line and note any misread characters, especially accents, quotation marks (`„schnelle”`, `«rapide»`) and symbols like `$43,456.78`.
 
 ## Step 12 — Decide what can run unattended, and commit
 
+**What you're doing:** writing down which image tasks you'd trust Claude to do alone and which need a person to check, using the error numbers from Step 9 as evidence. Then you save your work to git.
+
 Create `notes/m03_decision.md` answering, with your Step 9 numbers: which image tasks you'd run without a human check (e.g. titles, printed text, labeled values) and which need review (e.g. values estimated from bar heights).
+
+Stage the library, your scripts and your decision:
 
 ```bash
 git add lib_claude_multimodal.py m03_*.py notes/m03_decision.md
+```
+
+Commit them:
+
+```bash
 git commit -m "Module 3: image extraction and error measurement"
+```
+
+Push to GitHub:
+
+```bash
 git push
 ```
 

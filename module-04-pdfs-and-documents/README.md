@@ -5,6 +5,8 @@
 **You start with:** Module 3 done — `ask()`, `tool_input()`, `image_block()` and the pattern "extract → store → check with a query".
 **You finish with:** `ask_pdf()`, `extract_pdf_fields()` and `split_pdf()`; a folder of invoices turned into the `invoices` collection; bad files logged instead of crashing; an automatic totals check; prompt caching measured; and a prompt-injection test passed.
 
+**What this lab is about.** Much real business data arrives as PDFs: invoices, statements, contracts. Here you send PDFs straight to Claude, pull the fields you need (invoice number, date, vendor, total, line items) into MongoDB, and make the pipeline survive bad files instead of crashing. You then check the results yourself: a totals check, a hand spot-check, and a test that a hostile document can't trick Claude. Along the way you learn to split long PDFs and to cut cost with prompt caching.
+
 ## Key ideas (read once)
 
 - **Claude reads PDFs natively** — each page's text and an image of the page — so tables, charts and scans work without conversion.
@@ -34,7 +36,7 @@ from lib_claude_multimodal import ask, text_of, tool_input, image_block
 print('Modules 1-3 ok')"
 ```
 
-**Check:** prints `Modules 1-3 ok`. Module 4 also uses Pillow (Step 10), which `image_block()` already needs.
+**Check:** prints `Modules 1-3 ok`. Module 4 also uses Pillow (Steps 1 and 10), which `image_block()` already needs.
 
 **3. Find where you stopped**
 
@@ -89,8 +91,19 @@ print('injection stored: ', db_ro.invoices.count_documents({'source_file': 'zz_i
 
 ## Step 1 — Install pypdf and prepare the PDF folder
 
+**What you're doing:** setting up the test material for the whole module. You need a folder of real invoices, plus two awkward files on purpose: a scanned PDF with no text layer, and a broken PDF, so you can see how your code copes with both.
+
+Install pypdf, which reads page counts and splits PDFs:
+
 ```bash
 pip install pypdf
+```
+
+**Check:** the last line starts with `Successfully installed` (or says `Requirement already satisfied`).
+
+Make the folder for the PDFs:
+
+```bash
 mkdir -p data/m4/pdfs
 ```
 
@@ -105,6 +118,8 @@ for f in AmazonWebServices AzureInterior FlipkartInvoice NetpresseInvoice Qualit
     https://raw.githubusercontent.com/invoice-x/invoice2data/master/tests/compare/$f.pdf
 done
 ```
+
+**Check:** nine progress bars and no `curl: (22)` error.
 
 Then make the scanned one: an invoice drawn as an image and saved as PDF, so it has no selectable text. Create `m04_make_scan.py`:
 
@@ -145,27 +160,33 @@ Install Pillow (already installed if you did Module 3):
 pip install pillow
 ```
 
+**Check:** says `Requirement already satisfied` (or `Successfully installed pillow-…`).
+
 Make the scan:
 
 ```bash
 python m04_make_scan.py
 ```
 
-Whichever PDFs you use, now make **one corrupt PDF** by cutting a good one short:
+**Check:** prints `created data/m4/pdfs/scanned_invoice.pdf`.
+
+Whichever PDFs you use, now make **one corrupt PDF** by cutting a good one short (the first file in the folder; `AmazonWebServices.pdf` with the course sample):
 
 ```bash
 head -c 3000 "data/m4/pdfs/$(ls data/m4/pdfs | head -1)" > data/m4/pdfs/zz_corrupt.pdf
 ```
 
-**Check:**
+List the folder:
 
 ```bash
 ls data/m4/pdfs
 ```
 
-Output lists your PDFs plus `zz_corrupt.pdf`.
+**Check:** lists your PDFs plus `zz_corrupt.pdf`. With the course sample that's 11 files: the 9 invoices, `scanned_invoice.pdf` and `zz_corrupt.pdf`.
 
 ## Step 2 — Add `pdf_block()`, `pdf_page_count()` and `ask_pdf()`
+
+**What you're doing:** adding the basic tools for working with PDFs. `pdf_block()` packs a PDF so it can be sent to Claude, `pdf_page_count()` counts pages (and fails on a broken file), and `ask_pdf()` asks Claude a free-text question about one PDF. `DOC_RULE` tells Claude to treat document text as data, never as instructions.
 
 Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1):
 
@@ -208,9 +229,11 @@ print(p.name, pdf_page_count(p), 'pages')
 print(text_of(ask_pdf(p, 'What kind of document is this, who issued it, and what is the total?')))"
 ```
 
-Prints the page count and a correct one-paragraph answer.
+Prints the first PDF's name and page count, then a correct one-paragraph answer. With the course sample: `AmazonWebServices.pdf 1 pages`, and an answer describing an Amazon Web Services invoice with a total of USD 4.11.
 
 ## Step 3 — Add the invoice schema and `extract_pdf_fields()`
+
+**What you're doing:** moving from free-text answers to structured data. The schema lists exactly which fields you want from an invoice, and `extract_pdf_fields()` forces Claude to fill them in through a tool call, using `null` for anything it can't find, so the result can go straight into MongoDB.
 
 Append:
 
@@ -263,9 +286,11 @@ p = sorted(Path('data/m4/pdfs').glob('*.pdf'))[0]
 d = extract_pdf_fields(p); print({k: d[k] for k in d if k != 'lines'}); print(len(d['lines']), 'lines')"
 ```
 
-Prints invoice number, date, vendor, currency and total matching the PDF.
+Prints invoice number, date, vendor, currency and total matching the PDF, then the number of line items. With the course sample: `'invoice_no': '42183017'`, `'date': '2014-08-03'`, `'vendor': 'Amazon Web Services, Inc.'`, `'currency': 'USD'`, `'total': 4.11`.
 
 ## Step 4 — Confirm the corrupt file raises an error
+
+**What you're doing:** proving that the broken PDF from Step 1 fails in a way your code can catch. Checking the page count is a cheap test that runs before any API call, so a bad file can be skipped without spending money.
 
 ```bash
 python -c "
@@ -275,9 +300,11 @@ try: pdf_page_count('data/m4/pdfs/zz_corrupt.pdf')
 except Exception as e: print('caught:', type(e).__name__, e)"
 ```
 
-**Check:** prints `caught: …`. The folder pipeline in the next step relies on this error to skip the file.
+**Check:** prints `caught: PdfStreamError Stream has ended unexpectedly` (an `EOF marker not found` warning above it is pypdf noticing the same problem). The folder pipeline in the next step relies on this error to skip the file.
 
 ## Step 5 — Process the whole folder
+
+**What you're doing:** running the extraction on every PDF in the folder and storing each invoice in MongoDB. Real folders always contain some bad files, so the script logs each failure in `file_errors` and carries on instead of stopping.
 
 Create `m04_extract_folder.py`. Each file is either stored in `invoices` or logged in `file_errors` — one bad file never stops the run.
 
@@ -314,7 +341,7 @@ python m04_extract_folder.py
 
 An invoice and its lines are **one document**, with the lines embedded as an array — exactly the shape Claude returns.
 
-**Check:** every good PDF prints `OK` (including the scanned one), `zz_corrupt.pdf` prints `SKIP`, and the script finishes.
+**Check:** every good PDF prints `OK` (including the scanned one), `zz_corrupt.pdf` prints `SKIP  zz_corrupt.pdf: Stream has ended unexpectedly`, and the script finishes. With the course sample the last line is `10 stored, 1 skipped`.
 
 If a `WARNING: reply cut off at max_tokens=…` line appears, the invoice printed after it was stored incomplete: Claude ran out of room before writing every line item, so its `lines` field is missing or short. Invoices with many lines need a bigger reply. Raise the default in `extract_pdf_fields()` (e.g. `max_tokens=2048`), save `lib_claude_multimodal.py`, and rerun the script. `replace_one(..., upsert=True)` overwrites each invoice, so the rerun fixes it without duplicates:
 
@@ -324,6 +351,8 @@ python m04_extract_folder.py
 
 ## Step 6 — Look at what was stored
 
+**What you're doing:** confirming in MongoDB that the run did what it printed: one invoice per good PDF, and the corrupt file recorded as an error rather than silently lost.
+
 ```bash
 python -c "
 print('\n')
@@ -332,9 +361,11 @@ print('invoices:', db_ro.invoices.count_documents({}))
 for e in db_ro.file_errors.find({'module': 'm4'}, {'_id': 0, 'source_file': 1, 'error': 1}): print('error:', e)"
 ```
 
-**Check:** the invoice count equals your good PDFs, and `zz_corrupt.pdf` is listed as an error.
+**Check:** the invoice count equals your good PDFs (`invoices: 10` with the course sample), and one line `error: {'source_file': 'zz_corrupt.pdf', 'error': 'Stream has ended unexpectedly'}`. Several identical error lines mean you ran Step 5 more than once; see "Resuming safely" to clear them.
 
 ## Step 7 — Check that every invoice adds up
+
+**What you're doing:** letting the data check itself. If Claude read every line item correctly, the line amounts should sum to the invoice total. A MongoDB query finds the invoices where they don't, so you only have to look at those by hand.
 
 A correct extraction must have line amounts that sum to the total. Create `m04_check_totals.py`:
 
@@ -355,9 +386,24 @@ for b in bad:
 python m04_check_totals.py
 ```
 
-**Check:** open each listed PDF. Either Claude misread a number or missed a line (a real error), or the invoice has tax/discount lines outside the table (adjust the schema description and rerun Step 5).
+**Check:** prints `N invoice(s) where lines don't add up to the total`, then one line per invoice with its total and line sum. With the course sample expect a few, mostly invoices with tax, VAT or shipping outside the item table; for example `scanned_invoice.pdf: total 1239.0, lines sum 1180.0`, where the gap is the 59.00 VAT line.
+
+Look at each listed PDF. To print a PDF's text (replace the file name with one from your list):
+
+```bash
+python -c "
+print('\n')
+from pypdf import PdfReader
+for page in PdfReader('data/m4/pdfs/AzureInterior.pdf').pages: print(page.extract_text())"
+```
+
+**Check:** prints the invoice's text, including the item lines and the total. A scanned PDF such as `scanned_invoice.pdf` prints nothing because it has no text layer; open that one in a PDF viewer instead.
+
+For each listed invoice, either Claude misread a number or missed a line (a real error), or the invoice has tax/discount lines outside the table (adjust the schema description and rerun Step 5).
 
 ## Step 8 — Split long PDFs
+
+**What you're doing:** handling PDFs that are too long for one request. `split_pdf()` writes a long PDF out as several smaller PDFs that can each be sent on their own. The sample invoices are short, so you test it by splitting a 2-page PDF into one page per part.
 
 Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1):
 
@@ -379,20 +425,21 @@ def split_pdf(path, pages_per_part=50, out_dir="data/m4/parts"):
     return parts
 ```
 
-Test it on any multi-page PDF with one page per part:
+Test it on a multi-page PDF with one page per part (`QualityHosting.pdf` has 2 pages; with your own PDFs, use any file with more than one page):
 
 ```bash
 python -c "
 print('\n')
-from pathlib import Path
 from lib_claude_multimodal import split_pdf, pdf_page_count
-p = max(Path('data/m4/pdfs').glob('*.pdf'), key=lambda f: f.stat().st_size if f.name != 'zz_corrupt.pdf' else 0)
-parts = split_pdf(p, pages_per_part=1); print(len(parts), 'parts from', p.name, pdf_page_count(p), 'pages')"
+p = 'data/m4/pdfs/QualityHosting.pdf'
+parts = split_pdf(p, pages_per_part=1); print(len(parts), 'parts from', p, pdf_page_count(p), 'pages')"
 ```
 
-**Check:** the number of parts equals the page count.
+**Check:** prints `2 parts from data/m4/pdfs/QualityHosting.pdf 2 pages`: the number of parts equals the page count. The parts are in `data/m4/parts/` (`QualityHosting_p0001.pdf` and `QualityHosting_p0002.pdf`).
 
 ## Step 9 — Cut cost on repeated questions with prompt caching
+
+**What you're doing:** measuring prompt caching. Every question about a PDF normally sends the whole PDF again; with caching, Claude keeps the PDF for a few minutes and later questions read it from cache at a much lower price. The script prints the token counts so you can see the difference.
 
 When you ask several questions about the same PDF, cache it so later questions read it from cache. Create `m04_cache.py`:
 
@@ -412,9 +459,11 @@ for q in ["Who issued this?", "What is the due date?", "List the line items brie
 python m04_cache.py
 ```
 
-**Check:** the first question writes the PDF to the cache; the next two read it from cache. Cached reads are much cheaper than normal input. (Very short PDFs can be below the minimum cacheable size; if both numbers stay 0, try a longer PDF.)
+**Check:** prints three `Q:` lines, each with its token counts. The first question shows a number above 0 for `written to cache`; the next two show about the same number for `read from cache`. Cached reads are much cheaper than normal input. (Very short PDFs can be below the minimum cacheable size; if both numbers stay 0, try a longer PDF.)
 
 ## Step 10 — Test prompt injection
+
+**What you're doing:** attacking your own pipeline. You make a fake invoice with a hidden instruction for AI systems written on it, run the folder extraction again, and confirm the instruction was ignored. This shows `DOC_RULE` and the forced tool call keep document text as data.
 
 Create a fake invoice containing an attack, as an image saved as PDF. Create `m04_make_injection.py`:
 
@@ -433,18 +482,36 @@ img.save("data/m4/pdfs/zz_injection.pdf")
 print("created data/m4/pdfs/zz_injection.pdf")
 ```
 
+Make the fake invoice:
+
 ```bash
 python m04_make_injection.py
+```
+
+**Check:** prints `created data/m4/pdfs/zz_injection.pdf`.
+
+Run the folder extraction again so the new file is processed (this calls the API once per PDF; clear the old `file_errors` rows first as shown in "Resuming safely" if you want Step 6 to stay tidy):
+
+```bash
 python m04_extract_folder.py
+```
+
+**Check:** includes a line `OK    zz_injection.pdf: INV-9001 total 500.0`. With the course sample the last line is `11 stored, 1 skipped`.
+
+Read back what was stored for it:
+
+```bash
 python -c "
 print('\n')
 from lib_claude_multimodal import db_ro
 print(db_ro.invoices.find_one({'source_file': 'zz_injection.pdf'}, {'_id': 0, 'vendor': 1, 'total': 1}))"
 ```
 
-**Check:** vendor is `Test Supplies LLC` and total is `500.0` — the planted instruction had no effect.
+**Check:** prints `{'vendor': 'Test Supplies LLC', 'total': 500.0}` — the planted instruction had no effect.
 
 ## Step 11 — Spot-check 10 invoices by hand
+
+**What you're doing:** checking the extraction the slow, reliable way. Automatic checks catch some mistakes, but only comparing fields with the PDFs by eye tells you whether the numbers, dates and names are really right.
 
 Export to a CSV you can open next to the PDFs:
 
@@ -457,15 +524,50 @@ rows = list(db_ro.invoices.find({}, {'_id': 0, 'lines': 0}))
 pd.DataFrame(rows).to_csv('data/m4/invoices_check.csv', index=False); print(len(rows), 'rows')"
 ```
 
-Open `data/m4/invoices_check.csv` and compare 10 rows field by field with their PDFs.
+**Check:** prints `11 rows` with the course sample (the 10 invoices plus `zz_injection.pdf`).
+
+Open `data/m4/invoices_check.csv` in a spreadsheet, or print it as a table:
+
+```bash
+python -c "
+print('\n')
+import pandas as pd
+print(pd.read_csv('data/m4/invoices_check.csv').to_string())"
+```
+
+**Check:** one row per invoice with `invoice_no`, `date`, `vendor`, `currency`, `total`, `source_file` and `pages`; for example `42183017  2014-08-03  Amazon Web Services, Inc.  USD  4.11  AmazonWebServices.pdf  1`.
+
+Compare 10 rows field by field with their PDFs (Step 7 shows how to print a PDF's text).
 
 **Check:** all 10 rows match, or every difference is explained and fixed.
 
 ## Step 12 — Commit
 
+**What you're doing:** saving your work to git. Only the code goes in: the library and this module's scripts, never the PDFs or CSV in `data/`.
+
+Stage the library and this module's scripts:
+
 ```bash
 git add lib_claude_multimodal.py m04_*.py
+```
+
+Run the check:
+
+```bash
+git status
+```
+
+**Check:** lists only those files under "Changes to be committed".
+
+Commit them:
+
+```bash
 git commit -m "Module 4: PDF extraction, error handling, caching, injection test"
+```
+
+Push to your remote:
+
+```bash
 git push
 ```
 

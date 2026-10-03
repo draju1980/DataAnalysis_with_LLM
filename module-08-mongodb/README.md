@@ -5,6 +5,8 @@
 **You start with:** Modules 1–7 done — MongoDB already holds `llm_calls`, `eval_items`, `eval_results`, `predictions`, `chart_values`, `chart_truth`, `invoices`, `file_errors`, `transcript_segments`, `action_items` and `log_events`.
 **You finish with:** `describe_mongo()`, `run_pipeline()` and `ask_mongo()`; Claude answering 10 cross-collection questions with aggregation pipelines it writes itself; and proof that writes are blocked twice — by your checker and by the database user.
 
+**What this lab is about.** Modules 1–7 each stored their results in MongoDB; now you query all of it together. You first write a few aggregation pipelines yourself, then give Claude a description of your collections and a guarded tool that runs read-only pipelines, so it can answer plain-English questions across collections. You check every answer against your own pipelines and prove that Claude can't change the data, even if it tries. This is the pattern behind any "ask your database" assistant: Claude writes the query, but your code decides what it may run.
+
 ## Key ideas (read once)
 
 - **Roles flip.** Until now you checked Claude's output with pipelines. Now Claude writes the pipelines, running as the read-only `course_ro` user.
@@ -63,7 +65,7 @@ print('missing collections:', [c for c in want if c not in have] or 'none')"
 - Everything in this module reads; nothing you rerun changes your data. Each `ask_mongo()` call does cost API tokens.
 - Step 6 can span sessions: edit `QUESTIONS` in `m08_my_answers.py` and rerun it. Each run rewrites `data/m8/questions.txt` and `notes/m08_answers.md`.
 - `m08_ask.py` asks all 10 questions again and overwrites `notes/m08_results.md`. That's what Step 8 wants after each fix.
-- If `python m08_inventory.py` ever shows an `error_archive` collection, a write got through: stop and recheck Module 0 Step 12 before going on.
+- If `python m08_inventory.py` (the script you create in Step 1) ever shows an `error_archive` collection, a write got through: stop and recheck Module 0 Step 12 before going on.
 - Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-8) at the end of the page.
 - **To stop for the day**, stop MongoDB (or leave it running; your data stays):
 
@@ -76,6 +78,8 @@ print('missing collections:', [c for c in want if c not in have] or 'none')"
 ---
 
 ## Step 1 — Take inventory of what you've built
+
+**What you're doing:** listing every collection in the `course` database with its document count, so you know what data Claude will be able to query. You'll reuse this small script in Step 9 to confirm no write got through.
 
 Create `m08_inventory.py`:
 
@@ -90,9 +94,11 @@ for name in sorted(db_ro.list_collection_names()):
 python m08_inventory.py
 ```
 
-**Check:** you see the collections from Modules 1–7 with document counts above 0 (except any module you skipped).
+**Check:** one line per collection in alphabetical order, such as `action_items`, `chart_truth`, `chart_values`, `eval_items`, `eval_results`, `file_errors`, `invoices`, `llm_calls`, `log_events`, `predictions` and `transcript_segments`, each with a document count above 0 (except any module you skipped). A `hello` collection from Module 0 can appear too; that's fine.
 
 ## Step 2 — Write three pipelines yourself first
+
+**What you're doing:** writing one pipeline of each main kind (group, unwind an array, join with `$lookup`) by hand. Once you can read and predict these, you can judge the pipelines Claude writes later.
 
 Before Claude writes pipelines, write one of each kind so you can judge Claude's. Create `m08_practice.py`:
 
@@ -125,9 +131,11 @@ for r in db_ro.action_items.aggregate([
 python m08_practice.py
 ```
 
-**Check:** all three print results. Change one stage in each and rerun until you can predict the output.
+**Check:** prints the three headings `1) …`, `2) …` and `3) …`, each followed by result lines: per-module costs and call counts (such as `{'_id': 'm2-batch', 'cost': …, 'calls': 600}`), up to 5 invoice line descriptions with `times` and `amount`, and up to 5 action items with `owner`, `item` and `segments`. Change one stage in each and rerun until you can predict the output.
 
 ## Step 3 — Add `describe_mongo()` so Claude knows the data
+
+**What you're doing:** building the text Claude reads before it writes any pipeline: each collection's size, a one-line meaning, and the field names and types found in a sample of documents. Without it Claude would have to guess field names, and guessed names silently return nothing.
 
 MongoDB has no fixed schema, so Claude needs a summary: collections, field paths with types (sampled), and what each collection means. Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1):
 
@@ -180,9 +188,11 @@ def describe_mongo(sample=50):
 python -c "print('\n'); from lib_claude_multimodal import describe_mongo; print(describe_mongo())"
 ```
 
-Output prints every collection with its note and fields. Nested fields like `lines.amount` and dates (`datetime`) appear.
+Prints one section per collection, such as `## invoices (11 docs)`, followed by its note and a `Fields:` line. Nested fields like `lines.amount (float/int)` and dates such as `ts (datetime)` appear. A collection without a note (such as `hello`) just has an empty note line.
 
 ## Step 4 — Add `run_pipeline()`, the guarded query runner
+
+**What you're doing:** writing the only function Claude will use to touch the database. It parses dates correctly, refuses unknown collections and write operators (even hidden inside other stages), caps the result size and stops slow queries, all while connected as the read-only user.
 
 Append:
 
@@ -233,9 +243,11 @@ for bad in ['[{\"\$out\": \"copy\"}]',
     except ValueError as e: print('blocked:', e)"
 ```
 
-Prints a group result, a non-zero date count, and `blocked:` twice (the second hides `$merge` inside `$lookup`).
+Prints four lines: `1 ok: [{"_id": "m2-batch", "n": 600}, …` (the first 120 characters of a call count per module, in any order), `2 date: [{"n": …}]` with a number above 0, then `blocked: blocked operators: ['$out']` and `blocked: blocked operators: ['$merge']` (the second hides `$merge` inside `$lookup`). If `2 date:` prints `[]`, the date was compared as a string: check that you used `json_util.loads`.
 
 ## Step 5 — Add `ask_mongo()` and ask one question
+
+**What you're doing:** connecting Claude to `run_pipeline()` as a tool. `ask_mongo()` gives Claude the `describe_mongo()` summary and a question; Claude writes pipelines, your code runs them, and Claude answers from the results. It returns the answer and the pipelines, so you can check how Claude got there.
 
 Append:
 
@@ -274,9 +286,11 @@ answer, pipes = ask_mongo('How much did each module cost in Claude API calls so 
 print(answer)"
 ```
 
-Prints `[tool] run_pipeline …` and per-module costs that match `python m08_practice.py` part 1.
+Prints one or more `[tool] run_pipeline {'collection': 'llm_calls', …}` lines, then an answer with a cost per module. The costs match part 1 of `python m08_practice.py` (Step 2), apart from this question's own calls, which `ask_mongo()` logs as `m8`.
 
 ## Step 6 — Write 10 questions and answer them yourself
+
+**What you're doing:** creating the answer key. You run 10 cross-collection questions with pipelines you wrote and checked yourself, and save both the questions and the correct results, so Claude's answers in Step 7 have something to be judged against.
 
 Before Claude answers anything, you need the right answers to check it against. Like Step 2, you answer each question with **your own pipeline**. One script holds the questions and pipelines, runs them, and writes two files:
 
@@ -380,6 +394,8 @@ python m08_my_answers.py
 
 ## Step 7 — Let Claude answer all 10
 
+**What you're doing:** sending the same 10 questions to `ask_mongo()` in one run and saving each answer with the pipelines Claude used, so you can compare them with your own in Step 8.
+
 Create `m08_ask.py`:
 
 ```python
@@ -404,15 +420,37 @@ print("wrote notes/m08_results.md")
 python m08_ask.py
 ```
 
-**Check:** `notes/m08_results.md` has 10 answers, each with the pipelines that produced it.
+**Check:** the terminal shows `[tool] run_pipeline …` lines and `1. done` through `10. done`, then `wrote notes/m08_results.md`. That file has 10 answers, each followed by the pipelines that produced it.
 
 ## Step 8 — Compare and fix
 
-Compare `notes/m08_answers.md` with `notes/m08_results.md`. For each mismatch, read Claude's pipeline. Common causes: a date written as a plain string, a field name guessed wrong, a `$lookup` on the wrong key. Fix the **input** — usually a clearer line in `COLLECTION_NOTES` — then rerun Step 7.
+**What you're doing:** checking Claude's 10 answers against your answer key and, for each wrong one, finding why. You fix what Claude is told about the data rather than the answer itself, so the next run gets it right on its own.
 
-**Check:** all 10 answers match yours.
+Print your answers:
+
+```bash
+cat notes/m08_answers.md
+```
+
+Print Claude's answers:
+
+```bash
+cat notes/m08_results.md
+```
+
+**Check:** both files have sections `## 1.` to `## 10.` with the same questions, so you can compare them one by one.
+
+For each mismatch, read Claude's pipeline. Common causes: a date written as a plain string, a field name guessed wrong, a `$lookup` on the wrong key. Fix the **input** — usually a clearer line in `COLLECTION_NOTES` in `lib_claude_multimodal.py` — then rerun Step 7:
+
+```bash
+python m08_ask.py
+```
+
+**Check:** after the rerun, all 10 answers in `notes/m08_results.md` match yours.
 
 ## Step 9 — Guardrail test 1: the checker rejects a write request
+
+**What you're doing:** asking Claude, through `ask_mongo()`, to do something it must not: copy data into a new collection. This tests the first layer, your checker in `run_pipeline()`, against a real request rather than a hand-written bad pipeline.
 
 ```bash
 python -c "
@@ -424,15 +462,19 @@ print(answer)"
 
 Claude may try `$out` or `$merge`; the checker returns `blocked operators` to it, and it should report that it can't write.
 
-**Check:**
+**Check:** the answer says it can't create or write a collection (it may first show a `[tool] run_pipeline` line with `$out` or `$merge`, or none at all if Claude refuses straight away).
+
+Now confirm nothing was written:
 
 ```bash
 python m08_inventory.py
 ```
 
-Output shows **no** `error_archive` collection.
+**Check:** the same list as in Step 1, with **no** `error_archive` collection.
 
 ## Step 10 — Guardrail test 2: the database blocks it even without the checker
+
+**What you're doing:** testing the second layer on its own. If your checker ever had a bug, the read-only `course_ro` user should still stop any write on the server, so you send `$out` directly and confirm MongoDB refuses it.
 
 Bypass your checker and send `$out` straight to the server as `course_ro`:
 
@@ -449,19 +491,37 @@ except OperationFailure as e: print('server blocked it:', e.details.get('errmsg'
 
 ## Step 11 — Optional: explore with the MongoDB MCP server
 
+**What you're doing:** seeing the same idea as `ask_mongo()` packaged as a ready-made tool. An MCP server lets a Claude app query your database directly, and you keep it safe the same way: a read-only user plus read-only mode.
+
 MongoDB's official MCP server lets Claude Desktop or Claude Code browse your database without code. Configure it with your **read-only** connection string (`MONGODB_URI` from `.env`) and its read-only mode enabled — never the `course_rw` string. Follow the setup in MongoDB's MCP server documentation.
 
 **Check:** in Claude Desktop, ask "list the collections in the course database" and get the Step 1 list.
 
 ## Step 12 — Commit
 
+**What you're doing:** saving this module's library functions, scripts and notes to your repository, so the work is backed up and Module 9 starts from a known state.
+
+Stage the files:
+
 ```bash
 git add lib_claude_multimodal.py m08_*.py notes/m08_answers.md notes/m08_results.md
+```
+
+Commit them:
+
+```bash
 git commit -m "Module 8: describe_mongo, guarded run_pipeline, ask_mongo"
+```
+
+**Check:** prints a line with your branch and `Module 8: describe_mongo, guarded run_pipeline, ask_mongo`, and a count of files changed.
+
+Push:
+
+```bash
 git push
 ```
 
-**Check:** pushed.
+**Check:** ends with a line such as `abc1234..def5678  main -> main` (your branch name may differ). The progress check at the top now shows `done  Step 12  committed`.
 
 ## Complete `lib_claude_multimodal.py` after Module 8
 

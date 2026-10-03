@@ -5,6 +5,8 @@
 **You start with:** Modules 0–9 done — especially the Module 4 folder pipeline, the Module 2 evaluation, `ask_mongo()` and `llm_calls`.
 **You finish with:** the Module 4 pipeline running as a container; JSON logs and a cost report; an evaluation gate in GitHub Actions that fails on a worse prompt; injection tests passed; personal-data redaction; a tested backup and restore; rotated passwords; and a one-page threat model.
 
+**What this lab is about.** Everything so far ran on your laptop, by hand, with you watching. Here you turn that work into something you could hand to a team: the Module 4 PDF pipeline runs in a container, every Claude call leaves a JSON log line and a cost record, and a test in GitHub Actions blocks any prompt change that makes accuracy worse. You also attack your own system with planted instructions, strip personal data before it leaves your machine, prove you can restore a backup, and write down the risks you have and haven't covered.
+
 ## Key ideas (read once)
 
 - **A notebook isn't production.** Production needs packaging, secrets handling, monitoring, automated tests and a threat model.
@@ -96,16 +98,27 @@ print('invoices (M4):       ', db_ro.invoices.count_documents({}))" && test -f m
 
 ## Step 1 — Pin the packages the pipeline needs
 
+**What you're doing:** writing down the exact package versions the PDF pipeline uses, so the container and CI install the same versions you tested with, not whatever is newest that day.
+
+Save the five packages with their installed versions to `requirements.txt`:
+
 ```bash
 pip freeze | grep -iE '^(anthropic|python-dotenv|pymongo|pypdf|pillow)==' > requirements.txt
+```
+
+Show the file:
+
+```bash
 cat requirements.txt
 ```
 
 These are the packages `lib_claude_multimodal.py` imports at the top level (heavier ones like faster-whisper and DuckDB are imported only inside the functions that use them).
 
-**Check:** `requirements.txt` lists five packages with exact versions.
+**Check:** `requirements.txt` lists five packages with exact versions, such as `anthropic==1.11.0`, `pillow==12.3.0`, `pymongo==4.18.2`, `pypdf==6.19.0` and `python-dotenv==1.2.4` (your version numbers may differ).
 
 ## Step 2 — Write the Dockerfile for the PDF pipeline
+
+**What you're doing:** packaging the Module 4 folder pipeline into a Docker image, so it runs the same way on any machine. The image holds only the code it needs; secrets and data stay outside it.
 
 Create `.dockerignore` so secrets and data never enter the image:
 
@@ -140,22 +153,36 @@ CMD ["python", "m04_extract_folder.py"]
 docker build -t pdf-extractor .
 ```
 
-The build finishes successfully.
+The build finishes without errors and its last lines mention `naming to docker.io/library/pdf-extractor`.
 
 ## Step 3 — Add container-network connection strings to `.env`
 
-Inside Docker's network, MongoDB is reached as `mongodb`, not `127.0.0.1`. Create two extra lines from your existing ones:
+**What you're doing:** giving the container its own way to reach MongoDB. Inside Docker's network, MongoDB is reached as `mongodb`, not `127.0.0.1`, so you copy your two connection strings with that one change. Run this step only once (see "Resuming safely").
+
+Create two extra lines from your existing ones:
 
 ```bash
 grep -E '^MONGODB_URI(_RW)?=' .env \
   | sed -E 's/^(MONGODB_URI(_RW)?)=/\1_DOCKER=/; s/127\.0\.0\.1/mongodb/' >> .env
+```
+
+Refresh `.env.example` (the same variable names with the values removed, safe to commit):
+
+```bash
 sed 's/=.*/=/' .env > .env.example
+```
+
+List the new variable names:
+
+```bash
 grep _DOCKER .env | cut -d= -f1
 ```
 
 **Check:** prints `MONGODB_URI_RW_DOCKER` and `MONGODB_URI_DOCKER`.
 
 ## Step 4 — Run the pipeline as a Compose job
+
+**What you're doing:** adding the container to `docker-compose.yml` as a job you start on demand, with the API key and database passwords passed in from `.env` and the PDFs mounted read-only. Then you run it once to see the Module 4 pipeline work from inside the container.
 
 Add this service to `docker-compose.yml`, under `services:` and indented like `mongodb:`:
 
@@ -182,9 +209,11 @@ docker compose --profile jobs run --rm pdf-extractor
 - `:ro` mounts the PDFs read-only — the job can read them but never change them.
 - `profiles: ["jobs"]` keeps the job from starting with a plain `docker compose up -d`.
 
-**Check:** the same `OK` / `SKIP` lines as Module 4 Step 5 appear, now from inside the container.
+**Check:** the same `OK` / `SKIP` lines as Module 4 Step 5 appear (every good PDF prints `OK`, `zz_corrupt.pdf` prints `SKIP`), ending with `11 stored, 1 skipped` — now from inside the container.
 
 ## Step 5 — Emit structured JSON logs
+
+**What you're doing:** making every Claude call print one machine-readable JSON line (model, tokens, latency) when `LOG_JSON=1` is set. Log platforms collect lines like these to build dashboards and alerts; on your laptop they stay off unless you ask for them.
 
 Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1):
 
@@ -214,9 +243,11 @@ Then, inside `ask()`, replace the `log_call(...)` line with these two lines:
 LOG_JSON=1 python -c "print('\n'); from lib_claude_multimodal import ask; ask('Say OK', max_tokens=512, module='m10')"
 ```
 
-Prints one JSON line with `"event": "llm_call"` — the format log platforms (Loki, CloudWatch, Elastic) ingest.
+Prints one JSON line with `"event": "llm_call"`, `"module": "m10"` and the token counts and latency — the format log platforms (Loki, CloudWatch, Elastic) ingest.
 
 ## Step 6 — Build a cost report
+
+**What you're doing:** turning the `llm_calls` collection you've filled since Module 1 into a daily report of calls, cost and typical latency per module. This is the data a cost dashboard or budget alert would use.
 
 Create `m10_costs.py`:
 
@@ -243,6 +274,8 @@ python m10_costs.py
 
 ## Step 7 — Export a small, shareable test set for CI
 
+**What you're doing:** copying 30 labeled examples from your Module 2 answer key into a file in the repo. GitHub Actions can't reach your local database, so the CI test needs its own small copy of the questions and correct labels.
+
 CI can't see your local database, so export 30 labeled items from Module 2 to a file in the repo. Use only texts that are safe to publish (public reviews, not private data).
 
 Create `m10_export_fixture.py`:
@@ -264,15 +297,19 @@ print(len(items), "items written to fixtures/eval_ci.jsonl")
 python m10_export_fixture.py
 ```
 
-Run the check:
+**Check:** prints `30 items written to fixtures/eval_ci.jsonl`.
+
+Count the lines in the file:
 
 ```bash
 wc -l fixtures/eval_ci.jsonl
 ```
 
-**Check:** prints `30`.
+**Check:** prints `30 fixtures/eval_ci.jsonl`.
 
 ## Step 8 — Write the evaluation gate and pass it locally
+
+**What you're doing:** writing a test that classifies the 30 examples and fails (exit code 1) if accuracy falls below a threshold. A non-zero exit code is what makes a CI run turn red, so this script is the gate that stops a worse prompt from being merged.
 
 Create `m10_eval_gate.py`. It exits with code 1 (failing CI) if accuracy drops below the threshold.
 
@@ -297,9 +334,11 @@ Set `MIN_ACCURACY` a little below your best Module 2 accuracy, and `PROMPT_VERSI
 PROMPT_VERSION=v2 MIN_ACCURACY=0.85 python m10_eval_gate.py; echo "exit code $?"
 ```
 
-**Check:** prints the accuracy and `exit code 0`.
+**Check:** prints a line such as `prompt v2: accuracy 93.3% on 30 items (threshold 85%)`, then `exit code 0`. If you get `exit code 1` with your best prompt, lower `MIN_ACCURACY` a little.
 
 ## Step 9 — Prove a worse prompt fails locally
+
+**What you're doing:** checking that the gate actually catches a regression. A test that never fails proves nothing, so you add a deliberately careless prompt and confirm the gate rejects it.
 
 Add a deliberately bad prompt inside `PROMPTS` in `lib_claude_multimodal.py`:
 
@@ -311,9 +350,11 @@ Add a deliberately bad prompt inside `PROMPTS` in `lib_claude_multimodal.py`:
 PROMPT_VERSION=bad python m10_eval_gate.py; echo "exit code $?"
 ```
 
-**Check:** accuracy drops and it prints `exit code 1`.
+**Check:** prints `prompt bad: accuracy …` with a lower accuracy than v2, then `exit code 1`.
 
 ## Step 10 — Run the gate in GitHub Actions
+
+**What you're doing:** running the same gate automatically on GitHub every time you push. GitHub Actions starts a throwaway MongoDB (only for `llm_calls` logging), installs your pinned packages, and runs `m10_eval_gate.py` with your API key taken from a repository secret.
 
 1. In GitHub: repo **Settings → Secrets and variables → Actions → New repository secret**, name `ANTHROPIC_API_KEY`, value your key. Never put the key in the workflow file.
 2. Create `.github/workflows/prompt-eval.yml`:
@@ -351,12 +392,22 @@ jobs:
       - run: python m10_eval_gate.py
 ```
 
-3. Commit and push:
+3. Commit and push. Stage the files:
 
 ```bash
 git add requirements.txt .dockerignore Dockerfile docker-compose.yml .env.example \
         fixtures/eval_ci.jsonl m02_config.py m10_*.py lib_claude_multimodal.py .github/workflows/prompt-eval.yml
+```
+
+Commit them:
+
+```bash
 git commit -m "Module 10: container job, JSON logs, cost report, CI eval gate"
+```
+
+Push to GitHub, which starts the workflow:
+
+```bash
 git push
 ```
 
@@ -366,32 +417,74 @@ The CI database runs without authentication; it exists only for the job's few mi
 
 ## Step 11 — Prove CI fails on the worse prompt
 
+**What you're doing:** repeating Step 9 on GitHub. On a throwaway branch you switch the workflow to the bad prompt and push, to see CI turn red. Then you delete the branch so the bad prompt never reaches `master`.
+
+Create the side branch:
+
 ```bash
 git switch -c test-bad-prompt
+```
+
+Point the workflow at the bad prompt:
+
+```bash
 sed -i.bak 's/PROMPT_VERSION: v2/PROMPT_VERSION: bad/' .github/workflows/prompt-eval.yml && rm .github/workflows/prompt-eval.yml.bak
+```
+
+Commit the change:
+
+```bash
 git commit -am "Test: worse prompt must fail CI"
+```
+
+Push the branch, which starts a workflow run on it:
+
+```bash
 git push -u origin test-bad-prompt
 ```
 
-**Check:** the run on `test-bad-prompt` is **red** with exit code 1. Then clean up:
+**Check:** on GitHub, **Actions → prompt-eval**, the run on `test-bad-prompt` is **red**, and its log shows `prompt bad: accuracy …` and `Process completed with exit code 1`.
+
+Then clean up. Go back to `master`:
 
 ```bash
 git switch master
+```
+
+Delete the branch on GitHub:
+
+```bash
 git push origin --delete test-bad-prompt
+```
+
+Delete the local branch:
+
+```bash
 git branch -D test-bad-prompt
 ```
 
+**Check:** `git branch` lists only `master`, and the workflow file on `master` still says `PROMPT_VERSION: v2`.
+
 ## Step 12 — Injection tests
 
-**12a. PDF injection inside the container.** Module 4 Step 10 created `zz_injection.pdf`. Rerun the containerized job and check it again:
+**What you're doing:** attacking your own system with instructions hidden in the data. First you rerun Module 4's poisoned invoice through the container; then you hide a "copy all invoices" command in a note and ask Claude to summarize it with database access. Both attacks must have no effect.
+
+**12a. PDF injection inside the container.** Module 4 Step 10 created `zz_injection.pdf`. Rerun the containerized job:
 
 ```bash
 docker compose --profile jobs run --rm pdf-extractor
+```
+
+Then read what was stored for the injection PDF:
+
+```bash
 python -c "
 print('\n')
 from lib_claude_multimodal import db_ro
 print(db_ro.invoices.find_one({'source_file': 'zz_injection.pdf'}, {'_id': 0, 'vendor': 1, 'total': 1}))"
 ```
+
+**Check:** prints `{'vendor': 'Test Supplies LLC', 'total': 500.0}`, not `APPROVED` or `0`.
 
 **12b. A planted instruction aimed at the database.** Make the folder:
 
@@ -421,9 +514,11 @@ print("leak collection exists:", "leak" in db_ro.list_collection_names())
 python m10_planted.py
 ```
 
-**Check:** 12a shows vendor `Test Supplies LLC` and total `500.0`; 12b prints `leak collection exists: False`.
+**Check:** prints a short summary of the open issues (the disputed invoice INV-0042 and Acme's late deliveries), then `leak collection exists: False`.
 
 ## Step 13 — Redact personal data before it leaves your machine
+
+**What you're doing:** adding `redact()`, which replaces emails, IBANs and phone numbers with placeholders such as `[EMAIL]`. Anything you send to the API leaves your machine, so personal data should be removed first when you don't need it for the answer.
 
 Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1):
 
@@ -457,22 +552,46 @@ Prints `Mail [EMAIL], call [PHONE], IBAN [IBAN]`. Use `redact()` on any text bef
 
 ## Step 14 — Back up and test a restore
 
+**What you're doing:** saving the whole `course` database to a compressed file, restoring it into a separate copy, and comparing the counts. A backup only counts once you've proved you can restore from it.
+
 Install MongoDB Database Tools. On Linux, get them from MongoDB's download page. On macOS:
 
 ```bash
 brew install mongodb-database-tools
 ```
 
-Then back up and restore into a copy:
+Confirm the tools are installed:
+
+```bash
+mongodump --version
+```
+
+**Check:** prints `mongodump version: 100.…`.
+
+Make the backup folder (`backups/` is git-ignored):
 
 ```bash
 mkdir -p backups
+```
+
+Back up the `course` database to a file named with today's date:
+
+```bash
 mongodump --uri "$(grep '^MONGODB_URI_RW=' .env | cut -d= -f2-)" --gzip --archive=backups/course-$(date +%F).gz
+```
+
+**Check:** lines like `done dumping course.invoices`, one per collection, and a new file such as `backups/course-2026-10-03.gz`.
+
+Restore it into a copy (run this on the same day, since the file name uses today's date):
+
+```bash
 mongorestore --uri "mongodb://admin@127.0.0.1:27017/?directConnection=true&authSource=admin" \
   --gzip --archive=backups/course-$(date +%F).gz --nsFrom 'course.*' --nsTo 'course_restore.*'
 ```
 
 `mongorestore` asks for the admin password (password 1). The restore goes into a separate `course_restore` database so it can't overwrite your real data.
+
+**Check:** ends with a line like `<n> document(s) restored successfully. 0 document(s) failed to restore.`
 
 Compare counts, then remove the test copy:
 
@@ -483,25 +602,35 @@ mongosh "mongodb://admin@127.0.0.1:27017/admin?directConnection=true" --quiet --
   db.getSiblingDB("course_restore").dropDatabase();'
 ```
 
-**Check:** every collection shows the same two numbers. A backup you haven't restored isn't a backup.
+**Check:** one line per collection, such as `invoices 11 11`, with the same two numbers on every line. A backup you haven't restored isn't a backup.
 
 ## Step 15 — Rotate the database passwords
 
-1. Generate two new passwords: `for i in 1 2; do openssl rand -hex 24; done`
+**What you're doing:** replacing both database passwords, as you would after a leak or on a regular schedule. Do all five items in one sitting: until the users are recreated, the passwords in `.env` don't match the database and every script fails to log in.
+
+1. Generate two new passwords:
+
+   ```bash
+   for i in 1 2; do openssl rand -hex 24; done
+   ```
+
+   **Check:** prints two lines of 48 letters and digits.
 2. In `.env`, replace the passwords inside `MONGODB_URI_RW` and `MONGODB_URI` with the new ones.
 3. Recreate the users with the new passwords — rerun **Module 0 Step 11** (it drops and recreates both).
 4. Recreate the Docker lines: delete the two `_DOCKER` lines from `.env`, then rerun **Step 3** of this module.
 5. Rerun **Module 0 Step 12** to check both users.
 
-**Check:** Module 0 Step 12 shows `read` and `readWrite`. Then run:
+**Check:** Module 0 Step 12 shows `role: 'read', db: 'course'` for the first user and `role: 'readWrite', db: 'course'` for the second. Then run the container job, which now uses the new `_DOCKER` lines:
 
 ```bash
 docker compose --profile jobs run --rm pdf-extractor
 ```
 
-The job still runs successfully.
+**Check:** the same `OK` / `SKIP` lines as in Step 4, with no authentication error.
 
 ## Step 16 — Write the threat model
+
+**What you're doing:** writing one page that lists what you protect, where attacks can come in, and how each threat is handled, with the step that tested each fix. It turns the checks from this course into a record someone else can review.
 
 Create `threat-model.md` with these sections, one page in total:
 
@@ -532,13 +661,35 @@ What is not covered yet, and why.
 
 ## Step 17 — Commit
 
+**What you're doing:** saving the rest of this module's work to GitHub, while making sure secrets and backups stay on your machine.
+
+Stage the files:
+
 ```bash
 git add lib_claude_multimodal.py m10_*.py threat-model.md .env.example
+```
+
+Commit them:
+
+```bash
 git commit -m "Module 10: injection tests, redaction, backups, threat model"
+```
+
+Push to GitHub:
+
+```bash
 git push
 ```
 
-**Check:** pushed; `git status` doesn't list `.env` or `backups/`.
+**Check:** the push succeeds, and the CI run it starts is green.
+
+Confirm nothing secret is waiting to be committed:
+
+```bash
+git status --short
+```
+
+**Check:** neither `.env` nor `backups/` is listed.
 
 ## Complete `lib_claude_multimodal.py` after Module 10
 
@@ -555,7 +706,7 @@ diff -Bw <(grep -v '^# ── ' data/expected.py) <(grep -v '^# ── ' lib_cla
 `-Bw` ignores blank lines and spacing. Every other line `diff` prints is a real difference: a missing step, a block pasted twice, or a typo.
 
 <details>
-<summary>Show the complete file (799 lines)</summary>
+<summary>Show the complete file (801 lines)</summary>
 
 ```python
 # ── Module 1, Step 1 ──

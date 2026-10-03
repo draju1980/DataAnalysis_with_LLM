@@ -379,7 +379,7 @@ diff -Bw <(grep -v '^# ── ' data/expected.py) <(grep -v '^# ── ' lib_cla
 `-Bw` ignores blank lines and spacing. Every other line `diff` prints is a real difference: a missing step, a block pasted twice, or a typo.
 
 <details>
-<summary>Show the complete file (767 lines)</summary>
+<summary>Show the complete file (769 lines)</summary>
 
 ```python
 # ── Module 1, Step 1 ──

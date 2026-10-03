@@ -5,6 +5,8 @@
 **You start with:** Module 1 done — `ask()`, `tool_input()`, `cost_of()`, `log_call()` in `lib_claude_multimodal.py`.
 **You finish with:** `classify()`; a hand-labeled test set in MongoDB; an evaluation script you can rerun after any prompt change; a comparison of two prompt versions; and 500 texts classified with the Batches API at half price.
 
+**What this lab is about.** You turn Claude into a text classifier that sorts 600 product reviews into fixed labels such as `positive`, `negative` and `neutral`. Before trusting it, you label 100 reviews yourself and measure how often Claude agrees, so every prompt change is judged by a number rather than by eye. Finally you run all 600 through the Batches API, which costs half as much when you can wait for results. This measure-then-scale habit is what you'll reuse for images, PDFs and audio in later modules.
+
 ## Key ideas (read once)
 
 - **Structured output with a forced tool.** Instead of asking for JSON in words, define a tool whose input schema *is* the shape you want and force Claude to call it. An `enum` limits the answer to your fixed labels.
@@ -67,14 +69,16 @@ print('predictions:', db_ro.predictions.count_documents({}), '(Step 9 wants 600)
 
 - **Step 3 (hand labeling) can take several sessions.** Save `labels.csv` often. Don't rerun the command that creates the template once you've started: it overwrites the file and erases your labels.
 - Step 4 is safe to rerun: `replace_one(..., upsert=True)` overwrites, never duplicates.
-- Each `m02_eval.py` run gets a new `run_id`. If a run stopped before `100/100`, the counts above show it with fewer than 100 items, and it would skew the report. Delete it, then rerun:
+- Each `m02_eval.py` run gets a new `run_id`. If a run stopped before `100/100`, the counts above show it with fewer than 100 items, and it would skew the report. Delete it (replace the example id with the run that shows fewer than 100 items), then rerun `m02_eval.py`:
 
   ```bash
   python -c "
   print('\n')
   from lib_claude_multimodal import db_rw
-  print(db_rw.eval_results.delete_many({'run_id': '<the short run id>'}).deleted_count, 'deleted')"
+  print(db_rw.eval_results.delete_many({'run_id': 'v1-haiku-20261002T081636'}).deleted_count, 'deleted')"
   ```
+
+  **Check:** prints a number below 100 followed by `deleted`. `0 deleted` means the id didn't match; copy it again from the counts above.
 
 - **Step 9 runs on Anthropic's side.** If your terminal closes while the script prints `waiting…`, the batch keeps running and you still pay for it. Don't submit a new one: copy the `batch msgbatch_…` id the script printed and resume with it (replace `<batch id>`):
 
@@ -91,6 +95,8 @@ print('predictions:', db_ro.predictions.count_documents({}), '(Step 9 wants 600)
   for b in client.messages.batches.list(limit=5): print(b.id, b.processing_status, b.created_at)"
   ```
 
+  **Check:** up to five lines of `msgbatch_… <status> <date>`; the newest is listed first. Use the one with the date of your Step 9 run.
+
 - Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-2) at the end of the page.
 - **To stop for the day**, stop MongoDB (or leave it running; your data stays):
 
@@ -104,18 +110,32 @@ print('predictions:', db_ro.predictions.count_documents({}), '(Step 9 wants 600)
 
 ## Step 1 — Install pandas and get 600 short texts
 
+**What you're doing:** getting the raw material for this module: 600 short texts in one CSV file. pandas is the library you'll use to read and write that CSV.
+
+Install pandas:
+
 ```bash
 pip install pandas
+```
+
+Create the folder for this module's data:
+
+```bash
 mkdir -p data/m2
 ```
 
 Save 600 product reviews (or news headlines) as `data/m2/reviews.csv` with two columns, `id` and `text`. Public review datasets on Kaggle or Hugging Face work well; keep `id` to letters, digits, `-` or `_`.
 
-**No dataset of your own? Use the course sample.** This downloads 5,000 English Amazon reviews (the `mteb/amazon_reviews_multi` test set on Hugging Face, about 1.3 MB) and keeps a random 600 as `reviews.csv`:
+**No dataset of your own? Use the course sample.** This downloads 5,000 English Amazon reviews (the `mteb/amazon_reviews_multi` test set on Hugging Face, about 1.3 MB) and keeps a random 600 as `reviews.csv`. First download the reviews:
 
 ```bash
 curl -fL -o data/m2/amazon_reviews.jsonl \
   https://huggingface.co/datasets/mteb/amazon_reviews_multi/resolve/main/en/test.jsonl
+```
+
+Then keep a random 600 of them:
+
+```bash
 python -c "
 import pandas as pd
 d = pd.read_json('data/m2/amazon_reviews.jsonl', lines=True).sample(600, random_state=1)
@@ -124,7 +144,11 @@ d[['id', 'text']].to_csv('data/m2/reviews.csv', index=False)
 print('wrote', len(d), 'reviews to data/m2/reviews.csv')"
 ```
 
+**Check:** prints `wrote 600 reviews to data/m2/reviews.csv`.
+
 The sample fits the default `positive` / `negative` / `neutral` labels in Step 2.
+
+Whichever source you use, the file looks like this (the course sample's ids look like `en_0211740`):
 
 ```
 id,text
@@ -147,6 +171,8 @@ Output prints:
 
 ## Step 2 — Choose your labels in one place
 
+**What you're doing:** writing your list of allowed labels once, in a small config file. Every Module 2 script reads it from there, so the labels Claude may choose and the labels you grade against can never drift apart.
+
 Create `m02_config.py`. Every Module 2 script imports from it, so labels never get out of sync.
 
 ```python
@@ -161,9 +187,11 @@ LABELS = ["positive", "negative", "neutral"]
 python -c "print('\n'); from m02_config import LABELS; print(LABELS)"
 ```
 
-Output prints your labels.
+Output prints your labels, e.g. `['positive', 'negative', 'neutral']`.
 
 ## Step 3 — Label 100 texts by hand
+
+**What you're doing:** building an answer key. You decide the correct label for 100 reviews yourself, so that later you can count how often Claude gets them right. This is the slowest step of the module and the most important one: the evaluation is only as good as these labels.
 
 Create a template with the first 100 texts and an empty `label` column:
 
@@ -173,6 +201,12 @@ import pandas as pd
 d = pd.read_csv('data/m2/reviews.csv').head(100)
 d['label'] = ''
 d.to_csv('data/m2/labels.csv', index=False)"
+```
+
+**Check:** see that the file has a header and an empty `label` column at the end of each row:
+
+```bash
+head -3 data/m2/labels.csv
 ```
 
 Open `data/m2/labels.csv` in Excel, Numbers or LibreOffice, type one label from Step 2 in every row, and save it as CSV. Decide hard cases consistently (e.g. "mixed" reviews → `neutral`). This is your answer key.
@@ -188,6 +222,8 @@ d['label'] = d.id.map(stars).map({0: 'negative', 1: 'negative', 2: 'neutral', 3:
 d.to_csv('data/m2/labels.csv', index=False)
 print('pre-filled', d.label.notna().sum(), 'labels from star ratings')"
 ```
+
+**Check:** prints `pre-filled 100 labels from star ratings`.
 
 Stars often don't match the text: a 3-star review can read as clearly negative, and a 4-star one as lukewarm. Unreviewed star labels hold accuracy in Step 7 to about 65% whatever the prompt, so skim the file and correct the rows you disagree with.
 
@@ -207,6 +243,8 @@ Shows counts per label and `invalid: 0`.
 If it shows `Series([], ...)` and `invalid: 100`, the `label` column is still empty: you haven't typed the labels yet, or your spreadsheet app didn't save back to `data/m2/labels.csv` as CSV. Fill in all 100 rows, save, and rerun the check before Step 4.
 
 ## Step 4 — Load the answer key into MongoDB
+
+**What you're doing:** copying your 100 hand labels into the `eval_items` collection. The evaluation and report scripts read the answer key from MongoDB, so they can join each prediction to its correct label with one query.
 
 Create `m02_load_items.py`:
 
@@ -232,6 +270,8 @@ python m02_load_items.py
 **Check:** prints `eval_items: 100`.
 
 ## Step 5 — Add `classify()` to `lib_claude_multimodal.py`
+
+**What you're doing:** adding the function that labels one text. It forces Claude to answer through a tool whose only input is one label from your list, so you always get back a valid label instead of free text you'd have to parse.
 
 Append:
 
@@ -280,6 +320,8 @@ Prints `negative` (or the matching label for your set).
 
 ## Step 6 — Write the evaluation script
 
+**What you're doing:** running `classify()` over all 100 labeled reviews and saving every prediction with a run id. Storing the predictions (instead of just printing a score) lets you compare runs later and look at exactly which reviews went wrong.
+
 Create `m02_eval.py`. It runs one prompt version over all 100 labeled items and stores every prediction.
 
 ```python
@@ -308,9 +350,11 @@ Run it with prompt v1:
 python m02_eval.py v1
 ```
 
-**Check:** prints `100/100` and `finished run v1-haiku-…`.
+**Check:** the counter climbs to `100/100`, then it prints `finished run v1-haiku-…` with a timestamp, e.g. `finished run v1-haiku-20261002T081636`. Copy that run id; Step 7 uses it.
 
 ## Step 7 — Write the report script
+
+**What you're doing:** turning stored predictions into numbers. The report compares each prediction with your label and shows accuracy and cost per run; given a run id, it also lists the mistakes so you can see *why* the prompt fails.
 
 Create `m02_report.py`. One aggregation pipeline joins each prediction to its correct label (`$lookup`), then computes accuracy and cost per run.
 
@@ -344,14 +388,25 @@ if len(sys.argv) > 1:                            # python m02_report.py <run_id>
         print(f"- predicted {m['predicted']}, correct {m['gold']}: {m['text'][:120]}")
 ```
 
+Show accuracy and cost for every run:
+
 ```bash
 python m02_report.py
-python m02_report.py <run_id from Step 6>
 ```
 
-**Check:** the first command shows one row with an accuracy and cost; the second also lists the mistakes. Read every mistake — some will be your labeling errors (fix them in `labels.csv` and rerun Step 4).
+**Check:** one row per run so far (one after Step 6), with an accuracy such as `66.0%` and a cost of about $0.10.
+
+Show the same table plus the mistakes of one run. Replace the example id with the one Step 6 printed (it's also in the `run` column above):
+
+```bash
+python m02_report.py v1-haiku-20261002T081636
+```
+
+**Check:** the table, then `Mistakes:` followed by one line per wrong prediction (`- predicted …, correct …: <review text>`). Read every mistake — some will be your labeling errors (fix them in `labels.csv` and rerun Step 4).
 
 ## Step 8 — Improve the prompt and measure the change
+
+**What you're doing:** changing one thing (the prompt) and measuring the effect with the same 100 items. You add rules and examples aimed at the mistakes you saw, rerun the evaluation, and let the report tell you whether it helped.
 
 Add a second prompt version with clear rules and examples. In `lib_claude_multimodal.py`, add a `"v2"` entry inside `PROMPTS`:
 
@@ -365,16 +420,25 @@ Add a second prompt version with clear rules and examples. In `lib_claude_multim
            "<review>\n{text}\n</review>"),
 ```
 
-Adjust the rules and examples to the mistakes you saw in Step 7. Then rerun:
+Adjust the rules and examples to the mistakes you saw in Step 7. Then run the evaluation with `v2`:
 
 ```bash
 python m02_eval.py v2
+```
+
+**Check:** the counter reaches `100/100` and it prints `finished run v2-haiku-…`.
+
+Compare both runs:
+
+```bash
 python m02_report.py
 ```
 
-**Check:** a `v2` row appears. Whether accuracy went up or down, you now *know* — that's the point.
+**Check:** a `v2` row appears next to the `v1` row. Whether accuracy went up or down, you now *know* — that's the point.
 
 ## Step 9 — Classify all 600 with the Batches API
+
+**What you're doing:** labeling the full set of 600 reviews with your best prompt. Because you don't need the answers instantly, you send them as one batch: Anthropic processes it in the background at half the normal price, and the script waits, then stores every label in `predictions`.
 
 Pick the best prompt version from the report. Batches run in the background (usually minutes, up to 24 hours) at half price. Create `m02_batch.py`:
 
@@ -426,15 +490,19 @@ Run it with your best prompt version (`v2` here):
 python m02_batch.py v2
 ```
 
-If the script is interrupted, the batch keeps running. Rerun it with the printed id (replace `<batch id>`) to wait for that batch and collect its results instead of paying for a new one:
+The script prints `batch msgbatch_… submitted`, then `waiting…` every 30 seconds until the batch ends. You don't need to type anything; to stop waiting early press Ctrl+C (the batch keeps running on Anthropic's side).
+
+If the script is interrupted, the batch keeps running. Rerun it with the printed id (replace `<batch id>` with the `msgbatch_…` id the script printed) to wait for that batch and collect its results instead of paying for a new one:
 
 ```bash
 python m02_batch.py v2 <batch id>
 ```
 
-**Check:** prints `predictions: 600`.
+**Check:** after the `waiting…` lines it prints `predictions: 600`. A few `failed:` lines would mean some requests didn't succeed; rerun with the batch id to retry storing.
 
 ## Step 10 — Compare normal vs batch cost per call
+
+**What you're doing:** checking the half-price claim with your own logged numbers. Every call was saved in `llm_calls` with its cost, so one aggregation gives the average cost per call for the normal API (`m2`) and for the batch (`m2-batch`).
 
 ```bash
 python -c "
@@ -447,9 +515,11 @@ for r in db_ro.llm_calls.aggregate([
     print(r['_id'], r['calls'], 'calls, \$%.5f per call' % (r['cost'] / r['calls']))"
 ```
 
-**Check:** the `m2-batch` cost per call is about half the `m2` cost per call.
+**Check:** two lines, one starting `{'module': 'm2', ...}` (about 200 calls from Steps 5–8, more if you reran anything) and one starting `{'module': 'm2-batch', ...}` (600 calls, more if you reran Step 9). The `m2-batch` cost per call is about half the `m2` cost per call.
 
 ## Step 11 — Write your conclusion and commit
+
+**What you're doing:** recording your decision, which prompt and which API you'd use and why, backed by the accuracy and cost numbers you measured. Then you save your work to git.
 
 No script writes this file. You write it yourself, in any text editor, using numbers from commands you've already run. It records what you found, in your own words.
 
@@ -462,10 +532,15 @@ No script writes this file. You write it yourself, in any text editor, using num
    - **Accuracy per prompt version:** the `accuracy` column, one row per run (`v1`, `v2`, …).
    - **Cost for 600 texts each way:** multiply each `per call` cost from Step 10 by 600. `m2` is the normal API, `m2-batch` the Batches API. For example, `$0.00040 per call` × 600 = `$0.24`.
 
-2. Write the file. This creates it with three lines, then prints it so you can check it:
+2. Write the file. Create the `notes` folder first:
 
    ```bash
    mkdir -p notes
+   ```
+
+   This writes the file with three lines:
+
+   ```bash
    cat > notes/m02_report.md <<'EOF'
    # Module 2 — sentiment classification
 
@@ -473,16 +548,31 @@ No script writes this file. You write it yourself, in any text editor, using num
    - Cost for 600 reviews with Haiku: normal API ≈ $0.57, Batches API ≈ $0.29 (half price)
    - I'd use v1 with the Batches API: v2's rules and examples didn't raise accuracy, v1's shorter prompt costs less, and the batch halves the cost when results can wait.
    EOF
+   ```
+
+   Print it so you can check it:
+
+   ```bash
    cat notes/m02_report.md
    ```
 
    The numbers and the conclusion above are an example run. Replace them with yours before you run the command, or edit the file afterwards in any text editor. If your v2 beat v1, say which mistakes it fixed.
 
-3. Commit:
+3. Stage your scripts, the library and your report:
 
    ```bash
    git add m02_*.py lib_claude_multimodal.py notes/m02_report.md
+   ```
+
+   Commit them:
+
+   ```bash
    git commit -m "Module 2: classify, evaluation, batch run"
+   ```
+
+   Push to GitHub:
+
+   ```bash
    git push
    ```
 

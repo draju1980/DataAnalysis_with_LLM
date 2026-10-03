@@ -5,6 +5,8 @@
 **You start with:** all modules done — every function in `lib_claude_multimodal.py`, the evaluation habit, the container and CI setup, and the threat model template.
 **You finish with:** one real project that uses at least four input formats, stores results in MongoDB, meets the Module 10 standard, and is written up with accuracy, cost per run and a threat model.
 
+**What this lab is about.** The capstone project puts the whole course together on a problem you choose. You feed at least four kinds of input (PDFs, tables, images, audio, logs) through the functions you already built, make them searchable, and answer real questions with a source for every claim. Then you measure it the way Module 10 taught: accuracy on questions you answered yourself first, cost per run from `llm_calls`, a container, a CI gate and an injection test. The write-up is the proof that the system works and what it costs.
+
 ## Before you start or resume
 
 The capstone takes about two weeks. Run these three blocks at the start of **every** session.
@@ -58,7 +60,7 @@ for m in db_ro.chunks.aggregate([{'\$group': {'_id': '\$modality', 'n': {'\$sum'
 **Resuming safely**
 
 - **Make `capstone_ingest.py` safe to rerun**, because you will rerun it: replace or upsert by source file, as Modules 3–5 and 7 do, so a second run never duplicates documents.
-- Step 5 calls `build_chunks()`, which deletes every chunk and embedding first. Rerun it only after ingesting new material.
+- Step 5 calls `build_chunks()`, which deletes every chunk and rebuilds them from the sources. Rerun it only after ingesting new material.
 - Step 8 divides by the number of runs. If you ingested more than once while building, count every run, or note the cost before your final clean run and subtract it.
 - **To stop for the day**, stop MongoDB (or leave it running; your data stays):
 
@@ -72,6 +74,8 @@ for m in db_ro.chunks.aggregate([{'\$group': {'_id': '\$modality', 'n': {'\$sum'
 
 ## Step 1 — Choose a project
 
+**What you're doing:** picking one realistic project and writing down exactly which inputs it uses and which questions it must answer. A short, concrete plan keeps the two weeks focused and tells you when you're done.
+
 | Option | Inputs (at least four formats) | Output |
 | --- | --- | --- |
 | Daily market brief | Broker contract notes (PDF), trade history (CSV), chart screenshots, earnings call audio | A morning summary with positions, key moves and cited sources |
@@ -80,9 +84,19 @@ for m in db_ro.chunks.aggregate([{'\$group': {'_id': '\$modality', 'n': {'\$sum'
 
 Create `capstone/PLAN.md` with: the option, the exact inputs you'll use, and the 3–5 questions the finished system must answer.
 
-**Check:** `capstone/PLAN.md` names four input formats.
+Show your plan:
+
+```bash
+cat capstone/PLAN.md
+```
+
+**Check:** it names the option, at least four input formats, and 3–5 questions.
 
 ## Step 2 — Collect the inputs
+
+**What you're doing:** gathering your project's files in one place, one folder per format, inside `data/` so private material never gets committed.
+
+Make the folders:
 
 ```bash
 mkdir -p data/capstone/{pdf,tables,images,audio,text}
@@ -90,9 +104,17 @@ mkdir -p data/capstone/{pdf,tables,images,audio,text}
 
 Copy your inputs into the matching folders. Keep private material in `data/` (git-ignored).
 
-**Check:** each folder you need has files in it.
+List what you collected:
+
+```bash
+find data/capstone -type f
+```
+
+**Check:** each folder you need (at least four) lists at least one file, for example `data/capstone/pdf/contract-note-30sep.pdf` or `data/capstone/audio/q3-call.wav`.
 
 ## Step 3 — Write the test set before building anything
+
+**What you're doing:** writing 20 questions with answers you've found yourself, plus where each answer lives. Doing this before you build means the system's output can't sway your answer key, so the accuracy you report in Step 7 is honest.
 
 Create `capstone/test_questions.csv` with 20 questions you know the answers to:
 
@@ -104,9 +126,17 @@ When did the CFO mention margin pressure?,around 00:23:10,q3-call recording
 
 This is your answer key; write it before you see what the system says.
 
-**Check:** 20 rows, each with an expected answer and its source.
+Count the lines:
+
+```bash
+wc -l capstone/test_questions.csv
+```
+
+**Check:** prints `21 capstone/test_questions.csv` (the header plus 20 questions), and every row has an expected answer and a source.
 
 ## Step 4 — Ingest every format with the functions you already built
+
+**What you're doing:** writing one script that loads every input into MongoDB using the functions from earlier modules, instead of writing new extraction code. Tagging the calls with `module="capstone"` lets you measure the project's cost in Step 8.
 
 Create `capstone_ingest.py` that loads each input with the matching module's function and tags every call with `module="capstone"` where the function accepts it:
 
@@ -120,16 +150,25 @@ Create `capstone_ingest.py` that loads each input with the matching module's fun
 
 Record failures in `file_errors` exactly as in Module 4.
 
-**Check:**
+Run the ingest:
 
 ```bash
 python capstone_ingest.py
+```
+
+**Check:** it finishes without a traceback; any file it couldn't read is reported and saved to `file_errors`, not left to crash the run.
+
+List the collections and their sizes (the Module 8 inventory script):
+
+```bash
 python m08_inventory.py
 ```
 
-The ingest finishes, and the inventory shows your new data.
+**Check:** one line per collection with its document count, and the collections your ingest writes to (for example `invoices`, `transcript_segments`, `log_events` or a new one) show more documents than before.
 
 ## Step 5 — Build the search layer
+
+**What you're doing:** rebuilding Module 9's `chunks` collection and full-text index so the material you just ingested can be searched and cited.
 
 Rebuild chunks and the index from Module 9 so the new material is searchable:
 
@@ -143,27 +182,54 @@ print(create_chunk_index(), 'ready')"
 
 If your capstone has new sources (e.g. HTML pages), add them to `build_chunks()` first, with a source field that `cite()` can show.
 
-**Check:** the chunk count by modality includes your capstone sources.
+**Check:** prints a total such as `1234 chunks`, then `chunks_text ready`. Then count chunks by type:
+
+```bash
+python -c "
+print('\n')
+from lib_claude_multimodal import db_ro
+for m in db_ro.chunks.aggregate([{'\$group': {'_id': '\$modality', 'n': {'\$sum': 1}}}]): print(m)"
+```
+
+**Check:** one line per modality, such as `{'_id': 'pdf', 'n': 57}`, and the counts are higher than before your ingest (or include the new modality you added).
 
 ## Step 6 — Build the answer script
 
-Copy `m09_assistant.py` to `capstone_assistant.py`. Change the system prompt to describe your project, and add any tool you need (for example `run_sql` from Module 6 for the tables). Keep the rule: every number comes from a tool result, every claim has a source.
+**What you're doing:** adapting the Module 9 assistant to your project, so Claude can search your documents and query your data, and must cite a source for every claim.
 
-**Check:**
+Copy the Module 9 assistant:
+
+```bash
+cp m09_assistant.py capstone_assistant.py
+```
+
+In `capstone_assistant.py`, change the system prompt to describe your project, and add any tool you need (for example `run_sql` from Module 6 for the tables). Keep the rule: every number comes from a tool result, every claim has a source. Also change `module="m9"` to `module="capstone"`, so Step 8 counts these calls. Then start it:
 
 ```bash
 python capstone_assistant.py
 ```
 
-The assistant answers one of your Step 1 questions with a citation.
+Ask one of your Step 1 questions at the `question>` prompt. The script keeps asking until you type `quit` or `exit`.
+
+**Check:** the answer cites a source you can open, such as a file plus page, time or line, or the collection it queried.
 
 ## Step 7 — Run the test set and score it
 
+**What you're doing:** asking the system all 20 test questions in one go and comparing each answer with your answer key. This gives the accuracy number for your write-up and shows where the system goes wrong.
+
 Create `capstone_eval.py` that reads `capstone/test_questions.csv`, asks each question, and writes `capstone/results.csv` with columns `question, expected_answer, system_answer, correct`. Fill the `correct` column (yes/no) by comparing each answer with your answer key and opening its citation.
 
-**Check:** accuracy = correct ÷ 20, written at the top of `capstone/results.csv` or in your notes.
+Run it:
+
+```bash
+python capstone_eval.py
+```
+
+**Check:** `capstone/results.csv` has 20 rows. After you fill the `correct` column, accuracy = correct ÷ 20, written at the top of `capstone/results.csv` or in your notes.
 
 ## Step 8 — Measure cost per run
+
+**What you're doing:** adding up what the capstone's Claude calls cost, from the `llm_calls` log, and turning it into a cost per run so you can say what the system costs to operate.
 
 ```bash
 python -c "
@@ -174,11 +240,15 @@ r = next(db_ro.llm_calls.aggregate([{'\$match': {'module': 'capstone'}},
 print(r['calls'], 'calls, total \$%.4f' % r['cost'])"
 ```
 
+**Check:** prints one line such as `412 calls, total $0.8731`. A `StopIteration` error means no call was tagged `module="capstone"` yet.
+
 Divide by the number of runs (ingest once + 20 questions) to get cost per run.
 
 **Check:** you have one cost-per-run number.
 
 ## Step 9 — Meet the Module 10 standard
+
+**What you're doing:** applying Module 10's production checks to your project: run the ingest in a container, gate prompt changes in CI, and prove one planted instruction in your own input type has no effect.
 
 - Containerize the ingest job like Module 10 Steps 2–4.
 - Add a CI gate on a small, publishable slice of your test set like Module 10 Steps 7–10.
@@ -188,7 +258,15 @@ Divide by the number of runs (ingest once + 20 questions) to get cost per run.
 
 ## Step 10 — Write the threat model and the write-up
 
-Copy `threat-model.md` to `capstone/threat-model.md` and adapt it to your project. Then create `capstone/WRITEUP.md`:
+**What you're doing:** recording the risks of your project and the results (accuracy, cost, security) in two short documents, then publishing everything. The write-up is what someone else reads to judge the capstone.
+
+Copy the Module 10 threat model, then adapt it to your project:
+
+```bash
+cp threat-model.md capstone/threat-model.md
+```
+
+Then create `capstone/WRITEUP.md`:
 
 ```markdown
 # Capstone — <project name>
@@ -204,9 +282,21 @@ Summary of capstone/threat-model.md and which tests passed.
 ## What I'd do next
 ```
 
+Stage the capstone files:
+
 ```bash
 git add capstone/ capstone_*.py
-git commit -m "Capstone: <project name>"
+```
+
+Commit them; replace `daily market brief` with your project's name, keeping `Capstone:` at the start (the progress check looks for it):
+
+```bash
+git commit -m "Capstone: daily market brief"
+```
+
+Push to GitHub:
+
+```bash
 git push
 ```
 

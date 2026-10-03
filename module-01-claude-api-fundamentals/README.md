@@ -5,6 +5,8 @@
 **You start with:** Module 0 done — `.env`, MongoDB running, both users working.
 **You finish with:** `lib_claude_multimodal.py` containing `ask()`, `text_of()`, `cost_of()`, `log_call()` and a tool loop; a command-line chat (`m01_chat.py`) with a calculator tool; and every API call logged with its cost in MongoDB.
 
+**What this lab is about.** This module teaches the one API call every later module is built on. You write a small shared library that sends a request to Claude, reads the reply, and records the tokens and cost of every call in MongoDB. Then you give Claude a tool (a safe calculator) and build a chat that keeps the conversation going. By the end you know what each call costs and can check it with one database query.
+
 ## Key ideas (read once)
 
 - **One call does everything.** Every module uses the Messages API: you send a list of messages and get a reply.
@@ -85,6 +87,8 @@ print('Module 0: .env and both database users ok')"
 
 ## Step 1 — Create `lib_claude_multimodal.py` with the shared setup
 
+**What you're doing:** starting the course's shared library with the setup every script needs: loading `.env`, naming the model and its price, and opening the Claude client and both database connections. Later steps and modules add functions to this same file, so every script can import them instead of repeating code.
+
 Create `lib_claude_multimodal.py` in the project root. This is the course's one shared library: every reusable function goes into this file, and each later step or module that says "Append to the shared library" adds to this same file. The `lib_` prefix marks it as the shared library; every other file you create is a runnable script named after its module (`m01_….py`, `m02_….py`, …).
 
 **How appending works in this course:** every later block for this file is pasted at the **end** of the file, below everything already there, and starts with a `# ── Module N, Step M ──` comment line. Never insert a block in the middle of the file, and never paste the same block twice.
@@ -131,6 +135,8 @@ ok
 
 ## Step 2 — Add `text_of()` and `cost_of()`
 
+**What you're doing:** adding two small helpers for reading a reply. `text_of()` pulls out just the text Claude wrote, and `cost_of()` turns the reply's token counts into US dollars using the prices from Step 1.
+
 Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1).
 
 **Where it goes:** at the very **end** of `lib_claude_multimodal.py`, below the Step 1 code. Don't paste it above or inside an earlier function. Copy the whole block, including the `# ── Module 1, Step 2 ──` comment on its first line: it labels the code so you can see later which step added it.
@@ -176,6 +182,8 @@ You'll test them with a real reply in Step 4.
 
 ## Step 3 — Add `log_call()` to record every call in MongoDB
 
+**What you're doing:** adding a function that saves one row per API call (time, module, tokens, cost, speed) in the `llm_calls` collection. With every call recorded, you can later answer "what did this cost?" with a query instead of guessing.
+
 Append to `lib_claude_multimodal.py`.
 
 **Where it goes:** at the very **end** of `lib_claude_multimodal.py`, below the Step 2 code. Don't paste it above or inside an earlier function. Copy the whole block, including the `# ── Module 1, Step 3 ──` comment on its first line: it labels the code so you can see later which step added it.
@@ -211,6 +219,8 @@ ok
 ```
 
 ## Step 4 — Add `ask()`, the one function every module calls
+
+**What you're doing:** writing the single function the whole course uses to talk to Claude. It builds the request, sends it, logs it with `log_call()`, and warns you if the reply was cut off. Then you make your first real call through it.
 
 Append to `lib_claude_multimodal.py`.
 
@@ -253,9 +263,11 @@ r = ask('In one sentence, what is a Docker volume?', module='m1')
 print(text_of(r)); print(r.usage); print('cost USD', cost_of(r))"
 ```
 
-Prints one sentence, a usage line and a small cost (a fraction of a cent).
+Prints one sentence about Docker volumes, a `Usage(...)` line with `input_tokens` and `output_tokens`, and `cost USD` followed by a small number (a fraction of a cent, such as `0.0002`).
 
 ## Step 5 — Look at the log in MongoDB
+
+**What you're doing:** reading back the row that `ask()` saved in Step 4, to see exactly what gets recorded for each call. You read it with the read-only user, the way all queries in the course do.
 
 The call from Step 4 is now a document in `llm_calls`. Read it with the read-only connection:
 
@@ -266,9 +278,11 @@ from lib_claude_multimodal import db_ro
 for d in db_ro.llm_calls.find({}, {'_id': 0}).sort('ts', -1).limit(3): print(d)"
 ```
 
-**Check:** you see your Step 4 call with `module: 'm1'`, token counts, `cost_usd` and `latency_ms`.
+**Check:** up to three dictionaries, newest first. The first is your Step 4 call, with `'module': 'm1'`, `'model': 'claude-haiku-4-5-20251001'`, token counts, `'cost_usd'`, `'latency_ms'` and `'stop_reason': 'end_turn'`.
 
 ## Step 6 — Stream a long reply
+
+**What you're doing:** asking for a longer answer and printing it word by word as Claude writes it, instead of waiting for the whole reply. Streaming doesn't go through `ask()`, so the script logs the finished message itself.
 
 For long answers, streaming prints text as it's generated. Create `m01_stream.py`:
 
@@ -291,9 +305,11 @@ print("\n\n", final.usage, final.stop_reason)
 python m01_stream.py
 ```
 
-**Check:** text appears gradually, then the usage line and `end_turn`.
+**Check:** text appears gradually, then one line with `Usage(...)` and `end_turn` at the end.
 
 ## Step 7 — See why the same prompt gives different answers
+
+**What you're doing:** sending the same prompt four times at two temperature settings and comparing the answers. This shows that Claude's output varies from run to run, and how much `temperature` changes that.
 
 Claude picks each word by sampling; `temperature` controls how random that is. Create `m01_temperature.py`:
 
@@ -312,9 +328,11 @@ for t in (1.0, 0.0):
 python m01_temperature.py
 ```
 
-**Check:** at 1.0 the names vary; at 0.0 they're the same or nearly the same. Temperature 0 is *more consistent*, not guaranteed identical. The other levers for consistency come later: tighter instructions and examples (Module 2), forced structured output (Module 2), and pinning a dated model version (you already do: `claude-haiku-4-5-20251001`).
+**Check:** prints `--- temperature 1.0` with four names under it, then `--- temperature 0.0` with four more. At 1.0 the names vary; at 0.0 they're the same or nearly the same. Temperature 0 is *more consistent*, not guaranteed identical. The other levers for consistency come later: tighter instructions and examples (Module 2), forced structured output (Module 2), and pinning a dated model version (you already do: `claude-haiku-4-5-20251001`).
 
 ## Step 8 — Add a safe calculator tool
+
+**What you're doing:** writing a calculator function and the description (schema) that tells Claude how to call it. The calculator accepts only numbers and arithmetic, so even a malicious expression can't run code on your machine.
 
 Claude is not reliable at arithmetic, so give it a calculator. The calculator must never run arbitrary code: tool inputs are written by the model, and in later modules the model reads untrusted files. So it parses the expression and allows only numbers and arithmetic operators — never `eval()`.
 
@@ -376,9 +394,11 @@ try: calc('__import__(\"os\").system(\"ls\")')
 except ValueError as e: print('blocked:', e)"
 ```
 
-Prints `92.35` and `blocked: only numbers and + - * / % ** are allowed`.
+Prints `92.35` and `blocked: only numbers and + - * / % ** are allowed`. No API call is made: this tests the calculator on its own.
 
 ## Step 9 — Add the tool loop
+
+**What you're doing:** adding the loop that lets Claude use tools. Claude can't run your functions itself; it asks for one, your code runs it and sends the result back, and this repeats until Claude gives a final answer. Every later module that uses tools calls this function.
 
 When Claude wants a tool, your code must run it and send the result back, repeating until Claude gives a final answer.
 
@@ -440,6 +460,8 @@ ok
 
 ## Step 10 — Build the command-line chat
 
+**What you're doing:** putting the pieces together in a chat you run in the terminal. It keeps the whole conversation in a list and resends it each turn (Claude has no memory), lets Claude use the calculator, and shows the running cost so you can see longer chats get more expensive.
+
 Create `m01_chat.py`:
 
 ```python
@@ -474,11 +496,13 @@ python m01_chat.py
 2. `What is the capital of Japan?` → no tool call.
 3. `Add 5% to the VAT amount from before.` → works only because `history` carries the earlier answer.
 
-Then type `quit` and note the **Session cost**.
+The script keeps asking at the `you>` prompt until you type `quit` or `exit`. Type `quit` and note the **Session cost** it prints last.
 
 **Check:** the tool is called for 1 and 3 but not 2, and input tokens grow on every turn (the whole history is resent).
 
 ## Step 11 — Confirm the cost from MongoDB
+
+**What you're doing:** adding up the cost of every Module 1 call from `llm_calls` with an aggregation pipeline, and checking it agrees with what the chat reported. This is the cost check you'll reuse in every module.
 
 Your chat's running total must match what `llm_calls` recorded. Create `m01_costs.py`:
 
@@ -502,15 +526,33 @@ python m01_costs.py
 
 An **aggregation pipeline** is a list of stages; each stage transforms the documents and passes them on. You'll use them in every module.
 
-**Check:** the total includes your chat session (plus Steps 4–7). To compare exactly, note the cost before and after one more short chat session — the increase must equal the chat's **Session cost**.
+**Check:** prints one line like `{'_id': 'claude-haiku-4-5-20251001', 'calls': 20, 'cost_usd': 0.0123, 'avg_ms': 1500.0}` (your numbers differ). The total includes your chat session (plus Steps 4–7). To compare exactly, note the cost before and after one more short chat session — the increase must equal the chat's **Session cost**.
 
 ## Step 12 — Commit your work
 
+**What you're doing:** saving the shared library and this module's scripts to your fork on GitHub. `.env` and `data/` stay out because `.gitignore` excludes them.
+
+Stage the files:
+
 ```bash
 git add lib_claude_multimodal.py m01_stream.py m01_temperature.py m01_chat.py m01_costs.py
+```
+
+Commit them:
+
+```bash
 git commit -m "Module 1: ask(), logging, tool loop, CLI chat"
+```
+
+**Check:** prints `5 files changed`.
+
+Push to your fork:
+
+```bash
 git push
 ```
+
+**Check:** ends with a line like `main -> main` (your default branch name) and no error.
 
 Run the check:
 
@@ -518,7 +560,7 @@ Run the check:
 git status --short
 ```
 
-**Check:** shows nothing left to commit except files you chose not to add.
+**Check:** prints nothing, or only `??` lines for files you chose not to add.
 
 ## Complete `lib_claude_multimodal.py` after Module 1
 

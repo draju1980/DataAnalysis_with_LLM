@@ -5,6 +5,8 @@
 **You start with:** Module 6 done — `ask()`, `tool_input()`, the forced-tool pattern and the habit of checking counts.
 **You finish with:** `extract_log_records()` and `ask_text_file()`; a log file turned into the `log_events` collection; a record count that matches `grep`; 20 records spot-checked; and questions answered directly from small YAML/XML/HTML files.
 
+**What this lab is about.** Logs, config files and web pages have some structure but no fixed columns, so you can't query them as they are. Here you have Claude turn a real web-server log into clean records in MongoDB, one per event, and then prove the result is right: the record count must match an independent `grep` count, and 20 random records must match their original lines. You also learn when to skip extraction entirely and send a small file to Claude whole.
+
 ## Key ideas (read once)
 
 - **Some structure, no fixed columns.** Logs, XML, HTML and YAML need to become clean records before you can query them.
@@ -57,7 +59,7 @@ for r in db_ro.log_events.aggregate([{'\$group': {'_id': '\$source_file', 'n': {
     print('log_events from', r['_id'], ':', r['n'], 'records')"
 ```
 
-**Check:** resume at the first `todo` line. If `sample.log` has records in `log_events`, Step 5 is done and Step 6 compares them with your grep count.
+**Check:** resume at the first `todo` line. If `sample.log` has records in `log_events`, Step 5 is done and Step 6 compares them with your grep count. No `log_events from` line just means you haven't reached Step 5 yet.
 
 **Resuming safely**
 
@@ -76,6 +78,8 @@ for r in db_ro.log_events.aggregate([{'\$group': {'_id': '\$source_file', 'n': {
 ---
 
 ## Step 1 — Get a log file
+
+**What you're doing:** downloading the real log file every step works on and taking a first look at its format, so you know what an event looks like before asking Claude to parse it.
 
 Make the folder:
 
@@ -107,7 +111,11 @@ head -5 data/m7/app.log
 
 ## Step 2 — Cut it down to a sample
 
+**What you're doing:** making a smaller copy of the log to build and test with. Each extraction run calls the API, so a 1,000-line sample keeps mistakes cheap and quick to fix.
+
 Work on a 1,000-line sample while you build; run bigger files only after it works.
+
+Copy the first 1,000 lines into `sample.log`:
 
 ```bash
 head -n 1000 data/m7/app.log > data/m7/sample.log
@@ -122,6 +130,8 @@ wc -l data/m7/sample.log
 **Check:** prints `1000`.
 
 ## Step 3 — Count the events with grep
+
+**What you're doing:** counting the events yourself with a plain pattern match, without Claude. Saving that number gives you an independent target to check Claude's extraction against in Step 6.
 
 This count is your independent answer. In Step 6 you check that Claude produced the same number of records.
 
@@ -143,11 +153,13 @@ grep -vcE '^\[' data/m7/sample.log
 
 **Check:** prints `0`: this log has no stack traces or wrapped lines. The two numbers add up to 1000.
 
-Save the event count. It's the target for Step 6, which may be a session or two away:
+Save the event count. It's the target for Step 6, which may be a session or two away. Make the notes folder:
 
 ```bash
 mkdir -p notes
 ```
+
+Write the count to a file:
 
 ```bash
 grep -cE '^\[' data/m7/sample.log > notes/m07_grep_count.txt
@@ -162,6 +174,8 @@ cat notes/m07_grep_count.txt
 **Check:** prints `1000`, the same as the first count above.
 
 ## Step 4 — Add `extract_log_records()` and test it on 50 lines
+
+**What you're doing:** writing the function that sends numbered log lines to Claude and gets back one clean record per event (time, service, severity, message) through a forced tool call. You test it on 50 lines first, before spending API calls on the whole sample.
 
 Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1):
 
@@ -203,7 +217,7 @@ def extract_log_records(lines, first_line_no=1, *, model=HAIKU, max_tokens=8192)
 
 **Why `max_tokens=8192` and not the course's usual 512:** Claude writes one record, roughly 70 tokens, for every event. 50 lines need about 3,500 output tokens, so 512 would cut the reply off after about 7 records. The check after the call raises a clear error if a reply is still cut off. You pay only for the tokens Claude actually writes, not for the limit.
 
-**Check:**
+Test it on the first 50 lines of the sample:
 
 ```bash
 python -c "
@@ -214,11 +228,13 @@ recs = extract_log_records(lines)
 print(len(recs), 'records'); [print(r) for r in recs[:3]]"
 ```
 
-**Check:** prints `50 records`, one per line, then the first three records, each with `line`, `ts`, `service`, `severity` and `message` (for line 1: severity `INFO`, message `workerEnv.init() ok …`).
+**Check:** prints `50 records` (one per line), then the first three records, each with `line`, `ts`, `service`, `severity` and `message`. For line 1 that's roughly `{'line': 1, 'ts': '2005-12-04T04:47:44Z', 'service': 'mod_jk', 'severity': 'INFO', 'message': 'workerEnv.init() ok /etc/httpd/conf/workers2.properties', …}`; Claude may name the service differently, and the log's `[notice]` becomes `INFO` because that's the closest allowed severity.
 
 If you see `RuntimeError: records cut off at max_tokens=…`, raise the default in `extract_log_records()` (e.g. `max_tokens=16000`), save, and rerun. Nothing is stored in this step, so rerunning is safe.
 
 ## Step 5 — Extract the whole sample into `log_events`
+
+**What you're doing:** running the extraction over the whole sample, 50 lines at a time, and storing the records in MongoDB with real dates, so you can count and query them.
 
 Create `m07_extract.py`. It sends 50 lines at a time, the size you tested in Step 4, and converts `ts` to a real date.
 
@@ -259,6 +275,8 @@ A limitation to know: in logs with stack traces, an event that straddles a 50-li
 
 ## Step 6 — Check the count against grep
 
+**What you're doing:** comparing the number of records Claude produced with your grep count from Step 3. If they differ, Claude merged or split events wrongly, and every later query would be off.
+
 ```bash
 python -c "
 print('\n')
@@ -270,6 +288,8 @@ print('missing ts:', db_ro.log_events.count_documents({'source_file': 'sample.lo
 **Check:** `records: 1000`, the same as your Step 3 count in `notes/m07_grep_count.txt`, and `missing ts: 0`.
 
 ## Step 7 — Spot-check 20 random records
+
+**What you're doing:** checking content, not just counts. A matching count doesn't prove each record is right, so you compare 20 random records with the original lines they came from.
 
 Create `m07_spotcheck.py`. It shows each record next to the original line it came from.
 
@@ -287,9 +307,11 @@ for r in db_ro.log_events.aggregate([{"$match": {"source_file": "sample.log"}},
 python m07_spotcheck.py
 ```
 
-**Check:** in all 20, timestamp, service, severity and message match the original line.
+**Check:** 20 pairs of lines: `line N: [Sun Dec 04 …] [error] …` from the log, then `  -> 2005-12-04 … | unknown | ERROR | …` from the record (the service may be `mod_jk`, `jk2` or `unknown`, depending on how Claude read the line). In all 20, timestamp, service, severity and message match the original line. Each run picks a different 20.
 
 ## Step 8 — Query the events
+
+**What you're doing:** using the records the way you would in practice: counting events per hour, service and severity with a MongoDB aggregation. This only works because the timestamps are real dates now.
 
 ```bash
 python -c "
@@ -306,9 +328,11 @@ for r in db_ro.log_events.aggregate([
 
 Fields inside `attrs` are queryable too, e.g. `{'attrs.<field>': <value>}`. Step 7's output shows which fields Claude put in `attrs`.
 
-**Check:** one line per hour, service and severity, with counts that add up to Step 6's total.
+**Check:** one line per hour, service and severity, such as `2005-12-04 04:00:00 mod_jk INFO 37`. The exact service names and counts depend on Claude's extraction; the counts add up to Step 6's total (`1000`).
 
 ## Step 9 — Ask questions about small YAML, XML or HTML files directly
+
+**What you're doing:** handling the easy case. A small file fits in one prompt, so instead of extracting records you send it whole and ask your question. This is cheaper and simpler when you only need an answer, not a collection.
 
 Small files don't need extraction; send them whole. Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1):
 
@@ -331,17 +355,55 @@ from lib_claude_multimodal import ask_text_file
 print(ask_text_file('docker-compose.yml', 'Which ports are published, on which host interface, and which data is persisted?'))"
 ```
 
-**Check:** the answer says port 27017 is published on 127.0.0.1 only and names the three volumes.
+**Check:** the answer says port 27017 is published on 127.0.0.1 only and names the three volumes: `db`, `configdb` and `mongot`.
 
 ## Step 10 — Run the full log (optional) and commit
 
-If the sample worked, run the full file:
+**What you're doing:** optionally running the same extraction on the full 2,000-line log and checking it the same way, then saving your code and notes to git.
+
+If the sample worked, run the full file. It takes 40 API calls, one per 50 lines:
 
 ```bash
 python m07_extract.py data/m7/app.log
 ```
 
-Then repeat Steps 6–7 for `app.log`.
+**Check:** 40 chunk lines, then `total records: 2000`.
+
+Count the events in the full log with grep (`wc -l` said 1999 because the last line has no newline, but grep still counts it):
+
+```bash
+grep -cE '^\[' data/m7/app.log
+```
+
+**Check:** prints `2000`.
+
+Count the records, as in Step 6 but for `app.log`:
+
+```bash
+python -c "
+print('\n')
+from lib_claude_multimodal import db_ro
+print('records:', db_ro.log_events.count_documents({'source_file': 'app.log'}))
+print('missing ts:', db_ro.log_events.count_documents({'source_file': 'app.log', 'ts': None}))"
+```
+
+**Check:** `records: 2000`, the same as the grep count, and `missing ts: 0`.
+
+Spot-check 20 random records, as in Step 7 but for `app.log`:
+
+```bash
+python -c "
+print('\n')
+from lib_claude_multimodal import db_ro
+lines = open('data/m7/app.log', errors='replace').read().splitlines()
+for r in db_ro.log_events.aggregate([{'\$match': {'source_file': 'app.log'}}, {'\$sample': {'size': 20}}]):
+    print(f\"line {r['line']}: {lines[r['line'] - 1][:150]}\")
+    print(f\"  -> {r['ts']} | {r['service']} | {r['severity']} | {r['message'][:100]}\n\")"
+```
+
+**Check:** in all 20, timestamp, service, severity and message match the original line.
+
+Commit:
 
 ```bash
 git add lib_claude_multimodal.py m07_*.py notes/m07_grep_count.txt

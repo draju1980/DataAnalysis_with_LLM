@@ -5,6 +5,8 @@
 **You start with:** Module 1 done — `ask()`, `run_with_tools()`, `text_of()` (Modules 2–5 aren't required for this one).
 **You finish with:** `load_tables()`, `describe_table()`, `run_sql()` and `ask_data()`; three files in different formats queryable together with SQL; and 10 questions answered by Claude, every number checked against your own result.
 
+**What this lab is about.** Most business data lives in spreadsheets and exports: CSV, Excel, JSON. Here you load three such files into DuckDB so you can query them together with SQL, then let Claude answer questions by writing that SQL itself. Claude never sees the full table, only a short profile of it, and every number it gives must come from a query it ran. You write your own answers first, so you can check every one of Claude's.
+
 ## Key ideas (read once)
 
 - **Profile, don't paste.** Claude never sees the whole table. It sees column names, types, missing-value counts and a few sample rows, then writes SQL to compute answers. Numbers are calculated, not guessed.
@@ -74,8 +76,17 @@ print('Module 1 ok')"
 
 ## Step 1 — Install the tabular packages and add three files
 
+**What you're doing:** installing the tools that read tabular files (DuckDB for SQL, openpyxl for Excel, pyarrow for Parquet) and putting three related files in `data/m6/`. Using three different formats shows that one SQL query can join them all.
+
+Install the packages:
+
 ```bash
 pip install duckdb openpyxl pyarrow
+```
+
+Make the folder:
+
+```bash
 mkdir -p data/m6
 ```
 
@@ -153,27 +164,57 @@ print(f"wrote {len(rows)} trades, {len(targets)} targets and {len(INSTRUMENTS)} 
 python m06_make_files.py
 ```
 
-**Check:**
+**Check:** prints `wrote 159 trades, 21 targets and 7 instruments to data/m6/`.
+
+List the folder:
 
 ```bash
 ls data/m6
 ```
 
-Output shows your three files.
+**Check:** shows your three files. With the course sample: `export.json  targets.xlsx  trades.csv`.
 
 ## Step 2 — Look at the raw files and note the quirks
 
-Before loading anything, look at what you have:
+**What you're doing:** opening each file the plain way, before any loading, to spot what would trip up a loader: mixed date formats, title rows above the headers, records hidden under a key. You write these down because Steps 3 and 5 need them.
+
+Show the first lines of the CSV:
 
 ```bash
 head -5 data/m6/trades.csv
+```
+
+**Check:** a header line `trade_date,symbol,side,quantity,price`, then four trades. With the course sample, the dates already mix two formats: `2026-07-01` and `01/07/2026`.
+
+List the sheets in the Excel file:
+
+```bash
 python -c "
 print('\n')
 import pandas as pd
-x = pd.ExcelFile('data/m6/targets.xlsx'); print('sheets:', x.sheet_names)
-print(pd.read_excel(x, sheet_name=x.sheet_names[0], header=None).head(8))"
+print('sheets:', pd.ExcelFile('data/m6/targets.xlsx').sheet_names)"
+```
+
+**Check:** with the course sample, prints `sheets: ['README', '2026']`. The first sheet is only a note; the data is on `2026`.
+
+Show the top rows of the data sheet exactly as stored (with your own file, use the sheet name printed above):
+
+```bash
+python -c "
+print('\n')
+import pandas as pd
+print(pd.read_excel('data/m6/targets.xlsx', sheet_name='2026', header=None).head(5))"
+```
+
+**Check:** the row numbers on the left are 0-based. With the course sample, rows `0` and `1` are titles (`Desk targets 2026`, `Source: trading desk plan, v3`), row `2` holds the column names `symbol  month  target_value`, and the data starts on row `3`. So the header row is `2`.
+
+Show the shape of the JSON file:
+
+```bash
 python -c "print('\n'); import json; d=json.load(open('data/m6/export.json')); print(type(d).__name__, list(d)[:5] if isinstance(d, dict) else d[:1])"
 ```
+
+**Check:** with the course sample, prints `dict ['exported_at', 'count', 'data']`: a dict with the records under the `"data"` key. A plain list would print `list` and its first record.
 
 Make a notes folder:
 
@@ -187,9 +228,11 @@ Write these down in `notes/m06_quirks.md`, so you still have them after a break:
 - **Excel:** which sheet holds the data and which row the headers are on (0-based; with a title row above them it's often `1` or `2`).
 - **JSON:** whether it's a list of records, or a dict with the records under a key such as `"data"`.
 
-**Check:** `notes/m06_quirks.md` records the sheet name, header row and JSON shape.
+**Check:** `notes/m06_quirks.md` records the date formats, sheet name, header row and JSON shape. With the course sample: dates in both `2026-07-01` and `01/07/2026` form, sheet `2026`, header row `2`, records under `"data"`.
 
 ## Step 3 — Load all three files into DuckDB
+
+**What you're doing:** turning each file into a table you can query with SQL. A shared function handles the formats; a small project file lists your files and the options your Step 2 notes call for, so later steps can open all three tables with one call.
 
 This step has two parts: a function in the shared library, then a small project file that says which files to load.
 
@@ -198,7 +241,6 @@ This step has two parts: a function in the shared library, then a small project 
 Append to `lib_claude_multimodal.py` (the file you created in Module 1, Step 1):
 
 ```python
-from pathlib import Path
 import json
 
 
@@ -278,7 +320,9 @@ instruments 7 rows
 
 ## Step 4 — Add `describe_table()` and profile each table
 
-This profile is what Claude will see in Step 7 in place of the full data, so check that it's right. Append to `lib_claude_multimodal.py`:
+**What you're doing:** writing the short summary of a table (columns, types, missing values, a few rows) that Claude will see instead of the data. Reading the profiles yourself is also the quickest way to catch loading problems.
+
+Claude sees this profile in Step 7 in place of the full data, so check that it's right. Append to `lib_claude_multimodal.py`:
 
 ```python
 def describe_table(con, name, n=5):
@@ -313,6 +357,8 @@ for t in SPEC: print(describe_table(con, t), '\n')"
 With your own files, look for the same things: dates or numbers showing as `VARCHAR`, and missing counts you can't explain.
 
 ## Step 5 — Clean the date column with a `trades_clean` view
+
+**What you're doing:** fixing the mixed-format date column once, in a view, so that every later query, yours and Claude's, filters and sorts dates correctly.
 
 DuckDB guesses each column's type from the values it sees. A column with two date formats can't be one `DATE`, so DuckDB keeps it as text. Text dates sort and filter wrongly (`01/09/2026` sorts before `2026-07-01`), and `month(trade_date)` fails. The fix is a **view**: a saved query that reads `trades` and turns `trade_date` into a real `DATE`. From now on every query, yours and Claude's, uses `trades_clean`.
 
@@ -364,6 +410,8 @@ print(describe_table(open_tables(), 'trades_clean'))"
 
 ## Step 6 — Add `run_sql()` with a read-only check
 
+**What you're doing:** writing the one function Claude will use to run SQL, with a guard that allows only reading. Claude writes the queries, so this check keeps a bad query from changing or deleting your tables.
+
 In Step 7, Claude writes SQL and this function runs it. Claude should only **read** data, never change or delete it, so `run_sql()` refuses anything that isn't a single `SELECT` (or `WITH … SELECT`). That blocks statements like `DROP VIEW trades` or `DELETE FROM trades`, and two statements joined with `;`. It also caps the result at 200 rows, so a big result doesn't flood Claude's context.
 
 Append to `lib_claude_multimodal.py`, below `describe_table()`:
@@ -402,6 +450,8 @@ blocked: only one SELECT (or WITH … SELECT) statement is allowed
 
 ## Step 7 — Add `ask_data()` and ask one question
 
+**What you're doing:** connecting the pieces. `ask_data()` gives Claude the table profiles and the `run_sql` tool, lets it query until it can answer, and returns both the answer and the SQL it ran, so you can see where every number came from.
+
 Append to `lib_claude_multimodal.py`, below `run_sql()`:
 
 ```python
@@ -427,7 +477,7 @@ def ask_data(con, question, tables, *, model=HAIKU):
     return text_of(resp), sqls
 ```
 
-**Check:**
+Ask one question:
 
 ```bash
 python -c "
@@ -438,9 +488,11 @@ answer, sqls = ask_data(open_tables(), 'How many trades are there in total?', ['
 print(answer); print(sqls)"
 ```
 
-Prints `[tool] run_sql …`, an answer, and the SQL used. The number matches Step 3's row count.
+**Check:** prints a line such as `[tool] run_sql {'sql': 'SELECT count(*) ... FROM trades_clean'}`, then Claude's answer, then the SQL as a Python list. The number is Step 3's row count: `159` with the course sample.
 
 ## Step 8 — Write 10 questions and your own answers
+
+**What you're doing:** building the answer key. You write the questions and compute the right answers with your own SQL before Claude sees them, so in Step 10 you can tell whether Claude got each one right.
 
 Before Claude answers anything, you need the right answers to check it against. You write each question together with **your own SQL**, run it, and save the results. One script holds both, and it writes two files:
 
@@ -521,6 +573,8 @@ python m06_my_answers.py
 
 ## Step 9 — Let Claude answer all 10
 
+**What you're doing:** running Claude on the same 10 questions in one go and saving each answer with the SQL behind it, ready to compare with your answer key.
+
 Create `m06_ask.py`:
 
 ```python
@@ -546,15 +600,25 @@ print("wrote notes/m06_results.md")
 python m06_ask.py
 ```
 
-**Check:** `notes/m06_results.md` has 10 answers, each with the SQL that produced it.
+**Check:** prints `[tool] run_sql …` lines and `1. done` through `10. done`, then `wrote notes/m06_results.md`. That file has 10 answers, each with the SQL that produced it.
 
 ## Step 10 — Compare and fix
 
-Put `notes/m06_answers.md` and `notes/m06_results.md` side by side. For each mismatch, read Claude's SQL to find the cause (wrong join, wrong date filter, misread column), then fix the **input**, not the answer: rename a confusing column in a clean view, or add a sentence to the `system` text in `ask_data()` explaining it. Rerun Step 9.
+**What you're doing:** grading Claude against your answers and, where it's wrong, finding out why. You fix what Claude was given (column names, instructions), not the answer itself, so the fix helps every future question too.
+
+Put `notes/m06_answers.md` and `notes/m06_results.md` side by side. For each mismatch, read Claude's SQL to find the cause (wrong join, wrong date filter, misread column), then fix the **input**, not the answer: rename a confusing column in a clean view, or add a sentence to the `system` text in `ask_data()` explaining it.
+
+After each fix, ask all 10 questions again (this overwrites `notes/m06_results.md`):
+
+```bash
+python m06_ask.py
+```
 
 **Check:** all 10 answers match yours, and every number in `m06_results.md` appears in a query result.
 
 ## Step 11 — Commit
+
+**What you're doing:** saving your work. Only code and notes go into git; the data files in `data/` stay out.
 
 ```bash
 git add lib_claude_multimodal.py m06_*.py notes/m06_quirks.md notes/m06_answers.md notes/m06_results.md
@@ -577,7 +641,7 @@ diff -Bw <(grep -v '^# ── ' data/expected.py) <(grep -v '^# ── ' lib_cla
 `-Bw` ignores blank lines and spacing. Every other line `diff` prints is a real difference: a missing step, a block pasted twice, or a typo.
 
 <details>
-<summary>Show the complete file (547 lines)</summary>
+<summary>Show the complete file (546 lines)</summary>
 
 ```python
 # ── Module 1, Step 1 ──
@@ -1054,7 +1118,6 @@ def analyze_audio(recording, chunk_minutes=10, model=HAIKU, max_tokens=2048):
 
 
 # ── Module 6, Step 3 ──
-from pathlib import Path
 import json
 
 
