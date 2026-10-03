@@ -59,7 +59,7 @@ print('Module 1 ok')"
 
 - Steps 3 and 5 use what you wrote in `notes/m06_quirks.md` (Step 2), possibly days later. Open it before you edit `SPEC`.
 - Nothing in this module is stored between sessions: DuckDB runs in memory and `open_tables()` re-reads the files each time. Resuming is just rerunning the script you were on.
-- Step 8 can span sessions: add answers to `notes/m06_answers.md` as you compute them.
+- Step 8 can span sessions: add questions to `m06_my_answers.py` as you write them. Each run rewrites `data/m6/questions.txt` and `notes/m06_answers.md`.
 - `m06_ask.py` asks all 10 questions again and overwrites `notes/m06_results.md` on every run. That's what Step 10 wants after each fix.
 - Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-6) at the end of the page.
 - **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never `docker compose down -v`: it deletes the database.
@@ -430,26 +430,82 @@ Prints `[tool] run_sql …`, an answer, and the SQL used. The number matches Ste
 
 ## Step 8 — Write 10 questions and your own answers
 
-Create `data/m6/questions.txt` with 10 questions, one per line. Include at least three that need **two or more files**, e.g.:
+Before Claude answers anything, you need the right answers to check it against. You write each question together with **your own SQL**, run it, and save the results. One script holds both, and it writes two files:
 
-```
-What was the total traded value per symbol in September?
-Which symbols beat their monthly target in August, and by how much?
-What is the average trade size for instruments in the "equity" asset class?
+- `data/m6/questions.txt`: the questions, one per line. Step 9 gives these to Claude.
+- `notes/m06_answers.md`: each question with your SQL and its result. Step 10 compares Claude's answers with this file.
+
+Create `m06_my_answers.py`. These 10 questions fit the course sample; the last four need **two files** (a join). Read each query and make sure you agree it answers its question. If you use your own files, replace the questions and SQL with your own, keeping at least three that need two or more files.
+
+```python
+"""Your 10 questions and your own SQL answers. Writes data/m6/questions.txt and notes/m06_answers.md."""
+from pathlib import Path
+from m06_tables import open_tables
+
+FENCE = "`" * 3                       # a Markdown code fence
+
+QUESTIONS = [
+    ("How many trades are there in total?",
+     "SELECT count(*) AS trades FROM trades_clean"),
+    ("How many BUY trades and how many SELL trades are there?",
+     "SELECT side, count(*) AS trades FROM trades_clean GROUP BY side ORDER BY side"),
+    ("What was the total traded value (quantity × price) per symbol in September 2026?",
+     """SELECT symbol, round(sum(quantity * price), 2) AS value FROM trades_clean
+        WHERE trade_date BETWEEN '2026-09-01' AND '2026-09-30'
+        GROUP BY symbol ORDER BY value DESC"""),
+    ("What was the total traded value per month?",
+     """SELECT strftime(trade_date, '%Y-%m') AS month, round(sum(quantity * price), 2) AS value
+        FROM trades_clean GROUP BY month ORDER BY month"""),
+    ("What was the average price of AAPL trades in July 2026?",
+     """SELECT round(avg(price), 2) AS avg_price FROM trades_clean
+        WHERE symbol = 'AAPL' AND trade_date BETWEEN '2026-07-01' AND '2026-07-31'"""),
+    ("Which symbol had the most trades, and how many?",
+     """SELECT symbol, count(*) AS trades FROM trades_clean
+        GROUP BY symbol ORDER BY trades DESC LIMIT 1"""),
+    # The next four need two files.
+    ("Which symbols beat their traded-value target in August 2026, and by how much?",
+     """SELECT t.symbol, round(sum(t.quantity * t.price), 2) AS value, g.target_value,
+               round(sum(t.quantity * t.price) - g.target_value, 2) AS beat_by
+        FROM trades_clean t JOIN targets g
+          ON g.symbol = t.symbol AND g.month = strftime(t.trade_date, '%Y-%m')
+        WHERE g.month = '2026-08'
+        GROUP BY t.symbol, g.target_value
+        HAVING sum(t.quantity * t.price) > g.target_value
+        ORDER BY beat_by DESC"""),
+    ("What was the total traded value per asset class?",
+     """SELECT i.asset_class, round(sum(t.quantity * t.price), 2) AS value
+        FROM trades_clean t JOIN instruments i USING (symbol)
+        GROUP BY i.asset_class ORDER BY value DESC"""),
+    ("What is the average trade value (quantity × price) for instruments in the equity asset class?",
+     """SELECT round(avg(t.quantity * t.price), 2) AS avg_value
+        FROM trades_clean t JOIN instruments i USING (symbol)
+        WHERE i.asset_class = 'equity'"""),
+    ("Which sector had the highest total traded value? Ignore instruments with no sector.",
+     """SELECT i."details.sector" AS sector, round(sum(t.quantity * t.price), 2) AS value
+        FROM trades_clean t JOIN instruments i USING (symbol)
+        WHERE i."details.sector" IS NOT NULL
+        GROUP BY sector ORDER BY value DESC LIMIT 1"""),
+]
+
+con = open_tables()
+out = ["# Module 6 — my answers", ""]
+for n, (q, sql) in enumerate(QUESTIONS, 1):
+    result = con.execute(sql).df().to_string(index=False)
+    out += [f"## {n}. {q}", "", f"{FENCE}sql\n{sql}\n{FENCE}", "", f"{FENCE}\n{result}\n{FENCE}", ""]
+    print(f"{n}. {q}\n{result}\n")
+Path("data/m6/questions.txt").write_text("\n".join(q for q, _ in QUESTIONS) + "\n")
+Path("notes").mkdir(exist_ok=True)
+Path("notes/m06_answers.md").write_text("\n".join(out))
+print("wrote data/m6/questions.txt and notes/m06_answers.md")
 ```
 
-Now compute each answer **yourself**, with your own SQL in DuckDB or pandas, and write them in `notes/m06_answers.md`. Example for one question:
+Run it:
 
 ```bash
-python -c "
-print('\n')
-from m06_tables import open_tables
-con = open_tables()
-print(con.execute('''SELECT symbol, sum(quantity*price) AS value FROM trades_clean
-                     WHERE month(trade_date)=9 GROUP BY symbol ORDER BY value DESC''').df())"
+python m06_my_answers.py
 ```
 
-**Check:** `notes/m06_answers.md` has 10 answers you computed yourself.
+**Check:** prints each question with its result, then `wrote data/m6/questions.txt and notes/m06_answers.md`. With the course sample, question 1 says `159` and question 3 starts with `SPY 491093.55`. Rerunning is safe: both files are overwritten, so change a question or its SQL and run the script again.
 
 ## Step 9 — Let Claude answer all 10
 
