@@ -134,17 +134,18 @@ notebooks/
 Create `Dockerfile`:
 
 ```dockerfile
-FROM python:3.12-slim
+FROM python:3.12-alpine
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY lib_claude_multimodal.py m04_extract_folder.py ./
-RUN useradd --create-home app && chown -R app /app
+RUN adduser -D app && chown -R app /app
 USER app
 CMD ["python", "m04_extract_folder.py"]
 ```
 
-- The container runs as a normal user, not root.
+- `python:3.12-alpine` is a small base image (Alpine Linux) with no known critical or high vulnerabilities at the time of writing. The Debian-based `python:3.12-slim` has four high ones in system packages, three with no fix yet, and editors with Docker support flag them on the `FROM` line.
+- The container runs as a normal user, not root (`adduser -D` is Alpine's way to create one).
 - Only the two Python files go in; your PDFs are mounted read-only at run time (Step 4).
 
 **Check:**
@@ -154,6 +155,14 @@ docker build -t pdf-extractor .
 ```
 
 The build finishes without errors and its last lines mention `naming to docker.io/library/pdf-extractor`.
+
+Optional, if Docker Desktop is installed: scan the image for known vulnerabilities:
+
+```bash
+docker scout quickview pdf-extractor
+```
+
+**Check:** the `Target` line shows `0C` and `0H` (no critical or high vulnerabilities). New vulnerabilities are found all the time, so rebuild with `docker build --pull -t pdf-extractor .` now and then to pick up a patched base image.
 
 ## Step 3 — Add container-network connection strings to `.env`
 
