@@ -44,7 +44,7 @@ print('Module 1 ok')"
   step "Step 2   notes/m06_quirks.md"            'test -f notes/m06_quirks.md'
   step "Step 3   load_tables() + m06_tables.py"  'grep -qF "def load_tables(" lib_claude_multimodal.py && test -f m06_tables.py'
   step "Step 4   describe_table()"               'grep -qF "def describe_table(" lib_claude_multimodal.py'
-  step "Step 5   trades_clean (optional)"        'grep -qF "trades_clean" m06_tables.py'
+  step "Step 5   trades_clean view"              'grep -qF "trades_clean" m06_tables.py'
   step "Step 6   run_sql()"                      'grep -qF "def run_sql(" lib_claude_multimodal.py'
   step "Step 7   ask_data()"                     'grep -qF "def ask_data(" lib_claude_multimodal.py'
   step "Step 8   questions + your answers"       'test -f data/m6/questions.txt && test -f notes/m06_answers.md'
@@ -53,7 +53,7 @@ print('Module 1 ok')"
 )
 ```
 
-**Check:** resume at the first `todo` line. Step 5's line can stay `todo` if your files had no type problems.
+**Check:** resume at the first `todo` line.
 
 **Resuming safely**
 
@@ -177,11 +177,16 @@ Write these down in `notes/m06_quirks.md` (`mkdir -p notes` first), so you still
 
 **Check:** `notes/m06_quirks.md` records the sheet name, header row and JSON shape.
 
-## Step 3 — Add `load_tables()` and load all three files
+## Step 3 — Load all three files into DuckDB
 
-Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1):
+This step has two parts: a function in the shared library, then a small project file that says which files to load.
+
+### 3a. Add `load_tables()` to the library
+
+Append to `lib_claude_multimodal.py` (the file you created in Module 1, Step 1):
 
 ```python
+from pathlib import Path
 import json
 
 
@@ -209,7 +214,11 @@ def load_tables(spec):
     return con
 ```
 
-Create `m06_tables.py` with your file list. Use the sheet, header row and JSON key you noted in Step 2:
+Each file becomes a table you can query with SQL. The table name is the key in `spec`.
+
+### 3b. Create `m06_tables.py`
+
+This file holds `SPEC`, your list of files. Every later step imports `open_tables()` from it, so it's the only place file names and options appear. Create `m06_tables.py`:
 
 ```python
 from lib_claude_multimodal import load_tables
@@ -231,15 +240,33 @@ if __name__ == "__main__":
         print(name, con.execute(f"SELECT count(*) FROM {name}").fetchone()[0], "rows")
 ```
 
+The options come from your Step 2 notes:
+
+| Option | Meaning | Course sample |
+| --- | --- | --- |
+| `sheet_name` | the Excel sheet that holds the data | `"2026"` (the first sheet is a README) |
+| `header` | the 0-based row the column names are on | `2` (two title rows above it) |
+| `records_key` | the JSON key that holds the list of records | `"data"` (leave it out if the file is a plain list) |
+
+If you're using your own files, change the paths and options to match them.
+
+Load the files:
+
 ```bash
 python m06_tables.py
 ```
 
-**Check:** prints a row count for each of the three tables.
+**Check:** prints a row count for each table. With the course sample:
+
+```
+trades 159 rows
+targets 21 rows
+instruments 7 rows
+```
 
 ## Step 4 — Add `describe_table()` and profile each table
 
-Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1):
+This profile is what Claude will see in Step 7 in place of the full data, so check that it's right. Append to `lib_claude_multimodal.py`:
 
 ```python
 def describe_table(con, name, n=5):
@@ -254,6 +281,8 @@ def describe_table(con, name, n=5):
     return "\n".join(lines) + f"\nSample rows:\n{sample}"
 ```
 
+Profile all three tables:
+
 ```bash
 python -c "
 print('\n')
@@ -263,37 +292,63 @@ con = open_tables()
 for t in SPEC: print(describe_table(con, t), '\n')"
 ```
 
-**Check:** every column has the type you expect. If a date column shows `VARCHAR`, fix it in the next step.
+**Check:** prints one profile per table: its columns with type and missing count, then 5 sample rows. With the course sample, three things stand out, and all three are expected:
 
-## Step 5 — Fix type quirks with a clean view (only if Steps 3–4 showed problems)
+- `trades.trade_date` is **`VARCHAR`** (text), not `DATE`, and the sample rows mix `2026-07-01` with `01/07/2026`. Step 5 fixes this.
+- `instruments` has columns such as `details.sector`. That's the nested JSON, flattened. The dot is part of the column name, so SQL has to quote it: `"details.sector"`.
+- `details.sector` shows `3 missing`. The three ETFs have no sector. That's real data, not a loading error.
 
-DuckDB guesses each column's type from a sample of rows. With **mixed date formats** (`2026-09-03` in one row, `04/09/2026` in another) it either keeps the column as text (`VARCHAR`) or guesses `DATE` and then fails at query time with *Could not convert string … to 'DATE'*.
+With your own files, look for the same things: dates or numbers showing as `VARCHAR`, and missing counts you can't explain.
 
-Fix it in two moves in `m06_tables.py`:
+## Step 5 — Clean the date column with a `trades_clean` view
 
-1. Load the column as text, so nothing fails while loading. Change the trades entry in `SPEC`:
+DuckDB guesses each column's type from the values it sees. A column with two date formats can't be one `DATE`, so DuckDB keeps it as text. Text dates sort and filter wrongly (`01/09/2026` sorts before `2026-07-01`), and `month(trade_date)` fails. The fix is a **view**: a saved query that reads `trades` and turns `trade_date` into a real `DATE`. From now on every query, yours and Claude's, uses `trades_clean`.
 
-   ```python
-   "trades": ("data/m6/trades.csv", {"types": {"trade_date": "VARCHAR"}}),
-   ```
+Replace **all** of `m06_tables.py` with:
 
-2. Parse it yourself in a clean view. Replace `open_tables()` with:
+```python
+from lib_claude_multimodal import load_tables
 
-   ```python
-   def open_tables():
-       con = load_tables(SPEC)
-       con.execute("""CREATE OR REPLACE VIEW trades_clean AS
-                      SELECT * REPLACE (coalesce(try_strptime(trade_date, '%d/%m/%Y'),
-                                                 try_strptime(trade_date, '%Y-%m-%d'))::DATE AS trade_date)
-                      FROM trades""")
-       return con
-   ```
+SPEC = {
+    "trades": ("data/m6/trades.csv", {"types": {"trade_date": "VARCHAR"}}),
+    "targets": ("data/m6/targets.xlsx", {"sheet_name": "2026", "header": 2}),
+    "instruments": ("data/m6/export.json", {"records_key": "data"}),
+}
 
-   `try_strptime` returns `NULL` instead of failing, and `coalesce` takes the first format that works. List every format you saw in Step 2.
 
-Use `trades_clean` instead of `trades` from now on.
+def open_tables():
+    con = load_tables(SPEC)
+    con.execute("""CREATE OR REPLACE VIEW trades_clean AS
+                   SELECT * REPLACE (coalesce(try_strptime(trade_date, '%d/%m/%Y'),
+                                              try_strptime(trade_date, '%Y-%m-%d'))::DATE AS trade_date)
+                   FROM trades""")
+    return con
 
-**Check:** rerun the Step 4 command with `trades_clean` added; `trade_date` shows type `DATE` and `0 missing` (a non-zero missing count means a format you haven't listed).
+
+if __name__ == "__main__":
+    con = open_tables()
+    for name in SPEC:
+        print(name, con.execute(f"SELECT count(*) FROM {name}").fetchone()[0], "rows")
+```
+
+The two changes:
+
+- **`SPEC`:** `"types": {"trade_date": "VARCHAR"}` always loads the column as text. Without it, DuckDB might guess `DATE` from a sample that has only one format, then fail at query time with *Could not convert string … to 'DATE'*.
+- **`open_tables()`:** creates the `trades_clean` view. `try_strptime` tries one format and returns `NULL` instead of failing; `coalesce` keeps the first format that worked. List every date format you noted in Step 2.
+
+**Own files with no date problem?** Still create the view, so Steps 7–10 work unchanged: use `CREATE OR REPLACE VIEW trades_clean AS SELECT * FROM trades`.
+
+Profile the clean view:
+
+```bash
+python -c "
+print('\n')
+from m06_tables import open_tables
+from lib_claude_multimodal import describe_table
+print(describe_table(open_tables(), 'trades_clean'))"
+```
+
+**Check:** `trade_date` shows `(DATE), 0 missing`, and every sample date looks like `2026-07-01`. If the missing count isn't 0, some rows use a format you haven't listed: add another `try_strptime(...)` line for it.
 
 ## Step 6 — Add `run_sql()` with a read-only check
 
@@ -363,7 +418,7 @@ answer, sqls = ask_data(open_tables(), 'How many trades are there in total?', ['
 print(answer); print(sqls)"
 ```
 
-Prints `[tool] run_sql …`, an answer, and the SQL used. The number matches Step 3's row count. (If you skipped Step 5, use `'trades'` instead of `'trades_clean'` here and in Step 9.)
+Prints `[tool] run_sql …`, an answer, and the SQL used. The number matches Step 3's row count.
 
 ## Step 8 — Write 10 questions and your own answers
 
@@ -446,7 +501,7 @@ diff -Bw <(grep -v '^# ── ' data/expected.py) <(grep -v '^# ── ' lib_cla
 `-Bw` ignores blank lines and spacing. Every other line `diff` prints is a real difference: a missing step, a block pasted twice, or a typo.
 
 <details>
-<summary>Show the complete file (546 lines)</summary>
+<summary>Show the complete file (547 lines)</summary>
 
 ```python
 # ── Module 1, Step 1 ──
@@ -923,6 +978,7 @@ def analyze_audio(recording, chunk_minutes=10, model=HAIKU, max_tokens=2048):
 
 
 # ── Module 6, Step 3 ──
+from pathlib import Path
 import json
 
 
@@ -1002,7 +1058,7 @@ def ask_data(con, question, tables, *, model=HAIKU):
 
 ### Complete `m06_tables.py`
 
-Created in Step 3 and changed in Step 5. This is the version with Step 5's fix; if your files needed no fix, yours is the Step 3 version.
+Created in Step 3 and replaced in Step 5. This is the Step 5 version.
 
 <details>
 <summary>Show the complete file (22 lines)</summary>
