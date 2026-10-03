@@ -67,7 +67,7 @@ for i in db_rw.chunks.list_search_indexes(): print('index:   ', i['name'], 'read
 **Resuming safely**
 
 - **`build_chunks()` deletes every chunk and rebuilds them.** It's free and quick, so rerun Step 1 whenever your sources change. The search index stays and picks up the new chunks by itself.
-- Step 6 is interactive: paste each answer into `notes/m09_results.md` as you go, so a break doesn't lose them. Step 7 marks them ✅ or ❌ in the same file, also one at a time.
+- Step 6 writes all 10 answers to `notes/m09_results.md` in one run. Rerunning `m09_ask.py` overwrites that file, so don't rerun it after you've started marking answers ✅ or ❌ in Step 7.
 - Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-9) at the end of the page.
 - **To stop for the day**, stop MongoDB (or leave it running; your data stays):
 
@@ -233,7 +233,7 @@ Prints an answer about the `mod_jk` error states with `[n]` markers, then a sour
 
 ## Step 5 — Build the assistant that picks the right tool
 
-**What you're doing:** combining this module's document search with Module 8's database queries in one chat. Some questions need documents ("What risks were mentioned on the call?"), others need numbers from collections ("How many ERROR events per service?"). You give Claude both as tools and let it choose per question. This script is a standalone program, not part of the shared library.
+**What you're doing:** combining this module's document search with Module 8's database queries in one chat. Some questions need documents ("What risks were mentioned on the call?"), others need numbers from collections ("How many ERROR events per service?"). You give Claude both as tools and let it choose per question. This script is a standalone program, not part of the shared library. `ask_assistant()` answers one question; the chat loop at the bottom runs only when you start the script yourself, so Step 6 can reuse `ask_assistant()` without starting a chat.
 
 Create `m09_assistant.py`:
 
@@ -260,15 +260,22 @@ SYSTEM = (DOC_RULE + " Answer questions using two tools: search_documents for wh
           "Cite every claim with its SOURCE (file plus page, time or line) or the collection you "
           "queried. Every number must come from a tool result.\n\n" + describe_mongo())
 
-while True:
-    q = input("\nquestion> ").strip()
-    if q.lower() in ("quit", "exit"):
-        break
-    history = [{"role": "user", "content": q}]
-    resp, _ = run_with_tools(history, [SEARCH_TOOL, PIPELINE_TOOL],
-                             {"search_documents": search_documents, "run_pipeline": run_pipeline},
-                             system=SYSTEM, model=HAIKU, module="m9")
-    print("\n" + text_of(resp))
+def ask_assistant(question):
+    """Answer one question with both tools. Returns the answer and the tools Claude called."""
+    history = [{"role": "user", "content": question}]
+    resp, replies = run_with_tools(history, [SEARCH_TOOL, PIPELINE_TOOL],
+                                   {"search_documents": search_documents, "run_pipeline": run_pipeline},
+                                   system=SYSTEM, model=HAIKU, module="m9")
+    tools = [b.name for r in replies for b in r.content if b.type == "tool_use"]
+    return text_of(resp), tools
+
+
+if __name__ == "__main__":            # only when run directly, not when m09_ask.py imports it
+    while True:
+        q = input("\nquestion> ").strip()
+        if q.lower() in ("quit", "exit"):
+            break
+        print("\n" + ask_assistant(q)[0])
 ```
 
 ```bash
@@ -281,7 +288,9 @@ Try one document question ("What risks were mentioned on the call?") and one num
 
 ## Step 6 — Run 10 test questions
 
-**What you're doing:** testing the assistant on realistic questions across all three kinds of data and keeping the answers, so you can check them in the next step.
+**What you're doing:** testing the assistant on 10 questions that cover all three kinds of data, and saving every answer in one file so you can check the citations in Step 7. A script asks the questions one after another, so you don't copy answers out of the chat by hand.
+
+The questions are about the course data: three about the invoice PDFs (Module 4), three about the `q3-call` recording (Module 5), three about the Apache log (Module 7), and one that needs a count from the database (`log_events`), so Claude has to pick `run_pipeline` instead of searching. You can swap in questions of your own, as long as each kind of data keeps at least three.
 
 Make the folder:
 
@@ -289,15 +298,65 @@ Make the folder:
 mkdir -p data/m9
 ```
 
-Write 10 questions in `data/m9/questions.txt`: at least three each for PDFs, transcripts and logs, and one that needs two of them. Run each in `m09_assistant.py` and paste the answers into `notes/m09_results.md`.
+Write the questions, one per line:
 
-**Check:** 10 answers, each with at least one citation.
+```bash
+cat > data/m9/questions.txt <<'EOF'
+What does the Amazon Web Services invoice say about VAT, GST or sales tax?
+What payment terms and due date are written on the Azure Interior invoice?
+Which invoices show a payment due date or payment method?
+What did the team say about speech or voice recognition on the q3-call?
+What marketing or design trends did the team discuss on the q3-call?
+What did the team say about buttons on the remote control in the q3-call?
+Which errors did mod_jk report in the Apache log?
+When did mod_jk report "child init" errors, and what did they say?
+Which error states did "workerEnv in error state" have, and which state appears most often?
+How many ERROR log events are there in total, and what does the most common error message say?
+EOF
+```
+
+Count them:
+
+```bash
+wc -l data/m9/questions.txt
+```
+
+**Check:** prints `10 data/m9/questions.txt`.
+
+Create `m09_ask.py`:
+
+```python
+"""Run every question in data/m9/questions.txt through the assistant. Writes notes/m09_results.md."""
+from pathlib import Path
+from m09_assistant import ask_assistant
+
+out = ["# Module 9 — assistant answers", ""]
+questions = [q for q in Path("data/m9/questions.txt").read_text().splitlines() if q.strip()]
+for n, q in enumerate(questions, 1):
+    print(f"\n{n}. {q}")
+    answer, tools = ask_assistant(q)
+    out += [f"## {n}. {q}", "", f"Tools used: {', '.join(tools) or 'none'}", "", answer, "",
+            "Verified (Step 7): ✅ / ❌", ""]
+Path("notes").mkdir(exist_ok=True)
+Path("notes/m09_results.md").write_text("\n".join(out))
+print(f"\nwrote {len(questions)} answers to notes/m09_results.md")
+```
+
+Run it:
+
+```bash
+python m09_ask.py
+```
+
+It takes a minute or two: each question shows its number, then a `[tool] search_documents …` or `[tool] run_pipeline …` line for every search or query Claude runs.
+
+**Check:** ends with `wrote 10 answers to notes/m09_results.md`. Open that file: each answer has a `Tools used:` line, at least one citation (a file with page, time or line, or a collection), and a `Verified (Step 7): ✅ / ❌` line you fill in next. PDF, call and log questions should use `search_documents`; question 10 should use `run_pipeline`. Rerunning overwrites the file, including any ✅ / ❌ you already filled in.
 
 ## Step 7 — Open every citation
 
 **What you're doing:** checking that the citations are real. A citation is only useful if the source says what the answer claims.
 
-For each answer in `notes/m09_results.md`, look up every source it cites and confirm the source says what the answer claims. A citation has one of three forms; use the matching command below, replacing the example file name and page, time or line with the ones from your citation.
+For each of the 10 answers in `notes/m09_results.md`, look up every source it cites and confirm the source says what the answer claims. A citation has one of three forms; use the matching command below, replacing the example file name and page, time or line with the ones from your citation.
 
 A PDF page, such as `AmazonWebServices.pdf p.1`. Print the page's text (the `1` in `pages[1 - 1]` is the page number):
 
@@ -331,7 +390,7 @@ sed -n '1889p' data/m7/app.log
 
 **Check:** prints one line, here `[Mon Dec 05 16:40:06 2005] [error] mod_jk child workerEnv in error state 6`.
 
-Mark each answer ✅ or ❌ in `notes/m09_results.md`.
+In `notes/m09_results.md`, replace `✅ / ❌` under each answer with ✅ if every citation checks out, or ❌ if any doesn't.
 
 **Check:** all 10 are ✅. For any ❌, see whether retrieval missed the right chunk (try a different `k` or rephrase the question with the source's words) or Claude misread it.
 
