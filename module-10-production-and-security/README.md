@@ -76,7 +76,7 @@ print('invoices (M4):       ', db_ro.invoices.count_documents({}))" && test -f m
   ```
 
   It should print `2`. If it prints anything else, rerun all of **Step 3**: it removes the old `_DOCKER` lines first, then adds both again.
-- **Step 5 edits `ask()` instead of appending.** Do it once; the `jlog()` line above tells you it's done.
+- **Step 5 edits `ask()` instead of appending.** Do Part 2 once. `grep -n "jlog(" lib_claude_multimodal.py` shows two lines when it's done; if it shows only `def jlog(`, Part 2 is still to do.
 - **Rebuild the image after changing `lib_claude_multimodal.py`**, or the container keeps running the old copy:
 
   ```bash
@@ -244,22 +244,29 @@ docker compose --profile jobs run --rm pdf-extractor
 
 ## Step 5 — Emit structured JSON logs
 
-**What you're doing:** making every Claude call print one machine-readable JSON line (model, tokens, latency) when `LOG_JSON=1` is set. Log platforms collect lines like these to build dashboards and alerts; on your laptop they stay off unless you ask for them.
+**What you're doing:** making every Claude call also print one machine-readable JSON line (model, tokens, latency) when you set `LOG_JSON=1`. Log platforms (Loki, CloudWatch, Elastic) collect lines like these to build dashboards and alerts. Without `LOG_JSON=1` nothing changes, so your normal runs stay quiet.
 
-Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1):
+This step has three parts: add a small `jlog()` function, call it from `ask()`, then test it.
+
+**Part 1 — add `jlog()`.** Append to the shared library `lib_claude_multimodal.py` (the file you created in Module 1, Step 1):
 
 ```python
-import json as _json
-
-
 def jlog(event, **fields):
     """Print one JSON log line (enable with LOG_JSON=1)."""
     if os.environ.get("LOG_JSON") == "1":
-        print(_json.dumps({"ts": datetime.now(timezone.utc).isoformat(), "event": event, **fields},
-                          default=str), flush=True)
+        print(json.dumps({"ts": datetime.now(timezone.utc).isoformat(), "event": event, **fields},
+                         default=str), flush=True)
 ```
 
-Then, inside `ask()`, replace the `log_call(...)` line with these two lines:
+`json`, `os` and `datetime` are already imported earlier in the file, so no imports are needed.
+
+**Part 2 — call it from `ask()`.** This part edits existing code instead of appending. Find `ask()` near the top of the file (you wrote it in Module 1, Step 4) and, inside it, this line:
+
+```python
+    log_call(resp, module, int((time.perf_counter() - start) * 1000))
+```
+
+Replace that one line with these four. They work out the latency once, log the call to MongoDB as before, then print the JSON line:
 
 ```python
     latency_ms = int((time.perf_counter() - start) * 1000)
@@ -268,13 +275,43 @@ Then, inside `ask()`, replace the `log_call(...)` line with these two lines:
          output_tokens=resp.usage.output_tokens, latency_ms=latency_ms, stop_reason=resp.stop_reason)
 ```
 
-**Check:**
+Keep the indentation (four spaces), and leave the rest of `ask()` as it is. The end of `ask()` now reads:
+
+```python
+    start = time.perf_counter()
+    resp = client.messages.create(**args)
+    latency_ms = int((time.perf_counter() - start) * 1000)
+    log_call(resp, module, latency_ms)
+    jlog("llm_call", module=module, model=resp.model, input_tokens=resp.usage.input_tokens,
+         output_tokens=resp.usage.output_tokens, latency_ms=latency_ms, stop_reason=resp.stop_reason)
+    if resp.stop_reason == "max_tokens":
+        print(f"WARNING: reply cut off at max_tokens={max_tokens}")
+    return resp
+```
+
+Confirm the edit is in place:
+
+```bash
+grep -n "jlog(" lib_claude_multimodal.py
+```
+
+**Check:** prints two lines: the `def jlog(` line near the end of the file, and a `jlog("llm_call", …` line inside `ask()`, near the top. If only `def jlog(` appears, Part 2 isn't done.
+
+**Part 3 — test it.** Make one small Claude call with JSON logging switched on:
 
 ```bash
 LOG_JSON=1 python -c "print('\n'); from lib_claude_multimodal import ask; ask('Say OK', max_tokens=512, module='m10')"
 ```
 
-Prints one JSON line with `"event": "llm_call"`, `"module": "m10"` and the token counts and latency — the format log platforms (Loki, CloudWatch, Elastic) ingest.
+**Check:** prints one line like `{"ts": "2026-10-03T…", "event": "llm_call", "module": "m10", "model": "claude-haiku-4-5-20251001", "input_tokens": 10, "output_tokens": 4, "latency_ms": 812, "stop_reason": "end_turn"}`. Your token counts and latency will differ.
+
+Run the same call without `LOG_JSON=1`:
+
+```bash
+python -c "print('\n'); from lib_claude_multimodal import ask; ask('Say OK', max_tokens=512, module='m10')"
+```
+
+**Check:** prints only the blank lines and no JSON, because logging is off by default.
 
 ## Step 6 — Build a cost report
 
@@ -737,7 +774,7 @@ diff -Bw <(grep -v '^# ── ' data/expected.py) <(grep -v '^# ── ' lib_cla
 `-Bw` ignores blank lines and spacing. Every other line `diff` prints is a real difference: a missing step, a block pasted twice, or a typo.
 
 <details>
-<summary>Show the complete file (801 lines)</summary>
+<summary>Show the complete file (798 lines)</summary>
 
 ```python
 # ── Module 1, Step 1 ──
@@ -1516,14 +1553,11 @@ def answer_with_sources(question, modality=None, k=8, model=HAIKU):
 
 
 # ── Module 10, Step 5 ──
-import json as _json
-
-
 def jlog(event, **fields):
     """Print one JSON log line (enable with LOG_JSON=1)."""
     if os.environ.get("LOG_JSON") == "1":
-        print(_json.dumps({"ts": datetime.now(timezone.utc).isoformat(), "event": event, **fields},
-                          default=str), flush=True)
+        print(json.dumps({"ts": datetime.now(timezone.utc).isoformat(), "event": event, **fields},
+                         default=str), flush=True)
 
 
 # ── Module 10, Step 13 ──
