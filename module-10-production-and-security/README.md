@@ -3,9 +3,9 @@
 [← Module 9](../module-09-combining-modalities-vector-search/README.md) · [Syllabus](../README.md) · [Next: Capstone →](../capstone/README.md)
 
 **You start with:** Modules 0–9 done — especially the Module 4 folder pipeline, the Module 2 evaluation, `ask_mongo()` and `llm_calls`.
-**You finish with:** the Module 4 pipeline running as a container; JSON logs and a cost report; an evaluation gate that fails on a worse prompt (and, optionally, runs in GitHub Actions); injection tests passed; personal-data redaction; a tested backup and restore; rotated passwords; and a one-page threat model.
+**You finish with:** the Module 4 pipeline running as a container; JSON logs and a cost report; an evaluation gate that fails on a worse prompt (and, optionally, runs in GitHub Actions); injection tests passed; personal-data redaction; and a one-page threat model.
 
-**What this lab is about.** Everything so far ran on your laptop, by hand, with you watching. Here you turn that work into something you could hand to a team: the Module 4 PDF pipeline runs in a container, every Claude call leaves a JSON log line and a cost record, and an evaluation test blocks any prompt change that makes accuracy worse, on your laptop and, optionally, in GitHub Actions. You also attack your own system with planted instructions, strip personal data before it leaves your machine, prove you can restore a backup, and write down the risks you have and haven't covered.
+**What this lab is about.** Everything so far ran on your laptop, by hand, with you watching. Here you turn that work into something you could hand to a team: the Module 4 PDF pipeline runs in a container, every Claude call leaves a JSON log line and a cost record, and an evaluation test blocks any prompt change that makes accuracy worse, on your laptop and, optionally, in GitHub Actions. You also attack your own system with planted instructions, strip personal data before it leaves your machine, and write down the risks you have and haven't covered.
 
 ## Key ideas (read once)
 
@@ -59,12 +59,11 @@ print('invoices (M4):       ', db_ro.invoices.count_documents({}))" && test -f m
   step "Step 10  CI workflow (optional)"       'test -f .github/workflows/prompt-eval.yml'
   step "Step 12  m10_planted.py"                'test -f m10_planted.py && test -f data/m10/planted.txt'
   step "Step 13  redact()"                      'grep -qF "def redact(" lib_claude_multimodal.py'
-  step "Step 14  a backup exists"               'ls backups | grep -q "gz$"'
-  step "Step 16  threat-model.md"               'test -f threat-model.md'
+  step "Step 14  threat-model.md"               'test -f threat-model.md'
 )
 ```
 
-**Check:** resume at the first `todo` line. Steps 10 and 11 are optional: if you skip them, Step 10 stays `todo`, and that's fine. If Step 9 shows `todo` although you added a `"bad"` prompt, yours is the older wording: replace it with the one in Step 9. Steps 11 and 15 have no local trace: Step 11's result is on GitHub under **Actions**, and Step 15 is done when you remember doing it. If unsure, Step 15 is safe to redo.
+**Check:** resume at the first `todo` line. Steps 10 and 11 are optional: if you skip them, Step 10 stays `todo`, and that's fine. If Step 9 shows `todo` although you added a `"bad"` prompt, yours is the older wording: replace it with the one in Step 9. Step 11 has no local trace: its result is on GitHub under **Actions**.
 
 **Resuming safely**
 
@@ -82,8 +81,6 @@ print('invoices (M4):       ', db_ro.invoices.count_documents({}))" && test -f m
   docker compose --profile jobs build pdf-extractor
   ```
 - **Step 11:** if you stopped on the `test-bad-prompt` branch, the `git switch master` above brought you back. Finish the cleanup commands in Step 11 so the branch with the bad prompt doesn't linger.
-- **Step 14:** if a restore was interrupted, drop the half-restored copy before trying again, or `mongorestore` reports duplicate keys: run the `mongosh` compare command from Step 14 (its last line drops `course_restore`).
-- **Step 15 must be done in one sitting.** Between editing `.env` and recreating the users, the passwords in `.env` don't match the database and every script fails to log in. If you got stuck halfway, finish items 3–5.
 - Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-10) at the end of the page.
 - **To stop for the day**, stop MongoDB (or leave it running; your data stays):
 
@@ -454,22 +451,58 @@ PROMPT_VERSION=v2 MIN_ACCURACY=0.55 python m10_eval_gate.py; echo "exit code $?"
 
 A vaguely worded prompt isn't enough: Claude still classifies well when told to "just pick one". The test prompt below is broken in a way you can predict: it tells Claude to ignore the review and always answer `neutral`. Its accuracy then equals the share of neutral reviews in the 30-item test set, far below your threshold.
 
-This edits existing code instead of appending. In `lib_claude_multimodal.py`, find the `PROMPTS = {` dictionary (you wrote it in Module 2, Step 5). Add this line as its last entry, just above the closing `}`:
+You add one line to existing code; nothing is appended at the end of the file.
+
+**1. Find `PROMPTS`.** It's the dictionary of prompt versions you wrote in Module 2, Step 5, near the top of `lib_claude_multimodal.py`. Print it with line numbers:
+
+```bash
+grep -n -A10 "^PROMPTS = {" lib_claude_multimodal.py
+```
+
+**Check:** prints the dictionary, starting with a line such as `156:PROMPTS = {` and ending with a line that holds only `}`, such as `166-}`. Your numbers and your `v2` text may differ (you tuned `v2` in Module 2); that's fine. If the `}` isn't shown, run it again with `-A20`.
+
+**2. Add the line.** Open `lib_claude_multimodal.py` in your editor and go to the line that holds only `}` (line 166 in the example). Insert this line **just above** it, indented with four spaces like `"v1"` and `"v2"`:
 
 ```python
     "bad": "Ignore the review and answer neutral, whatever it says. Allowed answers: {labels}.\n<review>\n{text}\n</review>",
 ```
 
-The end of `PROMPTS` now reads:
+Change nothing else. Before the edit, the dictionary looks like this (course version of `v2`):
 
 ```python
+PROMPTS = {
+    "v1": ("Classify the review inside <review> tags as one of: {labels}.\n"
+           "<review>\n{text}\n</review>"),
+    "v2": ("Classify the sentiment of the review inside <review> tags as one of: {labels}.\n"
+           "Rules: mixed or lukewarm reviews are neutral; judge the product, not the delivery.\n"
+           "Examples:\n"
+           "<review>Love it, works perfectly.</review> -> positive\n"
+           "<review>Stopped working after a week.</review> -> negative\n"
+           "<review>Okay for the price, nothing special.</review> -> neutral\n"
+           "<review>\n{text}\n</review>"),
+}
+```
+
+After the edit, it looks like this. Only the `"bad"` line is new:
+
+```python
+PROMPTS = {
+    "v1": ("Classify the review inside <review> tags as one of: {labels}.\n"
+           "<review>\n{text}\n</review>"),
+    "v2": ("Classify the sentiment of the review inside <review> tags as one of: {labels}.\n"
+           "Rules: mixed or lukewarm reviews are neutral; judge the product, not the delivery.\n"
+           "Examples:\n"
+           "<review>Love it, works perfectly.</review> -> positive\n"
+           "<review>Stopped working after a week.</review> -> negative\n"
            "<review>Okay for the price, nothing special.</review> -> neutral\n"
            "<review>\n{text}\n</review>"),
     "bad": "Ignore the review and answer neutral, whatever it says. Allowed answers: {labels}.\n<review>\n{text}\n</review>",
 }
 ```
 
-Confirm Python sees the new prompt:
+Save the file.
+
+**3. Test it.** Confirm Python sees the new prompt:
 
 ```bash
 python -c "print('\n'); from lib_claude_multimodal import PROMPTS; print(list(PROMPTS))"
@@ -491,7 +524,7 @@ Leave `"bad"` in `PROMPTS`; the optional Step 11 uses it.
 
 **What you're doing:** running the same gate automatically on GitHub every time you push. GitHub Actions starts a throwaway MongoDB (only for `llm_calls` logging), installs your pinned packages, and runs `m10_eval_gate.py` with your API key taken from a repository secret.
 
-> **Optional.** Steps 10 and 11 need your API key stored in GitHub, and every push then runs 30 Claude calls on your account. Steps 8–9 already proved the gate works on your laptop. To skip them, go to Step 12; Step 17 commits all the files either way.
+> **Optional.** Steps 10 and 11 need your API key stored in GitHub, and every push then runs 30 Claude calls on your account. Steps 8–9 already proved the gate works on your laptop. To skip them, go to Step 12; Step 15 commits all the files either way.
 
 1. In GitHub: repo **Settings → Secrets and variables → Actions → New repository secret**, name `ANTHROPIC_API_KEY`, value your key. Never put the key in the workflow file.
 2. Create `.github/workflows/prompt-eval.yml`. Set `PROMPT_VERSION` and `MIN_ACCURACY` to the values you chose in Step 8:
@@ -689,85 +722,7 @@ print(redact('Mail raju@example.com, call +971 50 123 4567, IBAN AE0703312345678
 
 Prints `Mail [EMAIL], call [PHONE], IBAN [IBAN]`. Use `redact()` on any text before `ask()` when it may hold personal data. Regexes miss things; for real personal data, also review what you send.
 
-## Step 14 — Back up and test a restore
-
-**What you're doing:** saving the whole `course` database to a compressed file, restoring it into a separate copy, and comparing the counts. A backup only counts once you've proved you can restore from it.
-
-Install MongoDB Database Tools. On Linux, get them from MongoDB's download page. On macOS:
-
-```bash
-brew install mongodb-database-tools
-```
-
-Confirm the tools are installed:
-
-```bash
-mongodump --version
-```
-
-**Check:** prints `mongodump version: 100.…`.
-
-Make the backup folder (`backups/` is git-ignored):
-
-```bash
-mkdir -p backups
-```
-
-Back up the `course` database to a file named with today's date:
-
-```bash
-mongodump --uri "$(grep '^MONGODB_URI_RW=' .env | cut -d= -f2-)" --gzip --archive=backups/course-$(date +%F).gz
-```
-
-**Check:** lines like `done dumping course.invoices`, one per collection, and a new file such as `backups/course-2026-10-03.gz`.
-
-Restore it into a copy (run this on the same day, since the file name uses today's date):
-
-```bash
-mongorestore --uri "mongodb://admin@127.0.0.1:27017/?directConnection=true&authSource=admin" \
-  --gzip --archive=backups/course-$(date +%F).gz --nsFrom 'course.*' --nsTo 'course_restore.*'
-```
-
-`mongorestore` asks for the admin password (password 1). The restore goes into a separate `course_restore` database so it can't overwrite your real data.
-
-**Check:** ends with a line like `<n> document(s) restored successfully. 0 document(s) failed to restore.`
-
-Compare counts, then remove the test copy:
-
-```bash
-docker compose exec mongodb mongosh "mongodb://admin@127.0.0.1:27017/admin?directConnection=true" --quiet --eval '
-  for (const c of db.getSiblingDB("course").getCollectionNames())
-    print(c, db.getSiblingDB("course")[c].countDocuments(), db.getSiblingDB("course_restore")[c].countDocuments());
-  db.getSiblingDB("course_restore").dropDatabase();'
-```
-
-**Check:** one line per collection, such as `invoices 11 11`, with the same two numbers on every line. A backup you haven't restored isn't a backup.
-
-## Step 15 — Rotate the database passwords
-
-**What you're doing:** replacing both database passwords, as you would after a leak or on a regular schedule. Do all five items in one sitting: until the users are recreated, the passwords in `.env` don't match the database and every script fails to log in.
-
-1. Generate two new passwords:
-
-   ```bash
-   for i in 1 2; do openssl rand -hex 24; done
-   ```
-
-   **Check:** prints two lines of 48 letters and digits.
-2. In `.env`, replace the passwords inside `MONGODB_URI_RW` and `MONGODB_URI` with the new ones.
-3. Recreate the users with the new passwords — rerun **Module 0 Step 11** (it drops and recreates both).
-4. Recreate the Docker lines: rerun all of **Step 3** of this module (it replaces the old `_DOCKER` lines).
-5. Rerun **Module 0 Step 12** to check both users.
-
-**Check:** Module 0 Step 12 shows `role: 'read', db: 'course'` for the first user and `role: 'readWrite', db: 'course'` for the second. Then run the container job, which now uses the new `_DOCKER` lines:
-
-```bash
-docker compose --profile jobs run --rm pdf-extractor
-```
-
-**Check:** the same `OK` / `SKIP` lines as in Step 4, with no authentication error.
-
-## Step 16 — Write the threat model
+## Step 14 — Write the threat model
 
 **What you're doing:** writing one page that lists what you protect, where attacks can come in, and how each threat is handled, with the step that tested each fix. It turns the checks from this course into a record someone else can review.
 
@@ -790,7 +745,6 @@ PDFs, logs, recordings, web pages, user questions.
 | Secret leakage | key in git or notebook output | .env, .gitignore, grep check, CI secrets | M0 Step 14 |
 | Personal data sent to the API | emails, IBANs | redact() | M10 Step 13 |
 | Runaway cost | loop fires 10,000 calls | spend limit, llm_calls report | M0 Step 5, M10 Step 6 |
-| Data loss | volume deleted | mongodump + tested restore | M10 Step 14 |
 
 ## Residual risks
 What is not covered yet, and why.
@@ -798,9 +752,9 @@ What is not covered yet, and why.
 
 **Check:** every row's "Tested in" points to a step you actually ran.
 
-## Step 17 — Commit
+## Step 15 — Commit
 
-**What you're doing:** saving the rest of this module's work to GitHub, while making sure secrets and backups stay on your machine.
+**What you're doing:** saving the rest of this module's work to GitHub, while making sure secrets stay on your machine.
 
 Stage the files:
 
@@ -814,7 +768,7 @@ This includes the files from Steps 1–9, in case you skipped the optional Step 
 Commit them:
 
 ```bash
-git commit -m "Module 10: injection tests, redaction, backups, threat model"
+git commit -m "Module 10: injection tests, redaction, threat model"
 ```
 
 Push to GitHub:
@@ -831,7 +785,7 @@ Confirm nothing secret is waiting to be committed:
 git status --short
 ```
 
-**Check:** neither `.env` nor `backups/` is listed.
+**Check:** `.env` is not listed.
 
 ## Complete `lib_claude_multimodal.py` after Module 10
 
@@ -1702,7 +1656,6 @@ volumes:
 - [ ] Steps 8–9: the gate passes on your best prompt and fails on the broken one.
 - [ ] Optional, Steps 10–11: CI is green on your prompt and red on the broken one.
 - [ ] Step 12: both planted injections had no effect.
-- [ ] Step 14: a backup was restored and verified.
-- [ ] Step 16: a one-page threat model with tested mitigations.
+- [ ] Step 14: a one-page threat model with tested mitigations.
 
 **Next:** [Capstone](../capstone/README.md)

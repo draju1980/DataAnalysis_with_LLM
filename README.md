@@ -76,7 +76,7 @@ By the end of the course you can:
 | 7 | [Logs, XML, HTML, YAML](module-07-semi-structured-text/README.md) | 3–4 days | 6 | Log extractor into `log_events` | Count matches grep; 20 records checked |
 | 8 | [MongoDB](module-08-mongodb/README.md) | 1 week | 1–7 | `describe_mongo()`, `run_pipeline()`, `ask_mongo()` | 10 `$lookup` answers verified; writes blocked twice |
 | 9 | [Combining modalities + document search](module-09-combining-modalities-vector-search/README.md) | 1 week | 4, 5, 7, 8 | Chunks, search index, `search_chunks()`, assistant | 10 answers with checkable sources |
-| 10 | [Production and security](module-10-production-and-security/README.md) | Ongoing | 0–9 | Container, CI eval gate, backups, threat model | Worse prompt fails CI; injections have no effect |
+| 10 | [Production and security](module-10-production-and-security/README.md) | Ongoing | 0–9 | Container, eval gate (CI optional), threat model | Worse prompt fails CI; injections have no effect |
 | — | [Capstone](capstone/README.md) | 2 weeks | All | One real multi-format project | Accuracy, cost and threat model written up |
 
 ## Sample data
@@ -139,7 +139,6 @@ There are no quizzes or grades. A module is complete when its **Done when** chec
 | faster-whisper, imageio-ffmpeg | Transcription and video frames (the one non-Claude model); ffmpeg comes from pip | Module 5 |
 | pandas, DuckDB, openpyxl, pyarrow | Tabular files and SQL on files | Module 6 |
 | grep, jq | Pre-filtering logs | Module 7 |
-| MongoDB Database Tools | Backups (`mongodump`, `mongorestore`) | Module 10 |
 
 ## Progress checklist
 
@@ -153,7 +152,7 @@ There are no quizzes or grades. A module is complete when its **Done when** chec
 - [ ] Module 7 — Logs in `log_events`; count and spot checks pass
 - [ ] Module 8 — 10 `$lookup` answers verified; writes blocked at checker and user
 - [ ] Module 9 — Assistant answers with checkable citations
-- [ ] Module 10 — Containerized job, CI eval gate, backups, threat model
+- [ ] Module 10 — Containerized job, eval gate, threat model
 - [ ] Capstone — built and written up
 
 ## Repository layout

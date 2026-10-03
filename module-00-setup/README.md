@@ -59,7 +59,7 @@ docker compose up -d
   docker compose up -d
   ```
 - The API key is shown only once (Step 4). If you lost it before putting it in `.env`, create a new key and delete the old one in the Console.
-- Step 6 never overwrites an existing `.env`, so it's safe to rerun. Don't delete `.env` to get new passwords after Step 11: the database users keep the passwords they were created with. To change passwords on purpose, follow Module 10, Step 15.
+- Step 6 never overwrites an existing `.env`, so it's safe to rerun. Don't delete `.env` to get new passwords after Step 11: the database users keep the passwords they were created with.
 - Steps 9, 11 and 12 are safe to rerun. Step 11 drops and recreates both users.
 - **To stop for the day**, stop MongoDB (or leave it running; your data stays):
 
