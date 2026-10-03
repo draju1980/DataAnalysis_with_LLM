@@ -424,7 +424,7 @@ diff -Bw <(grep -v '^# ── ' data/expected.py) <(grep -v '^# ── ' lib_cla
 `-Bw` ignores blank lines and spacing. Every other line `diff` prints is a real difference: a missing step, a block pasted twice, or a typo.
 
 <details>
-<summary>Show the complete file (802 lines)</summary>
+<summary>Show the complete file (805 lines)</summary>
 
 ```python
 # ── Module 1, Step 1 ──
@@ -994,15 +994,18 @@ LOG_TOOL = {
 }
 
 
-def extract_log_records(lines, first_line_no=1, model=HAIKU):
+def extract_log_records(lines, first_line_no=1, *, model=HAIKU, max_tokens=8192):
     """Turn raw log lines into records (one per event, multi-line events merged)."""
     numbered = "\n".join(f"{first_line_no + i}: {line.rstrip()}" for i, line in enumerate(lines))
     prompt = ("Turn these numbered log lines into records, one per log event. A stack trace or "
               "message continuing over several lines is ONE event. Use 'unknown' for a missing "
               "service. Put any other fields in attrs.\n"
               f"<log>\n{numbered}\n</log>")
-    resp = ask(prompt, system=DOC_RULE, model=model, max_tokens=512, tools=[LOG_TOOL],
+    resp = ask(prompt, system=DOC_RULE, model=model, max_tokens=max_tokens, tools=[LOG_TOOL],
                tool_choice={"type": "tool", "name": "record_events"}, module="m7")
+    if resp.stop_reason == "max_tokens":
+        raise RuntimeError(f"records cut off at max_tokens={max_tokens}; "
+                           "raise max_tokens or send fewer lines, then rerun")
     return tool_input(resp)["records"]
 
 

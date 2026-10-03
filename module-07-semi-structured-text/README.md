@@ -71,31 +71,33 @@ for r in db_ro.log_events.aggregate([{'\$group': {'_id': '\$source_file', 'n': {
 
 ## Step 1 — Get a log file
 
+Make the folder:
+
 ```bash
 mkdir -p data/m7
 ```
 
-Use one of:
+Download the course log: a 2,000-line Apache web-server error log from [loghub](https://github.com/logpai/loghub), a public collection of real system logs for research. Every step on this page uses it, and every Check shows its results:
 
-- An application or CI log: copy it to `data/m7/app.log`.
-- Kubernetes events — convert the JSON to one line per event with `jq`:
+```bash
+curl -fL -o data/m7/app.log https://raw.githubusercontent.com/logpai/loghub/master/Apache/Apache_2k.log
+```
 
-  ```bash
-  kubectl get events -A -o json | jq -r '.items[] |
-    "\(.lastTimestamp) \(.involvedObject.namespace)/\(.involvedObject.name) \(.type) \(.reason): \(.message)"' \
-    > data/m7/app.log
-  ```
+Count the lines:
 
-- **No log of your own? Use the course sample.** A 2,000-line Apache web-server error log from [loghub](https://github.com/logpai/loghub), a public collection of real system logs for research:
+```bash
+wc -l data/m7/app.log
+```
 
-  ```bash
-  curl -fL -o data/m7/app.log \
-    https://raw.githubusercontent.com/logpai/loghub/master/Apache/Apache_2k.log
-  ```
+**Check:** prints `1999`. The file has 2,000 lines, but the last one has no newline, so `wc` doesn't count it.
 
-  Other 2,000-line logs from the same collection work with the same command; replace `Apache/Apache_2k.log` with, for example, `OpenSSH/OpenSSH_2k.log`, `Linux/Linux_2k.log` or `Spark/Spark_2k.log`.
+Look at the first lines:
 
-**Check:** `wc -l data/m7/app.log` shows the line count, and `head data/m7/app.log` looks like log lines.
+```bash
+head -5 data/m7/app.log
+```
+
+**Check:** five lines that start like `[Sun Dec 04 04:47:44 2005] [notice] …`: a timestamp in brackets, then the severity in brackets, then the message.
 
 ## Step 2 — Cut it down to a sample
 
@@ -105,33 +107,53 @@ Work on a 1,000-line sample while you build; run bigger files only after it work
 head -n 1000 data/m7/app.log > data/m7/sample.log
 ```
 
-**Check:** `wc -l data/m7/sample.log` prints `1000`.
+Count the lines:
+
+```bash
+wc -l data/m7/sample.log
+```
+
+**Check:** prints `1000`.
 
 ## Step 3 — Count the events with grep
 
-Find the pattern that starts every event — usually a timestamp at the beginning of the line. For ISO timestamps like `2026-09-30T14:03:22Z`:
+This count is your independent answer. In Step 6 you check that Claude produced the same number of records.
+
+Every event starts with a recognisable pattern, usually a timestamp at the start of the line. Lines that don't start with it (stack trace lines, wrapped messages) belong to the event above them. In this log every event starts with `[`, the opening bracket of the timestamp, so the pattern is `^\[` ("a line that starts with `[`").
+
+Count the lines that start an event:
 
 ```bash
-grep -cE '^[0-9]{4}-[0-9]{2}-[0-9]{2}' data/m7/sample.log
+grep -cE '^\[' data/m7/sample.log
 ```
 
-Adjust the pattern to your log's format. Lines that don't match (stack trace lines, wrapped messages) belong to the event above them.
+**Check:** prints `1000`. Every line is its own event.
 
-Save the number in a file — it's the target count for Step 6, which may be a session or two away:
+Count the continuation lines, i.e. the lines that don't start an event:
+
+```bash
+grep -vcE '^\[' data/m7/sample.log
+```
+
+**Check:** prints `0`: this log has no stack traces or wrapped lines. The two numbers add up to 1000.
+
+Save the event count. It's the target for Step 6, which may be a session or two away:
 
 ```bash
 mkdir -p notes
-grep -cE '^[0-9]{4}-[0-9]{2}-[0-9]{2}' data/m7/sample.log > notes/m07_grep_count.txt   # your pattern
 ```
 
-**Check:**
+```bash
+grep -cE '^\[' data/m7/sample.log > notes/m07_grep_count.txt
+```
+
+Show the saved count:
 
 ```bash
 cat notes/m07_grep_count.txt
-grep -vcE '<your pattern>' data/m7/sample.log
 ```
 
-Output prints two numbers: your saved record count, then how many continuation lines there are.
+**Check:** prints `1000`, the same as the first count above.
 
 ## Step 4 — Add `extract_log_records()` and test it on 50 lines
 
@@ -156,19 +178,24 @@ LOG_TOOL = {
 }
 
 
-def extract_log_records(lines, first_line_no=1, model=HAIKU):
+def extract_log_records(lines, first_line_no=1, *, model=HAIKU, max_tokens=8192):
     """Turn raw log lines into records (one per event, multi-line events merged)."""
     numbered = "\n".join(f"{first_line_no + i}: {line.rstrip()}" for i, line in enumerate(lines))
     prompt = ("Turn these numbered log lines into records, one per log event. A stack trace or "
               "message continuing over several lines is ONE event. Use 'unknown' for a missing "
               "service. Put any other fields in attrs.\n"
               f"<log>\n{numbered}\n</log>")
-    resp = ask(prompt, system=DOC_RULE, model=model, max_tokens=512, tools=[LOG_TOOL],
+    resp = ask(prompt, system=DOC_RULE, model=model, max_tokens=max_tokens, tools=[LOG_TOOL],
                tool_choice={"type": "tool", "name": "record_events"}, module="m7")
+    if resp.stop_reason == "max_tokens":
+        raise RuntimeError(f"records cut off at max_tokens={max_tokens}; "
+                           "raise max_tokens or send fewer lines, then rerun")
     return tool_input(resp)["records"]
 ```
 
 `DOC_RULE` (from Module 4) tells Claude the log is data, not instructions — log lines can contain attacker-controlled text.
+
+**Why `max_tokens=8192` and not the course's usual 512:** Claude writes one record, roughly 70 tokens, for every event. 50 lines need about 3,500 output tokens, so 512 would cut the reply off after about 7 records. The check after the call raises a clear error if a reply is still cut off. You pay only for the tokens Claude actually writes, not for the limit.
 
 **Check:**
 
@@ -181,11 +208,13 @@ recs = extract_log_records(lines)
 print(len(recs), 'records'); [print(r) for r in recs[:3]]"
 ```
 
-Prints a record count (compare with `head -50 data/m7/sample.log | grep -cE '<your pattern>'`) and well-formed records.
+**Check:** prints `50 records`, one per line, then the first three records, each with `line`, `ts`, `service`, `severity` and `message` (for line 1: severity `INFO`, message `workerEnv.init() ok …`).
+
+If you see `RuntimeError: records cut off at max_tokens=…`, raise the default in `extract_log_records()` (e.g. `max_tokens=16000`), save, and rerun. Nothing is stored in this step, so rerunning is safe.
 
 ## Step 5 — Extract the whole sample into `log_events`
 
-Create `m07_extract.py`. It sends 100 lines at a time and converts `ts` to a real date.
+Create `m07_extract.py`. It sends 50 lines at a time, the size you tested in Step 4, and converts `ts` to a real date.
 
 ```python
 import sys
@@ -195,7 +224,7 @@ from lib_claude_multimodal import extract_log_records, db_rw
 
 path = Path(sys.argv[1])
 lines = path.read_text(errors="replace").splitlines()
-CHUNK = 100
+CHUNK = 50
 
 db_rw.log_events.delete_many({"source_file": path.name})        # rerun-safe
 total = 0
@@ -218,9 +247,9 @@ print("total records:", total)
 python m07_extract.py data/m7/sample.log
 ```
 
-A limitation to know: an event that straddles a 100-line boundary can be split in two. If your log has long stack traces, the count in Step 6 may be off by a few — look at the records near line 100, 200, …
+A limitation to know: in logs with stack traces, an event that straddles a 50-line boundary can be split in two, and the count in Step 6 comes out a few too high. The course log has one event per line, so this doesn't happen here.
 
-**Check:** prints records per chunk and a total.
+**Check:** prints one line per 50-line chunk with its record count, then `total records:`. That's 20 chunks of `50 records` and `total records: 1000`.
 
 ## Step 6 — Check the count against grep
 
@@ -232,7 +261,7 @@ print('records:', db_ro.log_events.count_documents({'source_file': 'sample.log'}
 print('missing ts:', db_ro.log_events.count_documents({'source_file': 'sample.log', 'ts': None}))"
 ```
 
-**Check:** `records` equals your Step 3 number in `notes/m07_grep_count.txt` (or differs only by events split at chunk boundaries), and `missing ts` is 0 or explained.
+**Check:** `records: 1000`, the same as your Step 3 count in `notes/m07_grep_count.txt`, and `missing ts: 0`.
 
 ## Step 7 — Spot-check 20 random records
 
@@ -269,7 +298,7 @@ for r in db_ro.log_events.aggregate([
     print(r['_id']['hour'], r['_id']['service'], r['_id']['severity'], r['count'])"
 ```
 
-Fields inside `attrs` are queryable too, e.g. `{'attrs.namespace': 'prod'}`.
+Fields inside `attrs` are queryable too, e.g. `{'attrs.<field>': <value>}`. Step 7's output shows which fields Claude put in `attrs`.
 
 **Check:** one line per hour, service and severity, with counts that add up to Step 6's total.
 
@@ -329,7 +358,7 @@ diff -Bw <(grep -v '^# ── ' data/expected.py) <(grep -v '^# ── ' lib_cla
 `-Bw` ignores blank lines and spacing. Every other line `diff` prints is a real difference: a missing step, a block pasted twice, or a typo.
 
 <details>
-<summary>Show the complete file (587 lines)</summary>
+<summary>Show the complete file (590 lines)</summary>
 
 ```python
 # ── Module 1, Step 1 ──
@@ -899,15 +928,18 @@ LOG_TOOL = {
 }
 
 
-def extract_log_records(lines, first_line_no=1, model=HAIKU):
+def extract_log_records(lines, first_line_no=1, *, model=HAIKU, max_tokens=8192):
     """Turn raw log lines into records (one per event, multi-line events merged)."""
     numbered = "\n".join(f"{first_line_no + i}: {line.rstrip()}" for i, line in enumerate(lines))
     prompt = ("Turn these numbered log lines into records, one per log event. A stack trace or "
               "message continuing over several lines is ONE event. Use 'unknown' for a missing "
               "service. Put any other fields in attrs.\n"
               f"<log>\n{numbered}\n</log>")
-    resp = ask(prompt, system=DOC_RULE, model=model, max_tokens=512, tools=[LOG_TOOL],
+    resp = ask(prompt, system=DOC_RULE, model=model, max_tokens=max_tokens, tools=[LOG_TOOL],
                tool_choice={"type": "tool", "name": "record_events"}, module="m7")
+    if resp.stop_reason == "max_tokens":
+        raise RuntimeError(f"records cut off at max_tokens={max_tokens}; "
+                           "raise max_tokens or send fewer lines, then rerun")
     return tool_input(resp)["records"]
 
 
