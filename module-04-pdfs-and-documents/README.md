@@ -77,7 +77,13 @@ print('injection stored: ', db_ro.invoices.count_documents({'source_file': 'zz_i
 - Step 9 needs the three questions in one run: the cache lasts about five minutes, so a break between them shows no cache reads.
 - Step 11 can span sessions: the CSV stays in `data/m4/` until you export again, so note which rows you've already checked.
 - Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-4) at the end of the page.
-- **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never `docker compose down -v`: it deletes the database.
+- **To stop for the day**, stop MongoDB (or leave it running; your data stays):
+
+  ```bash
+  docker compose stop
+  ```
+
+  Never `docker compose down -v`: it deletes the database.
 
 ---
 
@@ -133,8 +139,15 @@ img.save("data/m4/pdfs/scanned_invoice.pdf", resolution=150)
 print("created data/m4/pdfs/scanned_invoice.pdf")
 ```
 
+Install Pillow (already installed if you did Module 3):
+
 ```bash
-pip install pillow          # already installed if you did Module 3
+pip install pillow
+```
+
+Make the scan:
+
+```bash
 python m04_make_scan.py
 ```
 
@@ -303,7 +316,11 @@ An invoice and its lines are **one document**, with the lines embedded as an arr
 
 **Check:** every good PDF prints `OK` (including the scanned one), `zz_corrupt.pdf` prints `SKIP`, and the script finishes.
 
-If a `WARNING: reply cut off at max_tokens=…` line appears, the invoice printed after it was stored incomplete: Claude ran out of room before writing every line item, so its `lines` field is missing or short. Invoices with many lines need a bigger reply. Raise the default in `extract_pdf_fields()` (e.g. `max_tokens=2048`), save `lib_claude_multimodal.py`, and rerun `python m04_extract_folder.py`. `replace_one(..., upsert=True)` overwrites each invoice, so the rerun fixes it without duplicates.
+If a `WARNING: reply cut off at max_tokens=…` line appears, the invoice printed after it was stored incomplete: Claude ran out of room before writing every line item, so its `lines` field is missing or short. Invoices with many lines need a bigger reply. Raise the default in `extract_pdf_fields()` (e.g. `max_tokens=2048`), save `lib_claude_multimodal.py`, and rerun the script. `replace_one(..., upsert=True)` overwrites each invoice, so the rerun fixes it without duplicates:
+
+```bash
+python m04_extract_folder.py
+```
 
 ## Step 6 — Look at what was stored
 

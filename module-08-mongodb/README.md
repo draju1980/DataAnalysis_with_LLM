@@ -61,11 +61,17 @@ print('missing collections:', [c for c in want if c not in have] or 'none')"
 **Resuming safely**
 
 - Everything in this module reads; nothing you rerun changes your data. Each `ask_mongo()` call does cost API tokens.
-- Step 6 can span sessions: add answers to `notes/m08_answers.md` as you compute them.
+- Step 6 can span sessions: edit `QUESTIONS` in `m08_my_answers.py` and rerun it. Each run rewrites `data/m8/questions.txt` and `notes/m08_answers.md`.
 - `m08_ask.py` asks all 10 questions again and overwrites `notes/m08_results.md`. That's what Step 8 wants after each fix.
 - If `python m08_inventory.py` ever shows an `error_archive` collection, a write got through: stop and recheck Module 0 Step 12 before going on.
 - Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-8) at the end of the page.
-- **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never `docker compose down -v`: it deletes the database, and every collection this module queries with it.
+- **To stop for the day**, stop MongoDB (or leave it running; your data stays):
+
+  ```bash
+  docker compose stop
+  ```
+
+  Never `docker compose down -v`: it deletes the database, and every collection this module queries with it.
 
 ---
 
@@ -272,22 +278,105 @@ Prints `[tool] run_pipeline …` and per-module costs that match `python m08_pra
 
 ## Step 6 — Write 10 questions and answer them yourself
 
-Create `data/m8/questions.txt` (run `mkdir -p data/m8` first) with 10 questions. At least **six must need `$lookup`** (two collections) and **two must need `$unwind`** (an array). Ideas that fit your data:
+Before Claude answers anything, you need the right answers to check it against. Like Step 2, you answer each question with **your own pipeline**. One script holds the questions and pipelines, runs them, and writes two files:
 
+- `data/m8/questions.txt`: the questions, one per line. Step 7 gives these to Claude.
+- `notes/m08_answers.md`: each question with your pipeline and its result. Step 8 compares Claude's answers with this file.
+
+The 10 questions below use the collections from Modules 1–7. Six need **`$lookup`** (a join of two collections) and two need **`$unwind`** on a real array (an invoice's `lines`). Read each pipeline and make sure you agree it answers its question; it's what you'll judge Claude against. You can swap in questions of your own, as long as at least six use `$lookup` and two use `$unwind`.
+
+Create `m08_my_answers.py`:
+
+```python
+"""Your 10 questions and your own pipelines. Writes data/m8/questions.txt and notes/m08_answers.md."""
+from pathlib import Path
+from bson import json_util
+from lib_claude_multimodal import db_ro
+
+FENCE = "`" * 3                       # a Markdown code fence
+
+# (question, collection, pipeline). Questions 1-6 join two collections with $lookup;
+# 7 and 8 expand the invoice lines array with $unwind.
+QUESTIONS = [
+    ("For each evaluation run, what was the accuracy and the total cost?", "eval_results", [
+        {"$lookup": {"from": "eval_items", "localField": "item_id", "foreignField": "_id", "as": "item"}},
+        {"$unwind": "$item"},
+        {"$group": {"_id": "$run_id",
+                    "accuracy": {"$avg": {"$cond": [{"$eq": ["$predicted", "$item.gold_label"]}, 1, 0]}},
+                    "cost_usd": {"$sum": "$cost_usd"}, "items": {"$sum": 1}}},
+        {"$sort": {"_id": 1}}]),
+    ("Which prompt version had the highest accuracy over all its runs?", "eval_results", [
+        {"$lookup": {"from": "eval_items", "localField": "item_id", "foreignField": "_id", "as": "item"}},
+        {"$unwind": "$item"},
+        {"$group": {"_id": "$prompt_version",
+                    "accuracy": {"$avg": {"$cond": [{"$eq": ["$predicted", "$item.gold_label"]}, 1, 0]}}}},
+        {"$sort": {"accuracy": -1}}, {"$limit": 1}]),
+    ("Which 5 eval items were misclassified by the most runs?", "eval_results", [
+        {"$lookup": {"from": "eval_items", "localField": "item_id", "foreignField": "_id", "as": "item"}},
+        {"$unwind": "$item"},
+        {"$match": {"$expr": {"$ne": ["$predicted", "$item.gold_label"]}}},
+        {"$group": {"_id": "$item_id", "wrong_runs": {"$sum": 1}, "gold_label": {"$first": "$item.gold_label"}}},
+        {"$sort": {"wrong_runs": -1, "_id": 1}}, {"$limit": 5}]),
+    ("For charts that have truth values, which chart had the largest average error?", "chart_values", [
+        {"$lookup": {"from": "chart_truth", "localField": "key", "foreignField": "key", "as": "truth"}},
+        {"$unwind": "$truth"},                                   # drops values that have no truth
+        {"$group": {"_id": "$image_file", "avg_error": {"$avg": {"$abs": {"$subtract": ["$value", "$truth.value"]}}}}},
+        {"$sort": {"avg_error": -1}}, {"$limit": 1}]),
+    ("For each recording with action items, how many action items and transcript segments does it have?", "action_items", [
+        {"$group": {"_id": "$recording", "action_items": {"$sum": 1}}},
+        {"$lookup": {"from": "transcript_segments", "localField": "_id", "foreignField": "recording", "as": "segs"}},
+        {"$project": {"action_items": 1, "segments": {"$size": "$segs"}}},
+        {"$sort": {"_id": 1}}]),
+    ("Which files failed in Module 4, and do any of them also appear in invoices?", "file_errors", [
+        {"$match": {"module": "m4"}},
+        {"$lookup": {"from": "invoices", "localField": "source_file", "foreignField": "source_file", "as": "inv"}},
+        {"$project": {"_id": 0, "source_file": 1, "error": 1, "also_in_invoices": {"$gt": [{"$size": "$inv"}, 0]}}},
+        {"$sort": {"source_file": 1}}]),
+    ("Which invoices have line amounts that don't add up to the total?", "invoices", [
+        {"$unwind": "$lines"},
+        {"$group": {"_id": "$_id", "invoice_no": {"$first": "$invoice_no"}, "vendor": {"$first": "$vendor"},
+                    "total": {"$first": "$total"}, "lines_sum": {"$sum": "$lines.amount"}}},
+        {"$match": {"$expr": {"$gt": [{"$abs": {"$subtract": ["$total", "$lines_sum"]}}, 0.01]}}},
+        {"$project": {"_id": 0, "invoice_no": 1, "vendor": 1, "total": 1, "lines_sum": 1}},
+        {"$sort": {"invoice_no": 1}}]),
+    ("What are the five invoice line descriptions with the highest total amount?", "invoices", [
+        {"$unwind": "$lines"},
+        {"$group": {"_id": "$lines.desc", "amount": {"$sum": "$lines.amount"}, "times": {"$sum": 1}}},
+        {"$sort": {"amount": -1}}, {"$limit": 5}]),
+    ("Which 5 hours had the most ERROR log events?", "log_events", [
+        {"$match": {"severity": "ERROR", "ts": {"$ne": None}}},
+        {"$group": {"_id": {"$dateTrunc": {"date": "$ts", "unit": "hour"}}, "errors": {"$sum": 1}}},
+        {"$sort": {"errors": -1, "_id": 1}}, {"$limit": 5}]),
+    ("How many Claude API calls, tokens and dollars did each module use?", "llm_calls", [
+        {"$group": {"_id": "$module", "calls": {"$sum": 1},
+                    "tokens": {"$sum": {"$add": ["$input_tokens", "$output_tokens"]}},
+                    "cost_usd": {"$sum": "$cost_usd"}}},
+        {"$sort": {"_id": 1}}]),
+]
+
+out = ["# Module 8 — my answers", ""]
+for n, (q, collection, pipeline) in enumerate(QUESTIONS, 1):
+    docs = list(db_ro[collection].aggregate(pipeline))
+    print(f"{n}. {q}")
+    for d in docs or ["(no documents: is this collection empty?)"]:
+        print("  ", d)
+    out += [f"## {n}. {q}", "", f"Collection: `{collection}`", "",
+            f"{FENCE}json\n[\n  " + ",\n  ".join(json_util.dumps(s) for s in pipeline) + f"\n]\n{FENCE}", "", "Result:", "",
+            f"{FENCE}json\n{json_util.dumps(docs, indent=2)}\n{FENCE}", ""]
+Path("data/m8").mkdir(parents=True, exist_ok=True)
+Path("data/m8/questions.txt").write_text("\n".join(q for q, _, _ in QUESTIONS) + "\n")
+Path("notes").mkdir(exist_ok=True)
+Path("notes/m08_answers.md").write_text("\n".join(out))
+print("wrote data/m8/questions.txt and notes/m08_answers.md")
 ```
-For each evaluation run, what was the accuracy and total cost?
-Which eval items were misclassified by every run?
-For charts that have truth values, which chart had the largest average error?
-Which recordings have action items, and how many per owner?
-Which files failed in Module 4 and do any of them also appear in invoices?
-Which vendors have invoices whose lines don't add up to the total?
-What are the five most common invoice line descriptions by total amount?
-How many ERROR events per service per hour?
+
+Run it:
+
+```bash
+python m08_my_answers.py
 ```
 
-Answer each one **yourself** with your own pipeline (like Step 2) and write the results in `notes/m08_answers.md`.
-
-**Check:** 10 questions, 10 answers you computed yourself.
+**Check:** prints each question with its result documents, then `wrote data/m8/questions.txt and notes/m08_answers.md`. Your numbers depend on what you stored in Modules 1–7, so they won't match anyone else's. A question that prints `(no documents: is this collection empty?)` points at a module you skipped (see the prerequisites check at the top): replace that question with one about a collection you have, and rerun. Rerunning is safe: it only reads the database and overwrites the two files.
 
 ## Step 7 — Let Claude answer all 10
 

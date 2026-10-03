@@ -76,7 +76,13 @@ print('predictions:', db_ro.predictions.count_documents({}), '(Step 9 wants 600)
   print(db_rw.eval_results.delete_many({'run_id': '<the short run id>'}).deleted_count, 'deleted')"
   ```
 
-- **Step 9 runs on Anthropic's side.** If your terminal closes while the script prints `waiting…`, the batch keeps running and you still pay for it. Don't submit a new one: copy the `batch msgbatch_…` id the script printed and resume with `python m02_batch.py v2 <batch id>`. (If it stopped while storing results, the rerun logs those calls to `llm_calls` a second time. `predictions` stays correct, and Step 10's per-call average is unaffected.) Lost the id? List your recent batches:
+- **Step 9 runs on Anthropic's side.** If your terminal closes while the script prints `waiting…`, the batch keeps running and you still pay for it. Don't submit a new one: copy the `batch msgbatch_…` id the script printed and resume with it (replace `<batch id>`):
+
+  ```bash
+  python m02_batch.py v2 <batch id>
+  ```
+
+  (If it stopped while storing results, the rerun logs those calls to `llm_calls` a second time. `predictions` stays correct, and Step 10's per-call average is unaffected.) Lost the id? List your recent batches:
 
   ```bash
   python -c "
@@ -86,7 +92,13 @@ print('predictions:', db_ro.predictions.count_documents({}), '(Step 9 wants 600)
   ```
 
 - Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-2) at the end of the page.
-- **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never `docker compose down -v`: it deletes the database.
+- **To stop for the day**, stop MongoDB (or leave it running; your data stays):
+
+  ```bash
+  docker compose stop
+  ```
+
+  Never `docker compose down -v`: it deletes the database.
 
 ---
 
@@ -408,11 +420,17 @@ for res in client.messages.batches.results(batch.id):
 print("predictions:", db_rw.predictions.count_documents({}))
 ```
 
+Run it with your best prompt version (`v2` here):
+
 ```bash
-python m02_batch.py v2      # use your best prompt version
+python m02_batch.py v2
 ```
 
-If the script is interrupted, the batch keeps running: rerun it with the printed id, `python m02_batch.py v2 <batch id>`, to wait for that batch and collect its results instead of paying for a new one.
+If the script is interrupted, the batch keeps running. Rerun it with the printed id (replace `<batch id>`) to wait for that batch and collect its results instead of paying for a new one:
+
+```bash
+python m02_batch.py v2 <batch id>
+```
 
 **Check:** prints `predictions: 600`.
 

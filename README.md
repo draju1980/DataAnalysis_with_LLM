@@ -27,7 +27,13 @@ source .venv/bin/activate
 docker compose up -d
 ```
 
-To stop for the day, run `docker compose stop` or leave it running; your data stays. Don't use `docker compose down -v` to pause: it deletes the database.
+To stop for the day, stop MongoDB (or leave it running; your data stays):
+
+```bash
+docker compose stop
+```
+
+Don't use `docker compose down -v` to pause: it deletes the database.
 
 ## About the course
 

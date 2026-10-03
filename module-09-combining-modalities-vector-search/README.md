@@ -77,7 +77,13 @@ for i in db_rw.chunks.list_search_indexes(): print('index:   ', i['name'], 'read
   ```
 - Step 9 is interactive: paste each answer into `notes/m09_results.md` as you go, so a break doesn't lose them. Step 10 marks them ✅ or ❌ in the same file, also one at a time.
 - Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-9) at the end of the page.
-- **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never `docker compose down -v`: it deletes the database, chunks and search index included.
+- **To stop for the day**, stop MongoDB (or leave it running; your data stays):
+
+  ```bash
+  docker compose stop
+  ```
+
+  Never `docker compose down -v`: it deletes the database, chunks and search index included.
 
 ---
 
@@ -109,8 +115,18 @@ Output prints your choice.
 Skip this step on Route B.
 
 1. Create an API key at voyageai.com.
-2. Install the client: `pip install voyageai`
-3. Add a line to `.env`: `VOYAGE_API_KEY=pa-...`, and the empty name to `.env.example`: `echo 'VOYAGE_API_KEY=' >> .env.example`
+2. Install the client:
+
+   ```bash
+   pip install voyageai
+   ```
+
+3. Open `.env` in your editor and add a line with your key: `VOYAGE_API_KEY=pa-...`
+4. Add the name, with no value, to `.env.example`:
+
+   ```bash
+   echo 'VOYAGE_API_KEY=' >> .env.example
+   ```
 
 **Check:**
 
@@ -247,13 +263,18 @@ python -c "print('\n'); from lib_claude_multimodal import create_chunk_index; pr
 
 If you get a "not authorized" error, create the index once as admin with mongosh (paste password 1), then run the command above again — it finds the index and waits for it:
 
+Route A:
+
 ```bash
-# Route A
 mongosh "mongodb://admin@127.0.0.1:27017/admin?directConnection=true" --quiet --eval '
   db.getSiblingDB("course").chunks.createSearchIndex("chunks_vec", "vectorSearch",
     {fields: [{type: "vector", path: "embedding", numDimensions: 1024, similarity: "cosine"},
               {type: "filter", path: "modality"}]})'
-# Route B
+```
+
+Route B:
+
+```bash
 mongosh "mongodb://admin@127.0.0.1:27017/admin?directConnection=true" --quiet --eval '
   db.getSiblingDB("course").chunks.createSearchIndex("chunks_text", "search",
     {mappings: {dynamic: false, fields: {content: {type: "string"}, modality: {type: "token"}}}})'
@@ -372,7 +393,13 @@ Try one document question ("What risks were mentioned on the call?") and one num
 
 ## Step 9 — Run 10 test questions
 
-Write 10 questions in `data/m9/questions.txt` (`mkdir -p data/m9`): at least three each for PDFs, transcripts and logs, and one that needs two of them. Run each in `m09_assistant.py` and paste the answers into `notes/m09_results.md`.
+Make the folder:
+
+```bash
+mkdir -p data/m9
+```
+
+Write 10 questions in `data/m9/questions.txt`: at least three each for PDFs, transcripts and logs, and one that needs two of them. Run each in `m09_assistant.py` and paste the answers into `notes/m09_results.md`.
 
 **Check:** 10 answers, each with at least one citation.
 

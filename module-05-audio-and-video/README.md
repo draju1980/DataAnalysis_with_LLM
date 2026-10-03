@@ -99,7 +99,13 @@ for r in db_ro.transcript_segments.aggregate([{'\$group': {'_id': '\$recording',
 - `label_speakers()` and `analyze_audio()` are safe to rerun: they overwrite speaker labels and replace the recording's action items. Each rerun calls the API again.
 - The first `transcribe()` downloads the Whisper model once; later sessions reuse it.
 - Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-5) at the end of the page.
-- **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never `docker compose down -v`: it deletes the database, transcripts included.
+- **To stop for the day**, stop MongoDB (or leave it running; your data stays):
+
+  ```bash
+  docker compose stop
+  ```
+
+  Never `docker compose down -v`: it deletes the database, transcripts included.
 
 ---
 
@@ -196,7 +202,13 @@ Meeting ES2002a, overhead camera video (about 60 MB):
 curl -fL -o data/m5/ami/ES2002a.Overhead.avi https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/ES2002a/video/ES2002a.Overhead.avi
 ```
 
-**Check:** `ls -lh data/m5/ami` lists `ES2002a.Overhead.avi` (about 60M), `ES2002a.wav` (about 39M) and `ES2002b.wav` (about 70M).
+Run the check:
+
+```bash
+ls -lh data/m5/ami
+```
+
+**Check:** lists `ES2002a.Overhead.avi` (about 60M), `ES2002a.wav` (about 39M) and `ES2002b.wav` (about 70M).
 
 *b. Make the hour-long recording*, both meetings one after the other:
 
@@ -207,7 +219,13 @@ ffmpeg -nostdin -y -loglevel error -stats -i data/m5/ami/ES2002a.wav -i data/m5/
 
 While it runs, ffmpeg prints one line that keeps updating; `time=` is how far into the audio it has got (this one ends near `time=00:59:…`). Every ffmpeg command in this module shows the same line.
 
-**Check:** `ls -lh data/m5/q3-call.mp3` shows a file of about 28M.
+Run the check:
+
+```bash
+ls -lh data/m5/q3-call.mp3
+```
+
+**Check:** shows a file of about 28M.
 
 - `-stats` prints that progress line; `-loglevel error` hides everything else unless something goes wrong.
 - `-nostdin` stops ffmpeg from reading the keyboard; without it, ffmpeg swallows any lines pasted after it and they never run.
@@ -219,7 +237,15 @@ ffmpeg -nostdin -y -loglevel error -stats -i data/m5/ami/ES2002a.Overhead.avi -i
   -map 0:v -map 1:a -t 600 -c:v libx264 -c:a aac -shortest data/m5/demo.mp4
 ```
 
-**Check:** the progress line ends near `time=00:10:00`, and `ls -lh data/m5/demo.mp4` shows the file.
+**Check:** the progress line ends near `time=00:10:00`.
+
+Confirm the file exists:
+
+```bash
+ls -lh data/m5/demo.mp4
+```
+
+**Check:** shows `demo.mp4`.
 
 *d. Delete the originals*, only once b and c both passed:
 
@@ -229,7 +255,13 @@ rm -r data/m5/ami
 
 Expect four speakers (a project manager, a marketing expert, a user-interface designer and an industrial designer) and, in ES2002b, decisions and action items for the next meeting.
 
-**Check:** `ls data/m5` lists your recording (with the course sample: `demo.mp4` and `q3-call.mp3`).
+Run the check:
+
+```bash
+ls data/m5
+```
+
+**Check:** lists your recording (with the course sample: `demo.mp4` and `q3-call.mp3`).
 
 ## Step 2 — Make a 3-minute test clip
 
@@ -242,7 +274,13 @@ ffmpeg -nostdin -y -loglevel error -stats -i data/m5/q3-call.mp3 -t 180 -ac 1 -a
 - `-t 180` keeps the first 180 seconds.
 - `-ac 1 -ar 16000` converts to mono 16 kHz, the format Whisper uses.
 
-**Check:** `python -c "import wave; w = wave.open('data/m5/test-clip.wav'); print(round(w.getnframes() / w.getframerate()))"` prints `180`.
+Run the check:
+
+```bash
+python -c "print('\n'); import wave; w = wave.open('data/m5/test-clip.wav'); print(round(w.getnframes() / w.getframerate()))"
+```
+
+**Check:** prints `180`.
 
 ## Step 3 — Add `transcribe()` and transcribe the clip
 
@@ -532,7 +570,13 @@ Extract one frame every 30 seconds. The progress line ends near `time=00:10:00`:
 ffmpeg -nostdin -y -loglevel error -stats -i data/m5/demo.mp4 -vf fps=1/30 data/m5/frames/%04d.jpg
 ```
 
-**Check:** `ls data/m5/frames` lists about 20 frames (`0001.jpg`, `0002.jpg`, …) for the 10-minute sample. Frame `0001.jpg` is at 0:00, `0002.jpg` at 0:30, and so on.
+Run the check:
+
+```bash
+ls data/m5/frames
+```
+
+**Check:** lists about 20 frames (`0001.jpg`, `0002.jpg`, …) for the 10-minute sample. Frame `0001.jpg` is at 0:00, `0002.jpg` at 0:30, and so on.
 
 Transcribe the video's audio, label speakers and write notes, exactly as Step 7 did for the clip (a few minutes for 10 minutes of video):
 
@@ -575,7 +619,13 @@ Stage the library and this module's scripts (never `data/`, which holds the reco
 git add lib_claude_multimodal.py m05_*.py
 ```
 
-**Check:** `git status` lists only those files under "Changes to be committed".
+Run the check:
+
+```bash
+git status
+```
+
+**Check:** lists only those files under "Changes to be committed".
 
 Commit them:
 

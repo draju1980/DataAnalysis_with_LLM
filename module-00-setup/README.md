@@ -14,7 +14,13 @@
 
 ## Before you start or resume
 
-Setup can take more than one sitting: installing Docker or waiting for API credit, for example. At the start of every session, open a terminal in the project folder (`cd DataAnalysis_with_LLM`) and run this to see which steps are already done. It uses only the shell, so it works before the Python environment exists.
+Setup can take more than one sitting: installing Docker or waiting for API credit, for example. At the start of every session, open a terminal and go to the project folder:
+
+```bash
+cd DataAnalysis_with_LLM
+```
+
+Then run this to see which steps are already done. It uses only the shell, so it works before the Python environment exists.
 
 ```bash
 (
@@ -32,15 +38,35 @@ Setup can take more than one sitting: installing Docker or waiting for API credi
 )
 ```
 
-**Check:** resume at the first `todo` line. Steps 4–6 and 8 happen in the Anthropic Console or print to the screen, so they have no line of their own: Step 7 being `done` means you finished them. If MongoDB was stopped, the Step 9 and 11 lines show `todo` until you run `docker compose up -d` and wait a minute.
+**Check:** resume at the first `todo` line. Steps 4–6 and 8 happen in the Anthropic Console or print to the screen, so they have no line of their own: Step 7 being `done` means you finished them. If MongoDB was stopped, the Step 9 and 11 lines show `todo` until you start it, wait a minute, and run the block again:
+
+```bash
+docker compose up -d
+```
 
 **Resuming safely**
 
-- Once Step 2 is done, start every new terminal with `source .venv/bin/activate`. Once Step 9 is done, also run `docker compose up -d`.
+- Once Step 2 is done, start every new terminal by activating the Python environment:
+
+  ```bash
+  source .venv/bin/activate
+  ```
+
+  Once Step 9 is done, also start MongoDB:
+
+  ```bash
+  docker compose up -d
+  ```
 - The API key is shown only once (Step 4). If you lost it before putting it in `.env`, create a new key and delete the old one in the Console.
 - Don't generate new passwords (Step 6) after Step 11 unless you also put them in `.env` and rerun Step 11: the users keep the passwords they were created with.
 - Steps 9, 11 and 12 are safe to rerun. Step 11 drops and recreates both users.
-- **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never run `docker compose down -v` to pause: `-v` deletes the database volumes, and you would have to redo Steps 9–12.
+- **To stop for the day**, stop MongoDB (or leave it running; your data stays):
+
+  ```bash
+  docker compose stop
+  ```
+
+  Never run `docker compose down -v` to pause: `-v` deletes the database volumes, and you would have to redo Steps 9–12.
 
 ---
 
@@ -59,7 +85,13 @@ cd DataAnalysis_with_LLM
 
 Do not clone `draju1980/DataAnalysis_with_LLM` directly: you can't push to it, and your work would have nowhere to go.
 
-**Check:** `git remote -v` shows `github.com/<your-username>/DataAnalysis_with_LLM` for `origin`.
+Run the check:
+
+```bash
+git remote -v
+```
+
+**Check:** shows `github.com/<your-username>/DataAnalysis_with_LLM` for `origin`.
 
 ## Step 1 — Open the project folder and set up `.gitignore`
 
@@ -118,7 +150,11 @@ ok
 ## Step 3 — Install Docker and mongosh
 
 - **Docker** runs MongoDB on your machine. Install Docker Desktop (macOS/Windows) or Docker Engine (Linux).
-- **mongosh** is MongoDB's command-line shell, used in Steps 10–12. macOS: `brew install mongosh`. Linux: follow "Install mongosh" in the MongoDB docs.
+- **mongosh** is MongoDB's command-line shell, used in Steps 10–12. On Linux, follow "Install mongosh" in the MongoDB docs. On macOS:
+
+  ```bash
+  brew install mongosh
+  ```
 
 **Check:**
 
@@ -187,7 +223,13 @@ cat .env.example
 
 Finally, delete the temporary copy of your API key from Step 4.
 
-**Check:** `git check-ignore .env` prints `.env`, and `.env.example` shows the four names with nothing after `=`.
+Run the check:
+
+```bash
+git check-ignore .env
+```
+
+**Check:** prints `.env`, and `.env.example` shows the four names with nothing after `=`.
 
 ## Step 8 — Test the API key with curl
 
@@ -409,8 +451,10 @@ for name, attempt in attempts.items():
 
 Commit the files that are safe to share. Never `.env`.
 
+Run these one at a time. In the `git status` output, `.env` must NOT be listed:
+
 ```bash
-git status --short                 # .env must NOT be listed
+git status --short
 grep -rn "sk-ant-\|mongodb://[^ ]*:[^ ]*@" --exclude=.env --exclude-dir=.venv . || echo "no secrets found"
 git add docker-compose.yml .env.example notebooks/m00_setup.ipynb
 git commit -m "Module 0: local setup"

@@ -73,7 +73,13 @@ print('Module 0: .env and both database users ok')"
 - Steps 4–7 and 10 call the API again when rerun. Each call costs a fraction of a cent and adds a row to `llm_calls`, which is fine.
 - Step 11 compares the cost before and after one chat session. Do the "before", the chat, and the "after" in the same sitting.
 - Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-1) at the end of the page.
-- **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never `docker compose down -v`: it deletes the database.
+- **To stop for the day**, stop MongoDB (or leave it running; your data stays):
+
+  ```bash
+  docker compose stop
+  ```
+
+  Never `docker compose down -v`: it deletes the database.
 
 ---
 
@@ -506,7 +512,13 @@ git commit -m "Module 1: ask(), logging, tool loop, CLI chat"
 git push
 ```
 
-**Check:** `git status --short` shows nothing left to commit except files you chose not to add.
+Run the check:
+
+```bash
+git status --short
+```
+
+**Check:** shows nothing left to commit except files you chose not to add.
 
 ## Complete `lib_claude_multimodal.py` after Module 1
 

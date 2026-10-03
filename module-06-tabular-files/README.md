@@ -62,7 +62,13 @@ print('Module 1 ok')"
 - Step 8 can span sessions: add questions to `m06_my_answers.py` as you write them. Each run rewrites `data/m6/questions.txt` and `notes/m06_answers.md`.
 - `m06_ask.py` asks all 10 questions again and overwrites `notes/m06_results.md` on every run. That's what Step 10 wants after each fix.
 - Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-6) at the end of the page.
-- **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never `docker compose down -v`: it deletes the database.
+- **To stop for the day**, stop MongoDB (or leave it running; your data stays):
+
+  ```bash
+  docker compose stop
+  ```
+
+  Never `docker compose down -v`: it deletes the database.
 
 ---
 
@@ -169,7 +175,13 @@ print(pd.read_excel(x, sheet_name=x.sheet_names[0], header=None).head(8))"
 python -c "print('\n'); import json; d=json.load(open('data/m6/export.json')); print(type(d).__name__, list(d)[:5] if isinstance(d, dict) else d[:1])"
 ```
 
-Write these down in `notes/m06_quirks.md` (`mkdir -p notes` first), so you still have them after a break:
+Make a notes folder:
+
+```bash
+mkdir -p notes
+```
+
+Write these down in `notes/m06_quirks.md`, so you still have them after a break:
 
 - **CSV:** the date format (e.g. `30/09/2026` vs `2026-09-30`), and any numbers with commas or currency signs.
 - **Excel:** which sheet holds the data and which row the headers are on (0-based; with a title row above them it's often `1` or `2`).

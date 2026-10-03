@@ -65,7 +65,13 @@ for r in db_ro.log_events.aggregate([{'\$group': {'_id': '\$source_file', 'n': {
 - If `m07_extract.py` stops partway, just rerun it on the same file: it first deletes that file's records, so you never get duplicates. Each rerun calls the API for every chunk again.
 - The optional full-log run in Step 10 can take a long time; it's safe to stop and restart the same way.
 - Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-7) at the end of the page.
-- **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never `docker compose down -v`: it deletes the database.
+- **To stop for the day**, stop MongoDB (or leave it running; your data stays):
+
+  ```bash
+  docker compose stop
+  ```
+
+  Never `docker compose down -v`: it deletes the database.
 
 ---
 

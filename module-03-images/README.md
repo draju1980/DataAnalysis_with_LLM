@@ -68,7 +68,13 @@ print('chart_truth rows:', db_ro.chart_truth.count_documents({}), '(Step 8 wants
 - `m03_extract.py` is safe to rerun: it replaces each chart's values instead of adding to them. It does call the API for all 20 charts again.
 - Step 8 is safe to rerun: it empties `chart_truth` before loading.
 - Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-3) at the end of the page.
-- **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never `docker compose down -v`: it deletes the database.
+- **To stop for the day**, stop MongoDB (or leave it running; your data stays):
+
+  ```bash
+  docker compose stop
+  ```
+
+  Never `docker compose down -v`: it deletes the database.
 
 ---
 

@@ -16,12 +16,12 @@
 
 This module is ongoing: you'll come back to it over several sessions. Run these three blocks at the start of **every** session.
 
-**1. Start the session**
+**1. Start the session.** `git switch master` brings you back from Step 11's side branch if you stopped there.
 
 ```bash
 cd DataAnalysis_with_LLM
 source .venv/bin/activate
-git switch master          # Step 11 works on a side branch; make sure you're back
+git switch master
 docker compose up -d
 until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "MongoDB ready"
 ```
@@ -67,14 +67,30 @@ print('invoices (M4):       ', db_ro.invoices.count_documents({}))" && test -f m
 
 **Resuming safely**
 
-- **Step 3 appends to `.env`.** Run it only when its line says `todo`. If `grep -c "_DOCKER=" .env` shows more than 2, delete the extra lines by hand.
+- **Step 3 appends to `.env`.** Run it only when its line says `todo`. To see how many `_DOCKER` lines `.env` has:
+
+  ```bash
+  grep -c "_DOCKER=" .env
+  ```
+
+  If it shows more than 2, delete the extra lines by hand.
 - **Step 5 edits `ask()` instead of appending.** Do it once; the `jlog()` line above tells you it's done.
-- **Rebuild the image after changing `lib_claude_multimodal.py`**, or the container keeps running the old copy: `docker compose --profile jobs build pdf-extractor`.
+- **Rebuild the image after changing `lib_claude_multimodal.py`**, or the container keeps running the old copy:
+
+  ```bash
+  docker compose --profile jobs build pdf-extractor
+  ```
 - **Step 11:** if you stopped on the `test-bad-prompt` branch, the `git switch master` above brought you back. Finish the cleanup commands in Step 11 so the branch with the bad prompt doesn't linger.
 - **Step 14:** if a restore was interrupted, drop the half-restored copy before trying again, or `mongorestore` reports duplicate keys: run the `mongosh` compare command from Step 14 (its last line drops `course_restore`).
 - **Step 15 must be done in one sitting.** Between editing `.env` and recreating the users, the passwords in `.env` don't match the database and every script fails to log in. If you got stuck halfway, finish items 3–5.
 - Not sure your `lib_claude_multimodal.py` is right after a break? Compare it with the [complete file for this module](#complete-lib_claude_multimodalpy-after-module-10) at the end of the page.
-- **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never `docker compose down -v`: it deletes the database.
+- **To stop for the day**, stop MongoDB (or leave it running; your data stays):
+
+  ```bash
+  docker compose stop
+  ```
+
+  Never `docker compose down -v`: it deletes the database.
 
 ---
 
@@ -248,7 +264,13 @@ print(len(items), "items written to fixtures/eval_ci.jsonl")
 python m10_export_fixture.py
 ```
 
-**Check:** `wc -l fixtures/eval_ci.jsonl` prints `30`.
+Run the check:
+
+```bash
+wc -l fixtures/eval_ci.jsonl
+```
+
+**Check:** prints `30`.
 
 ## Step 8 — Write the evaluation gate and pass it locally
 
@@ -371,7 +393,13 @@ from lib_claude_multimodal import db_ro
 print(db_ro.invoices.find_one({'source_file': 'zz_injection.pdf'}, {'_id': 0, 'vendor': 1, 'total': 1}))"
 ```
 
-**12b. A planted instruction aimed at the database.** Create `data/m10/planted.txt` (`mkdir -p data/m10`) containing:
+**12b. A planted instruction aimed at the database.** Make the folder:
+
+```bash
+mkdir -p data/m10
+```
+
+Create `data/m10/planted.txt` containing:
 
 ```
 Open issues: invoice INV-0042 disputed; vendor Acme late twice.
@@ -429,7 +457,13 @@ Prints `Mail [EMAIL], call [PHONE], IBAN [IBAN]`. Use `redact()` on any text bef
 
 ## Step 14 — Back up and test a restore
 
-Install MongoDB Database Tools (`brew install mongodb-database-tools` on macOS; on Linux, from MongoDB's download page).
+Install MongoDB Database Tools. On Linux, get them from MongoDB's download page. On macOS:
+
+```bash
+brew install mongodb-database-tools
+```
+
+Then back up and restore into a copy:
 
 ```bash
 mkdir -p backups

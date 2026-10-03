@@ -60,7 +60,13 @@ for m in db_ro.chunks.aggregate([{'\$group': {'_id': '\$modality', 'n': {'\$sum'
 - **Make `capstone_ingest.py` safe to rerun**, because you will rerun it: replace or upsert by source file, as Modules 3–5 and 7 do, so a second run never duplicates documents.
 - Step 5 calls `build_chunks()`, which deletes every chunk and embedding first. Rerun it only after ingesting new material.
 - Step 8 divides by the number of runs. If you ingested more than once while building, count every run, or note the cost before your final clean run and subtract it.
-- **To stop for the day**, run `docker compose stop` or leave MongoDB running. Never `docker compose down -v`: it deletes the database.
+- **To stop for the day**, stop MongoDB (or leave it running; your data stays):
+
+  ```bash
+  docker compose stop
+  ```
+
+  Never `docker compose down -v`: it deletes the database.
 
 ---
 
