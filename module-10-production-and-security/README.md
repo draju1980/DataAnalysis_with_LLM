@@ -69,23 +69,13 @@ print('invoices (M4):       ', db_ro.invoices.count_documents({}))" && test -f m
 
 **Resuming safely**
 
-- **Step 3 appends to `.env`.** Run it only when its line says `todo`. To see how many `_DOCKER` lines `.env` has:
+- **Step 3 rewrites the `_DOCKER` lines in `.env`.** It's safe to rerun. To see how many `_DOCKER` lines `.env` has:
 
   ```bash
   grep -c "_DOCKER=" .env
   ```
 
-  It should print `2`. If it prints anything else (for example `1`, because a line got glued onto the line above it), delete all `_DOCKER` lines:
-
-  ```bash
-  sed -i.bak '/_DOCKER=/d' .env
-  ```
-
-  Then rerun all of **Step 3**. `sed` keeps the old file as `.env.bak`; delete it once Step 3's Checks pass:
-
-  ```bash
-  rm .env.bak
-  ```
+  It should print `2`. If it prints anything else, rerun all of **Step 3**: it removes the old `_DOCKER` lines first, then adds both again.
 - **Step 5 edits `ask()` instead of appending.** Do it once; the `jlog()` line above tells you it's done.
 - **Rebuild the image after changing `lib_claude_multimodal.py`**, or the container keeps running the old copy:
 
@@ -167,7 +157,15 @@ The build finishes without errors and its last lines mention `naming to docker.i
 
 ## Step 3 — Add container-network connection strings to `.env`
 
-**What you're doing:** giving the container its own way to reach MongoDB. Inside Docker's network, MongoDB is reached as `mongodb`, not `127.0.0.1`, so you copy your two connection strings with that one change. Run this step only once (see "Resuming safely").
+**What you're doing:** giving the container its own way to reach MongoDB. Inside Docker's network, MongoDB is reached as `mongodb`, not `127.0.0.1`, so you copy your two connection strings with that one change. The step first removes any `_DOCKER` lines left from an earlier try, so it's safe to run again: run all of its commands, in order, every time.
+
+Remove old `_DOCKER` lines, if any (on a first run there are none, and nothing changes):
+
+```bash
+sed -i.bak '/_DOCKER=/d' .env && rm .env.bak
+```
+
+This prints nothing. `sed -i.bak` edits `.env` in place and keeps a backup, which `rm` deletes once the edit succeeded.
 
 Make sure `.env` ends with a line break. Without one, the first new line gets glued onto the end of your last line, and that variable is lost:
 
@@ -202,7 +200,7 @@ grep _DOCKER .env | cut -d= -f1
 grep -c "_DOCKER=" .env
 ```
 
-**Check:** prints `2`. If it prints `1` or more than `2`, use the fix in "Resuming safely" at the top of this page.
+**Check:** prints `2`. If it doesn't, run all of Step 3 again from the top.
 
 ## Step 4 — Run the pipeline as a Compose job
 
@@ -641,7 +639,7 @@ docker compose exec mongodb mongosh "mongodb://admin@127.0.0.1:27017/admin?direc
    **Check:** prints two lines of 48 letters and digits.
 2. In `.env`, replace the passwords inside `MONGODB_URI_RW` and `MONGODB_URI` with the new ones.
 3. Recreate the users with the new passwords — rerun **Module 0 Step 11** (it drops and recreates both).
-4. Recreate the Docker lines: delete the two `_DOCKER` lines from `.env`, then rerun **Step 3** of this module.
+4. Recreate the Docker lines: rerun all of **Step 3** of this module (it replaces the old `_DOCKER` lines).
 5. Rerun **Module 0 Step 12** to check both users.
 
 **Check:** Module 0 Step 12 shows `role: 'read', db: 'course'` for the first user and `role: 'readWrite', db: 'course'` for the second. Then run the container job, which now uses the new `_DOCKER` lines:
