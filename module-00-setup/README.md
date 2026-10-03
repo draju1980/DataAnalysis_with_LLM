@@ -39,7 +39,7 @@ Then run this to see which steps are already done. It uses only the shell, so it
 )
 ```
 
-**Check:** resume at the first `todo` line. Steps 4–6 and 8 happen in the Anthropic Console or print to the screen, so they have no line of their own: Step 7 being `done` means you finished them. If MongoDB was stopped, the Step 9 and 11 lines show `todo` until you start it, wait a minute, and run the block again:
+**Check:** resume at the first `todo` line. Steps 4–6 and 8 happen in the Anthropic Console or only print to the screen, so they have no line of their own: Step 7 being `done` means you finished them. If MongoDB was stopped, the Step 9 and 11 lines show `todo` until you start it, wait a minute, and run the block again:
 
 ```bash
 docker compose up -d
@@ -59,7 +59,7 @@ docker compose up -d
   docker compose up -d
   ```
 - The API key is shown only once (Step 4). If you lost it before putting it in `.env`, create a new key and delete the old one in the Console.
-- Don't generate new passwords (Step 6) after Step 11 unless you also put them in `.env` and rerun Step 11: the users keep the passwords they were created with.
+- Step 6 never overwrites an existing `.env`, so it's safe to rerun. Don't delete `.env` to get new passwords after Step 11: the database users keep the passwords they were created with. To change passwords on purpose, follow Module 10, Step 15.
 - Steps 9, 11 and 12 are safe to rerun. Step 11 drops and recreates both users.
 - **To stop for the day**, stop MongoDB (or leave it running; your data stays):
 
@@ -225,7 +225,7 @@ docker compose version
 
 1. Sign in at console.anthropic.com (separate from the Claude chat app).
 2. Add prepaid credit; $10–20 covers Modules 0–4 on Haiku.
-3. Create an API key. It starts with `sk-ant-` and is shown only once. Paste it somewhere temporary (a password manager) — you'll move it into `.env` in Step 7.
+3. Create an API key. It starts with `sk-ant-` and is shown only once. Paste it somewhere temporary (a password manager) — you'll paste it into `.env` in Step 7.
 
 **Check:** the key shows as active in the Console.
 
@@ -237,62 +237,78 @@ In the Console's billing/limits settings, set a monthly limit slightly above you
 
 **Check:** the limit is visible in the Console.
 
-## Step 6 — Generate three database passwords
+## Step 6 — Create `.env` with three database passwords
 
-**What you're doing:** creating three random passwords: one for the MongoDB admin and one each for the read-write and read-only users. Random hex passwords are strong and contain no characters that could break a connection string.
+**What you're doing:** creating `.env`, the one private file that holds your secrets, with three random passwords already in it: one for the MongoDB admin and one each for the read-write and read-only users. A command writes the file, so the format is always right and no password is typed or pasted by hand.
+
+Run this in the project folder:
 
 ```bash
-for i in 1 2 3; do openssl rand -hex 24; done
+(
+  if [ -e .env ]; then echo ".env already exists, left unchanged"; exit; fi
+  p1=$(openssl rand -hex 24); p2=$(openssl rand -hex 24); p3=$(openssl rand -hex 24)
+  printf '%s\n' \
+    "ANTHROPIC_API_KEY=" \
+    "MONGO_ROOT_PASSWORD=$p1" \
+    "MONGODB_URI_RW=mongodb://course_rw:$p2@127.0.0.1:27017/course?authSource=admin&directConnection=true" \
+    "MONGODB_URI=mongodb://course_ro:$p3@127.0.0.1:27017/course?authSource=admin&directConnection=true" > .env
+  chmod 600 .env
+  echo "wrote .env"
+)
 ```
 
-You get three 48-character passwords made of `0-9` and `a-f` only (no symbols that could break a connection string). Keep the terminal open; you paste them into `.env` in the next step.
+**Check:** prints `wrote .env`. If it prints `.env already exists, left unchanged`, you created `.env` before: keep it, because your database users (Step 11) use the passwords inside it.
 
-| Password | Used for |
-| --- | --- |
-| 1 | MongoDB admin account (only for creating users) |
-| 2 | `course_rw` — read-write user for your scripts |
-| 3 | `course_ro` — read-only user for Claude's queries |
+What the command does:
 
-**Check:** three lines of hex printed.
+- `openssl rand -hex 24` makes each password: 48 characters of `0-9` and `a-f`, strong and with no symbols that could break a connection string.
+- It writes four settings, one per line, ending with a line break. `ANTHROPIC_API_KEY` stays empty until Step 7.
+- `chmod 600` lets only your user account read the file.
+- The brackets keep the passwords out of your shell once the command ends; they exist only in `.env`.
 
-## Step 7 — Create the `.env` file
-
-**What you're doing:** putting the API key and database connection details in one private file that your code reads at start-up. Secrets stay out of your code and out of git, and you make an empty copy (`.env.example`) that is safe to commit.
-
-Create a file named `.env` in the project folder with exactly this content, replacing the placeholders with your key (Step 4) and passwords (Step 6):
-
-```
-ANTHROPIC_API_KEY=sk-ant-...
-MONGO_ROOT_PASSWORD=<password 1>
-MONGODB_URI_RW=mongodb://course_rw:<password 2>@127.0.0.1:27017/course?authSource=admin&directConnection=true
-MONGODB_URI=mongodb://course_ro:<password 3>@127.0.0.1:27017/course?authSource=admin&directConnection=true
-```
-
-Rules: no `export`, no spaces around `=`, no quotes around values, and press Enter after the last line so the file ends with a line break. Later modules add lines to the end of `.env`; without that final line break, a new line gets glued onto your last one and both settings break.
+| Setting | Password | Used for |
+| --- | --- | --- |
+| `MONGO_ROOT_PASSWORD` | password 1 | MongoDB admin account (only for creating users) |
+| `MONGODB_URI_RW` | password 2 | `course_rw`, the read-write user for your scripts |
+| `MONGODB_URI` | password 3 | `course_ro`, the read-only user for Claude's queries |
 
 - The plain `MONGODB_URI` is the **read-only** user, so the default is the safe one.
 - `authSource=admin` tells MongoDB where the users are stored.
 - `directConnection=true` is needed because the local MongoDB runs as a one-machine replica set.
 
-Make sure the file ends with a line break (this adds one only if it's missing, and prints nothing):
+List the setting names (this shows names only, never the values):
 
 ```bash
-[ -z "$(tail -c1 .env)" ] || echo >> .env
+cut -d= -f1 .env
 ```
 
-Count the lines:
+**Check:** prints `ANTHROPIC_API_KEY`, `MONGO_ROOT_PASSWORD`, `MONGODB_URI_RW` and `MONGODB_URI`, one per line.
+
+## Step 7 — Add your API key to `.env`
+
+**What you're doing:** putting the API key from Step 4 into `.env`, and making an empty copy (`.env.example`) that is safe to commit. Your code reads the key from `.env` at start-up, so it stays out of your code and out of git.
+
+Run this, paste your key when asked, and press Enter. The key isn't shown while you paste:
 
 ```bash
-grep -c = .env
+(
+  printf 'Paste your API key (starts with sk-ant-), then press Enter: '
+  read -rs key; echo
+  sed -i.bak "s|^ANTHROPIC_API_KEY=.*|ANTHROPIC_API_KEY=$key|" .env && rm .env.bak && echo "key saved"
+)
 ```
 
-**Check:** prints `4`, one per setting.
+**Check:** prints `key saved`.
 
-Now protect the file so only your user account can read it:
+Confirm the key is in place (this counts the line, it doesn't print the key):
 
 ```bash
-chmod 600 .env
+grep -c '^ANTHROPIC_API_KEY=sk-ant-' .env
 ```
+
+**Check:** prints `1`. If it prints `0`, run the previous command again and paste the whole key.
+
+If you ever edit `.env` by hand: no `export`, no spaces around `=`, no quotes around values, and keep a line break after the last line. Later modules add lines to the end of `.env`, and without that line break a new line gets glued onto your last one.
 
 Make a template with the same names but no values, which you can commit:
 
@@ -416,13 +432,23 @@ docker compose exec mongodb mongosh --version
 
 **What you're doing:** logging in to MongoDB as the admin with password 1, to prove the database is running and the password from `.env` reached it. You'll need this login in the next step to create the users.
 
+Print password 1 (the admin password) from `.env`, so you can copy it:
+
+```bash
+grep '^MONGO_ROOT_PASSWORD=' .env | cut -d= -f2-
+```
+
+**Check:** prints one line of 48 letters and digits.
+
+Log in as the admin:
+
 ```bash
 docker compose exec mongodb mongosh "mongodb://admin@127.0.0.1:27017/admin?directConnection=true"
 ```
 
 `docker compose exec mongodb` runs mongosh inside the MongoDB container. There, `127.0.0.1` is the container itself, where MongoDB listens, so the same addresses as in `.env` work.
 
-When asked for a password, paste **password 1**. You should see a prompt like:
+When asked for a password, paste password 1. You should see a prompt like:
 
 ```
 AtlasLocalDev mongodb [direct: primary] admin>
@@ -455,7 +481,7 @@ This command reads passwords 2 and 3 from `.env` and creates both users. It firs
 )
 ```
 
-When asked, paste **password 1** (admin).
+When asked, paste **password 1** (admin). Step 10 shows how to print it from `.env`.
 
 How it works:
 

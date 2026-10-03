@@ -214,9 +214,22 @@ grep -c "_DOCKER=" .env
 
 **What you're doing:** adding the container to `docker-compose.yml` as a job you start on demand, with the API key and database passwords passed in from `.env` and the PDFs mounted read-only. Then you run it once to see the Module 4 pipeline work from inside the container.
 
-Add this service to `docker-compose.yml`, under `services:` and indented like `mongodb:`:
+Open `docker-compose.yml` (you created it in Module 0, Step 9) and replace its whole content with the version below. The `mongodb` service and the `volumes` at the bottom are unchanged; the new part is the `pdf-extractor` service between them:
 
 ```yaml
+services:
+  mongodb:
+    image: mongodb/mongodb-atlas-local:8.0
+    hostname: mongodb
+    environment:
+      MONGODB_INITDB_ROOT_USERNAME: admin
+      MONGODB_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - db:/data/db
+      - configdb:/data/configdb
+      - mongot:/data/mongot
   pdf-extractor:
     build: .
     profiles: ["jobs"]                  # only runs when asked
@@ -229,7 +242,21 @@ Add this service to `docker-compose.yml`, under `services:` and indented like `m
     depends_on:
       mongodb:
         condition: service_healthy
+volumes:
+  db:
+  configdb:
+  mongot:
 ```
+
+Check that Compose reads the file and sees both services:
+
+```bash
+docker compose --profile jobs config --services
+```
+
+**Check:** prints `mongodb` and `pdf-extractor`, one per line. An error here names the line with a typo or wrong indentation; YAML needs spaces, not tabs.
+
+Run the job once:
 
 ```bash
 docker compose --profile jobs run --rm pdf-extractor
