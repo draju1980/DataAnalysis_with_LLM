@@ -297,7 +297,41 @@ Write 10 questions in `data/m9/questions.txt`: at least three each for PDFs, tra
 
 **What you're doing:** checking that the citations are real. A citation is only useful if the source says what the answer claims.
 
-For each answer, open the cited source — the PDF page, the recording at that timestamp, the log line (for `app.log line 1889`, run `sed -n '1889p' data/m7/app.log`) — and confirm it says what the answer claims. Mark each answer ✅ or ❌ in `notes/m09_results.md`.
+For each answer in `notes/m09_results.md`, look up every source it cites and confirm the source says what the answer claims. A citation has one of three forms; use the matching command below, replacing the example file name and page, time or line with the ones from your citation.
+
+A PDF page, such as `AmazonWebServices.pdf p.1`. Print the page's text (the `1` in `pages[1 - 1]` is the page number):
+
+```bash
+python -c "
+print('\n')
+from pypdf import PdfReader
+print(PdfReader('data/m4/pdfs/AmazonWebServices.pdf').pages[1 - 1].extract_text())"
+```
+
+**Check:** prints the text of that page.
+
+A transcript time, such as `q3-call at 00:39:09`. Print what was said in the minute from that time:
+
+```bash
+python -c "
+print('\n')
+from lib_claude_multimodal import db_ro, fmt_ts
+t = sum(int(x) * 60 ** i for i, x in enumerate(reversed('00:39:09'.split(':'))))
+for s in db_ro.transcript_segments.find({'recording': 'q3-call', 'start_s': {'\$gte': t - 10, '\$lte': t + 60}}).sort('i'):
+    print(fmt_ts(s['start_s']), s.get('speaker') or '?', '|', s['text'])"
+```
+
+**Check:** prints timestamped lines starting just before `00:39:09`. To hear it instead, play `data/m5/q3-call.wav` from that time.
+
+A log line, such as `app.log line 1889`. Print that line of the original log:
+
+```bash
+sed -n '1889p' data/m7/app.log
+```
+
+**Check:** prints one line, here `[Mon Dec 05 16:40:06 2005] [error] mod_jk child workerEnv in error state 6`.
+
+Mark each answer ✅ or ❌ in `notes/m09_results.md`.
 
 **Check:** all 10 are ✅. For any ❌, see whether retrieval missed the right chunk (try a different `k` or rephrase the question with the source's words) or Claude misread it.
 
