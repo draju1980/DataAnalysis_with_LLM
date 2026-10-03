@@ -58,7 +58,6 @@ print('Module 0: .env and both database users ok')"
   step "Step 9   run_with_tools()"              'grep -qF "def run_with_tools(" lib_claude_multimodal.py'
   step "Step 10  m01_chat.py"                   'test -f m01_chat.py'
   step "Step 11  m01_costs.py"                  'test -f m01_costs.py'
-  step "Step 12  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 1:"'
 )
 ```
 

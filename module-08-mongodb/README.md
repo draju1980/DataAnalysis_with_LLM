@@ -54,7 +54,6 @@ print('missing collections:', [c for c in want if c not in have] or 'none')"
   step "Step 5   ask_mongo()"                   'grep -qF "def ask_mongo(" lib_claude_multimodal.py'
   step "Step 6   questions + your answers"      'test -f data/m8/questions.txt && test -f notes/m08_answers.md'
   step "Step 7   m08_ask.py + Claude's answers" 'test -f m08_ask.py && test -f notes/m08_results.md'
-  step "Step 12  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 8:"'
 )
 ```
 
@@ -521,7 +520,7 @@ Push:
 git push
 ```
 
-**Check:** ends with a line such as `abc1234..def5678  main -> main` (your branch name may differ). The progress check at the top now shows `done  Step 12  committed`.
+**Check:** ends with a line such as `abc1234..def5678  main -> main` (your branch name may differ).
 
 ## Complete `lib_claude_multimodal.py` after Module 8
 

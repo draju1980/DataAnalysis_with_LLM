@@ -5,7 +5,7 @@
 **You start with:** all modules done — every function in `lib_claude_multimodal.py`, the evaluation habit, the container and CI setup, and the threat model template.
 **You finish with:** one real project that uses at least four input formats, stores results in MongoDB, meets the Module 10 standard, and is written up with accuracy, cost per run and a threat model.
 
-**What this lab is about.** The capstone project puts the whole course together on a problem you choose. You feed at least four kinds of input (PDFs, tables, images, audio, logs) through the functions you already built, make them searchable, and answer real questions with a source for every claim. Then you measure it the way Module 10 taught: accuracy on questions you answered yourself first, cost per run from `llm_calls`, a container, a CI gate and an injection test. The write-up is the proof that the system works and what it costs.
+**What this lab is about.** The capstone project puts the whole course together on a problem you choose. You feed at least four kinds of input (PDFs, tables, images, audio, logs) through the functions you already built, make them searchable, and answer real questions with a source for every claim. Then you measure it the way Module 10 taught: accuracy on questions you answered yourself first, cost per run from `llm_calls`, a container, an evaluation gate (optionally in CI) and an injection test. The write-up is the proof that the system works and what it costs.
 
 ## Before you start or resume
 
@@ -44,7 +44,6 @@ print('all module functions ok')" && test -f m09_assistant.py && test -f threat-
   step "Step 6   capstone_assistant.py"         'test -f capstone_assistant.py'
   step "Step 7   capstone/results.csv"          'test -f capstone_eval.py && test -f capstone/results.csv'
   step "Step 10  threat model + write-up"       'test -f capstone/threat-model.md && test -f capstone/WRITEUP.md'
-  step "Step 10  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Capstone:"'
 )
 python -c "
 print('\n')
@@ -55,7 +54,7 @@ print('capstone calls so far:', r[0]['calls'] if r else 0, '| cost \$%.4f' % ((r
 for m in db_ro.chunks.aggregate([{'\$group': {'_id': '\$modality', 'n': {'\$sum': 1}}}]): print('chunks:', m)"
 ```
 
-**Check:** resume at the first `todo` line. Steps 5, 8 and 9 leave no single file: Step 5 is done when the chunk counts include your capstone sources, Step 8 when you have a cost-per-run number, Step 9 when the container, CI and injection checks pass.
+**Check:** resume at the first `todo` line. Steps 5, 8 and 9 leave no single file: Step 5 is done when the chunk counts include your capstone sources, Step 8 when you have a cost-per-run number, Step 9 when the container, evaluation gate and injection checks pass.
 
 **Resuming safely**
 
@@ -251,10 +250,10 @@ Divide by the number of runs (ingest once + 20 questions) to get cost per run.
 **What you're doing:** applying Module 10's production checks to your project: run the ingest in a container, gate prompt changes in CI, and prove one planted instruction in your own input type has no effect.
 
 - Containerize the ingest job like Module 10 Steps 2–4.
-- Add a CI gate on a small, publishable slice of your test set like Module 10 Steps 7–10.
+- Add an evaluation gate on a small, publishable slice of your test set like Module 10 Steps 7–9. Running it in GitHub Actions (Module 10 Steps 10–11) is optional.
 - Run one injection test on your own input type like Module 10 Step 12.
 
-**Check:** the container job runs, CI is green, and the injection test has no effect.
+**Check:** the container job runs, the evaluation gate exits with code 0 (and, if you set up CI, the run is green), and the injection test has no effect.
 
 ## Step 10 — Write the threat model and the write-up
 
@@ -288,7 +287,7 @@ Stage the capstone files:
 git add capstone/ capstone_*.py
 ```
 
-Commit them; replace `daily market brief` with your project's name, keeping `Capstone:` at the start (the progress check looks for it):
+Commit them; replace `daily market brief` with your project's name, keeping `Capstone:` at the start:
 
 ```bash
 git commit -m "Capstone: daily market brief"
@@ -306,5 +305,5 @@ git push
 
 - [ ] Step 7: accuracy on 20 hand-checked questions.
 - [ ] Step 8: cost per run from `llm_calls`.
-- [ ] Step 9: container, CI gate and injection test.
+- [ ] Step 9: container, evaluation gate (CI optional) and injection test.
 - [ ] Step 10: threat model and write-up pushed.

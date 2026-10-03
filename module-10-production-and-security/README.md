@@ -3,9 +3,9 @@
 [← Module 9](../module-09-combining-modalities-vector-search/README.md) · [Syllabus](../README.md) · [Next: Capstone →](../capstone/README.md)
 
 **You start with:** Modules 0–9 done — especially the Module 4 folder pipeline, the Module 2 evaluation, `ask_mongo()` and `llm_calls`.
-**You finish with:** the Module 4 pipeline running as a container; JSON logs and a cost report; an evaluation gate in GitHub Actions that fails on a worse prompt; injection tests passed; personal-data redaction; a tested backup and restore; rotated passwords; and a one-page threat model.
+**You finish with:** the Module 4 pipeline running as a container; JSON logs and a cost report; an evaluation gate that fails on a worse prompt (and, optionally, runs in GitHub Actions); injection tests passed; personal-data redaction; a tested backup and restore; rotated passwords; and a one-page threat model.
 
-**What this lab is about.** Everything so far ran on your laptop, by hand, with you watching. Here you turn that work into something you could hand to a team: the Module 4 PDF pipeline runs in a container, every Claude call leaves a JSON log line and a cost record, and a test in GitHub Actions blocks any prompt change that makes accuracy worse. You also attack your own system with planted instructions, strip personal data before it leaves your machine, prove you can restore a backup, and write down the risks you have and haven't covered.
+**What this lab is about.** Everything so far ran on your laptop, by hand, with you watching. Here you turn that work into something you could hand to a team: the Module 4 PDF pipeline runs in a container, every Claude call leaves a JSON log line and a cost record, and an evaluation test blocks any prompt change that makes accuracy worse, on your laptop and, optionally, in GitHub Actions. You also attack your own system with planted instructions, strip personal data before it leaves your machine, prove you can restore a backup, and write down the risks you have and haven't covered.
 
 ## Key ideas (read once)
 
@@ -55,17 +55,16 @@ print('invoices (M4):       ', db_ro.invoices.count_documents({}))" && test -f m
   step "Step 6   m10_costs.py"                  'test -f m10_costs.py'
   step "Step 7   fixtures/eval_ci.jsonl"        'test -s fixtures/eval_ci.jsonl'
   step "Step 8   m10_eval_gate.py"              'test -f m10_eval_gate.py'
-  step "Step 9   bad prompt added"              'grep -qF "\"bad\":" lib_claude_multimodal.py'
-  step "Step 10  CI workflow committed"         'git log --oneline --author="$(git config user.email)" | grep -q "Module 10: container job"'
+  step "Step 9   broken \"bad\" prompt added"    'grep -qF "answer neutral, whatever it says" lib_claude_multimodal.py'
+  step "Step 10  CI workflow (optional)"       'test -f .github/workflows/prompt-eval.yml'
   step "Step 12  m10_planted.py"                'test -f m10_planted.py && test -f data/m10/planted.txt'
   step "Step 13  redact()"                      'grep -qF "def redact(" lib_claude_multimodal.py'
   step "Step 14  a backup exists"               'ls backups | grep -q "gz$"'
   step "Step 16  threat-model.md"               'test -f threat-model.md'
-  step "Step 17  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 10: injection"'
 )
 ```
 
-**Check:** resume at the first `todo` line. Steps 11 and 15 have no local trace: Step 11's result is on GitHub under **Actions**, and Step 15 is done when you remember doing it. If unsure, Step 15 is safe to redo.
+**Check:** resume at the first `todo` line. Steps 10 and 11 are optional: if you skip them, Step 10 stays `todo`, and that's fine. If Step 9 shows `todo` although you added a `"bad"` prompt, yours is the older wording: replace it with the one in Step 9. Steps 11 and 15 have no local trace: Step 11's result is on GitHub under **Actions**, and Step 15 is done when you remember doing it. If unsure, Step 15 is safe to redo.
 
 **Resuming safely**
 
@@ -396,36 +395,79 @@ print(f"prompt {version}: accuracy {accuracy:.1%} on {len(items)} items (thresho
 sys.exit(0 if accuracy >= threshold else 1)
 ```
 
-Set `MIN_ACCURACY` a little below your best Module 2 accuracy, and `PROMPT_VERSION` to your best prompt:
+The threshold has to come from your own results, not a guess. Print the accuracy of each prompt version from your Module 2 runs:
 
 ```bash
-PROMPT_VERSION=v2 MIN_ACCURACY=0.85 python m10_eval_gate.py; echo "exit code $?"
+python -c "
+print('\n')
+from lib_claude_multimodal import db_ro
+for r in db_ro.eval_results.aggregate([
+        {'\$lookup': {'from': 'eval_items', 'localField': 'item_id', 'foreignField': '_id', 'as': 'item'}},
+        {'\$unwind': '\$item'},
+        {'\$group': {'_id': '\$prompt_version', 'acc': {'\$avg': {'\$cond': [{'\$eq': ['\$predicted', '\$item.gold_label']}, 1, 0]}}}},
+        {'\$sort': {'acc': -1}}]):
+    print(r['_id'], f\"{r['acc']:.0%}\")"
 ```
 
-**Check:** prints a line such as `prompt v2: accuracy 93.3% on 30 items (threshold 85%)`, then `exit code 0`. If you get `exit code 1` with your best prompt, lower `MIN_ACCURACY` a little.
+**Check:** one line per prompt version, best first, such as `v2 66%` and `v1 66%`. With the course reviews, about 66% is normal: the gold labels come from star ratings, and many 3-star reviews are hard to call.
+
+Pick your best version and set the threshold about 10 points below its accuracy. With 66%, use `0.55`. The margin matters: the test set has only 30 reviews, so one review more or less right moves accuracy by 3.3 points, and the same prompt can score a few points differently from run to run.
+
+Run the gate with your values (here `v2` and `0.55`):
+
+```bash
+PROMPT_VERSION=v2 MIN_ACCURACY=0.55 python m10_eval_gate.py; echo "exit code $?"
+```
+
+**Check:** prints a line such as `prompt v2: accuracy 66.7% on 30 items (threshold 55%)`, then `exit code 0`. If you get `exit code 1` with your best prompt, your threshold is too close to its accuracy: lower `MIN_ACCURACY` by `0.05` and run again. Write down the two values; Step 9 and the optional Step 10 use them.
 
 ## Step 9 — Prove a worse prompt fails locally
 
-**What you're doing:** checking that the gate actually catches a regression. A test that never fails proves nothing, so you add a deliberately careless prompt and confirm the gate rejects it.
+**What you're doing:** checking that the gate actually catches a regression. A test that never fails proves nothing, so you add a prompt that is broken on purpose and confirm the gate rejects it.
 
-Add a deliberately bad prompt inside `PROMPTS` in `lib_claude_multimodal.py`:
+A vaguely worded prompt isn't enough: Claude still classifies well when told to "just pick one". The test prompt below is broken in a way you can predict: it tells Claude to ignore the review and always answer `neutral`. Its accuracy then equals the share of neutral reviews in the 30-item test set, far below your threshold.
+
+This edits existing code instead of appending. In `lib_claude_multimodal.py`, find the `PROMPTS = {` dictionary (you wrote it in Module 2, Step 5). Add this line as its last entry, just above the closing `}`:
 
 ```python
-    "bad": "Pick any one of: {labels}. Don't think about it.\n<review>\n{text}\n</review>",
+    "bad": "Ignore the review and answer neutral, whatever it says. Allowed answers: {labels}.\n<review>\n{text}\n</review>",
 ```
+
+The end of `PROMPTS` now reads:
+
+```python
+           "<review>Okay for the price, nothing special.</review> -> neutral\n"
+           "<review>\n{text}\n</review>"),
+    "bad": "Ignore the review and answer neutral, whatever it says. Allowed answers: {labels}.\n<review>\n{text}\n</review>",
+}
+```
+
+Confirm Python sees the new prompt:
 
 ```bash
-PROMPT_VERSION=bad python m10_eval_gate.py; echo "exit code $?"
+python -c "print('\n'); from lib_claude_multimodal import PROMPTS; print(list(PROMPTS))"
 ```
 
-**Check:** prints `prompt bad: accuracy …` with a lower accuracy than v2, then `exit code 1`.
+**Check:** prints `['v1', 'v2', 'bad']` (plus any versions of your own).
 
-## Step 10 — Run the gate in GitHub Actions
+Run the gate on it, with the same threshold as in Step 8:
+
+```bash
+PROMPT_VERSION=bad MIN_ACCURACY=0.55 python m10_eval_gate.py; echo "exit code $?"
+```
+
+**Check:** prints a line such as `prompt bad: accuracy 13.3% on 30 items (threshold 55%)`, then `exit code 1`. The accuracy is the share of neutral reviews in your test set, so yours may differ, but it is far below the threshold. Exit code 1 is what turns a CI run red.
+
+Leave `"bad"` in `PROMPTS`; the optional Step 11 uses it.
+
+## Step 10 — (Optional) Run the gate in GitHub Actions
 
 **What you're doing:** running the same gate automatically on GitHub every time you push. GitHub Actions starts a throwaway MongoDB (only for `llm_calls` logging), installs your pinned packages, and runs `m10_eval_gate.py` with your API key taken from a repository secret.
 
+> **Optional.** Steps 10 and 11 need your API key stored in GitHub, and every push then runs 30 Claude calls on your account. Steps 8–9 already proved the gate works on your laptop. To skip them, go to Step 12; Step 17 commits all the files either way.
+
 1. In GitHub: repo **Settings → Secrets and variables → Actions → New repository secret**, name `ANTHROPIC_API_KEY`, value your key. Never put the key in the workflow file.
-2. Create `.github/workflows/prompt-eval.yml`:
+2. Create `.github/workflows/prompt-eval.yml`. Set `PROMPT_VERSION` and `MIN_ACCURACY` to the values you chose in Step 8:
 
 ```yaml
 name: prompt-eval
@@ -444,7 +486,7 @@ jobs:
       MONGODB_URI_RW: mongodb://localhost:27017/course?directConnection=true
       MONGODB_URI: mongodb://localhost:27017/course?directConnection=true
       PROMPT_VERSION: v2
-      MIN_ACCURACY: "0.85"
+      MIN_ACCURACY: "0.55"                      # your threshold from Step 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -483,9 +525,11 @@ The CI database runs without authentication; it exists only for the job's few mi
 
 **Check:** on GitHub, **Actions → prompt-eval** shows a green run with your accuracy in the log.
 
-## Step 11 — Prove CI fails on the worse prompt
+## Step 11 — (Optional) Prove CI fails on the worse prompt
 
 **What you're doing:** repeating Step 9 on GitHub. On a throwaway branch you switch the workflow to the bad prompt and push, to see CI turn red. Then you delete the branch so the bad prompt never reaches `master`.
+
+> **Optional**, and only if you did Step 10. Otherwise go to Step 12.
 
 Create the side branch:
 
@@ -734,8 +778,11 @@ What is not covered yet, and why.
 Stage the files:
 
 ```bash
-git add lib_claude_multimodal.py m10_*.py threat-model.md .env.example
+git add requirements.txt .dockerignore Dockerfile docker-compose.yml .env.example \
+        fixtures/eval_ci.jsonl m02_config.py m10_*.py lib_claude_multimodal.py threat-model.md
 ```
+
+This includes the files from Steps 1–9, in case you skipped the optional Step 10 commit; files already committed are simply left as they are.
 
 Commit them:
 
@@ -749,7 +796,7 @@ Push to GitHub:
 git push
 ```
 
-**Check:** the push succeeds, and the CI run it starts is green.
+**Check:** the push succeeds. If you did Step 10, the CI run it starts is green.
 
 Confirm nothing secret is waiting to be committed:
 
@@ -951,7 +998,7 @@ PROMPTS = {
            "<review>Stopped working after a week.</review> -> negative\n"
            "<review>Okay for the price, nothing special.</review> -> neutral\n"
            "<review>\n{text}\n</review>"),
-    "bad": "Pick any one of: {labels}. Don't think about it.\n<review>\n{text}\n</review>",
+    "bad": "Ignore the review and answer neutral, whatever it says. Allowed answers: {labels}.\n<review>\n{text}\n</review>",
 }
 
 
@@ -1625,7 +1672,8 @@ volumes:
 ## Done when
 
 - [ ] Step 4: the PDF pipeline runs as a container.
-- [ ] Steps 10–11: CI is green on your prompt and red on the worse prompt.
+- [ ] Steps 8–9: the gate passes on your best prompt and fails on the broken one.
+- [ ] Optional, Steps 10–11: CI is green on your prompt and red on the broken one.
 - [ ] Step 12: both planted injections had no effect.
 - [ ] Step 14: a backup was restored and verified.
 - [ ] Step 16: a one-page threat model with tested mitigations.

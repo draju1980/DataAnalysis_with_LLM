@@ -53,7 +53,6 @@ print('Modules 1-2 ok')"
   step "Step 9   m03_errors.py"                 'test -f m03_errors.py'
   step "Step 11  data/m3/screenshot.png"        'test -f data/m3/screenshot.png'
   step "Step 12  notes/m03_decision.md"         'test -f notes/m03_decision.md'
-  step "Step 12  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 3:"'
 )
 python -c "
 print('\n')

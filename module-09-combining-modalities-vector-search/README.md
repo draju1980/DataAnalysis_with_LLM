@@ -53,7 +53,6 @@ print('log events (M7):         ', db_ro.log_events.count_documents({}))"
   step "Step 4  answer_with_sources()"         'grep -qF "def answer_with_sources(" lib_claude_multimodal.py'
   step "Step 5  m09_assistant.py"              'test -f m09_assistant.py'
   step "Step 6  questions + results"           'test -f data/m9/questions.txt && test -f notes/m09_results.md'
-  step "Step 9  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 9:"'
 )
 python -c "
 print('\n')

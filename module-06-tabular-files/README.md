@@ -51,7 +51,6 @@ print('Module 1 ok')"
   step "Step 7   ask_data()"                     'grep -qF "def ask_data(" lib_claude_multimodal.py'
   step "Step 8   questions + your answers"       'test -f data/m6/questions.txt && test -f notes/m06_answers.md'
   step "Step 9   m06_ask.py + Claude's answers"  'test -f m06_ask.py && test -f notes/m06_results.md'
-  step "Step 11  committed"                      'git log --oneline --author="$(git config user.email)" | grep -q "Module 6:"'
 )
 ```
 

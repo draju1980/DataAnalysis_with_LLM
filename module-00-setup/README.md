@@ -36,7 +36,6 @@ Then run this to see which steps are already done. It uses only the shell, so it
   step "Step 11  course_rw can log in"        'docker compose exec -T mongodb mongosh "$(grep "^MONGODB_URI_RW=" .env | cut -d= -f2-)&serverSelectionTimeoutMS=3000" --quiet --eval "quit(db.runCommand({connectionStatus: 1}).authInfo.authenticatedUsers.some(u => u.user === \"course_rw\") ? 0 : 1)"'
   step "Step 11  course_ro can log in"        'docker compose exec -T mongodb mongosh "$(grep "^MONGODB_URI=" .env | cut -d= -f2-)&serverSelectionTimeoutMS=3000" --quiet --eval "quit(db.runCommand({connectionStatus: 1}).authInfo.authenticatedUsers.some(u => u.user === \"course_ro\") ? 0 : 1)"'
   step "Step 13  notebook saved"              'test -f notebooks/m00_setup.ipynb'
-  step "Step 14  setup committed"             'git log --oneline --author="$(git config user.email)" | grep -q "Module 0:"'
 )
 ```
 

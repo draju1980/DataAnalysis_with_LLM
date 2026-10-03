@@ -52,7 +52,6 @@ print('Modules 1-3 ok')"
   step "Step 9   m04_cache.py"                  'test -f m04_cache.py'
   step "Step 10  zz_injection.pdf"              'test -f data/m4/pdfs/zz_injection.pdf'
   step "Step 11  data/m4/invoices_check.csv"    'test -f data/m4/invoices_check.csv'
-  step "Step 12  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 4:"'
 )
 python -c "
 print('\n')

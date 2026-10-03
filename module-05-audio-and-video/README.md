@@ -76,7 +76,6 @@ List which steps are done (it checks for files and functions, not results):
   step "Step 7   m05_process.py on the clip"    'test -f m05_process.py && test -f data/m5/test-clip-notes.md'
   step "Step 8   full recording notes"          'ls data/m5 | grep -v "^test-clip" | grep -q "notes.md"'
   step "Step 10  m05_video_window.py"           'test -f m05_video_window.py'
-  step "Step 11  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 5:"'
 )
 ```
 

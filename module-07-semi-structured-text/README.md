@@ -50,7 +50,6 @@ print('ok: ask(), tool_input() and DOC_RULE are in place')"
   step "Step 5   m07_extract.py"                'test -f m07_extract.py'
   step "Step 7   m07_spotcheck.py"              'test -f m07_spotcheck.py'
   step "Step 9   ask_text_file()"               'grep -qF "def ask_text_file(" lib_claude_multimodal.py'
-  step "Step 10  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 7:"'
 )
 python -c "
 print('\n')

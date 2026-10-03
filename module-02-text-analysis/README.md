@@ -52,7 +52,6 @@ print('Module 1 ok;', db_ro.llm_calls.count_documents({}), 'calls logged so far'
   step "Step 8   prompt v2"                     'grep -qF "\"v2\":" lib_claude_multimodal.py'
   step "Step 9   m02_batch.py"                  'test -f m02_batch.py'
   step "Step 11  notes/m02_report.md"           'test -f notes/m02_report.md'
-  step "Step 11  committed"                     'git log --oneline --author="$(git config user.email)" | grep -q "Module 2:"'
 )
 python -c "
 print('\n')
