@@ -352,7 +352,9 @@ print(describe_table(open_tables(), 'trades_clean'))"
 
 ## Step 6 — Add `run_sql()` with a read-only check
 
-Claude's SQL must only read. Append:
+In Step 7, Claude writes SQL and this function runs it. Claude should only **read** data, never change or delete it, so `run_sql()` refuses anything that isn't a single `SELECT` (or `WITH … SELECT`). That blocks statements like `DROP VIEW trades` or `DELETE FROM trades`, and two statements joined with `;`. It also caps the result at 200 rows, so a big result doesn't flood Claude's context.
+
+Append to `lib_claude_multimodal.py`, below `describe_table()`:
 
 ```python
 def run_sql(con, sql, max_rows=200):
@@ -365,7 +367,7 @@ def run_sql(con, sql, max_rows=200):
     return df.head(max_rows).to_string(index=False) + note
 ```
 
-**Check:**
+Test it with one query that should run and one that should be blocked:
 
 ```bash
 python -c "
@@ -378,11 +380,17 @@ try: run_sql(con, 'DROP VIEW trades')
 except ValueError as e: print('blocked:', e)"
 ```
 
-Prints the count, then `blocked: only one SELECT …`.
+**Check:** prints the row count, then the blocked message. With the course sample:
+
+```
+  n
+159
+blocked: only one SELECT (or WITH … SELECT) statement is allowed
+```
 
 ## Step 7 — Add `ask_data()` and ask one question
 
-Append:
+Append to `lib_claude_multimodal.py`, below `run_sql()`:
 
 ```python
 SQL_TOOL = {
