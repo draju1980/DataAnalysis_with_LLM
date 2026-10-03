@@ -70,7 +70,7 @@ for i in db_rw.chunks.list_search_indexes(): print('index:   ', i['name'], 'read
 
 - **`build_chunks()` deletes every chunk, embeddings included.** Rerun Step 3 only when your sources changed; on Route A, rerun Step 4 straight after it, which embeds everything again and costs Voyage tokens.
 - `embed_chunks()` only embeds chunks that have no embedding yet, so if it stops partway, run it again and it carries on.
-- After a restart, the search engine needs a moment to load the index. If a search returns nothing or errors, rerun this; it finds the existing index and waits until it's ready:
+- **Once Step 5 is done**, a restart means the search engine needs a moment to load the index. If a search returns nothing or errors, rerun this; it finds the existing index and waits until it's ready. (Before Step 5 it fails with `ImportError`, because `create_chunk_index()` doesn't exist yet.)
 
   ```bash
   python -c "print('\n'); from lib_claude_multimodal import create_chunk_index; print(create_chunk_index(), 'is ready')"
