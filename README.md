@@ -133,7 +133,7 @@ There are no quizzes or grades. A module is complete when its **Done when** chec
 | --- | --- | --- |
 | Anthropic API, model `claude-haiku-4-5-20251001`, `max_tokens=512` | All analysis | Module 0 |
 | Python, Jupyter, python-dotenv | Code, notebooks, secrets from `.env` | Module 0 |
-| Docker, MongoDB `mongodb-atlas-local`, mongosh, pymongo | Local database with full-text search | Module 0 |
+| Docker, MongoDB `mongodb-atlas-local` (includes mongosh), pymongo | Local database with full-text search | Module 0 |
 | Pillow | Resizing images | Module 3 |
 | pypdf | Counting, splitting and reading PDF pages | Module 4 |
 | faster-whisper, imageio-ffmpeg | Transcription and video frames (the one non-Claude model); ffmpeg comes from pip | Module 5 |

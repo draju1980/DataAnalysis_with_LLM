@@ -30,11 +30,11 @@ Then run this to see which steps are already done. It uses only the shell, so it
   step "Step 0   origin is your fork"         'git remote get-url origin | grep -v draju1980'
   step "Step 1   .gitignore protects .env"    'grep -qxF .env .gitignore'
   step "Step 2   Python environment"          '.venv/bin/python -c "import anthropic, dotenv, pymongo"'
-  step "Step 3   Docker and mongosh"          'docker compose version && mongosh --version'
+  step "Step 3   Docker"                      'docker compose version'
   step "Step 7   .env has all four values"    'test $(grep -cE "^(ANTHROPIC_API_KEY|MONGO_ROOT_PASSWORD|MONGODB_URI_RW|MONGODB_URI)=." .env) -eq 4 && test -f .env.example'
   step "Step 9   MongoDB is healthy"          'docker compose ps mongodb | grep -q "(healthy)"'
-  step "Step 11  course_rw can log in"        'mongosh "$(grep "^MONGODB_URI_RW=" .env | cut -d= -f2-)&serverSelectionTimeoutMS=3000" --quiet --eval "quit(db.runCommand({connectionStatus: 1}).authInfo.authenticatedUsers.some(u => u.user === \"course_rw\") ? 0 : 1)"'
-  step "Step 11  course_ro can log in"        'mongosh "$(grep "^MONGODB_URI=" .env | cut -d= -f2-)&serverSelectionTimeoutMS=3000" --quiet --eval "quit(db.runCommand({connectionStatus: 1}).authInfo.authenticatedUsers.some(u => u.user === \"course_ro\") ? 0 : 1)"'
+  step "Step 11  course_rw can log in"        'docker compose exec -T mongodb mongosh "$(grep "^MONGODB_URI_RW=" .env | cut -d= -f2-)&serverSelectionTimeoutMS=3000" --quiet --eval "quit(db.runCommand({connectionStatus: 1}).authInfo.authenticatedUsers.some(u => u.user === \"course_rw\") ? 0 : 1)"'
+  step "Step 11  course_ro can log in"        'docker compose exec -T mongodb mongosh "$(grep "^MONGODB_URI=" .env | cut -d= -f2-)&serverSelectionTimeoutMS=3000" --quiet --eval "quit(db.runCommand({connectionStatus: 1}).authInfo.authenticatedUsers.some(u => u.user === \"course_ro\") ? 0 : 1)"'
   step "Step 13  notebook saved"              'test -f notebooks/m00_setup.ipynb'
   step "Step 14  setup committed"             'git log --oneline --author="$(git config user.email)" | grep -q "Module 0:"'
 )
@@ -198,18 +198,13 @@ Output prints:
 ok
 ```
 
-## Step 3 — Install Docker and mongosh
+## Step 3 — Install Docker
 
-**What you're doing:** installing the two tools that run and talk to the database. Docker runs MongoDB in a container so you don't install it directly on your system, and mongosh lets you type commands to MongoDB, which you need to create the database users.
+**What you're doing:** installing Docker, which runs MongoDB in a container so you don't install the database directly on your system. Install Docker Desktop (macOS/Windows) or Docker Engine (Linux).
 
-- **Docker** runs MongoDB on your machine. Install Docker Desktop (macOS/Windows) or Docker Engine (Linux).
-- **mongosh** is MongoDB's command-line shell, used in Steps 10–12. On Linux, follow "Install mongosh" in the MongoDB docs. On macOS:
+You don't install **mongosh** (MongoDB's command-line shell, used in Steps 10–12) separately: it comes inside the MongoDB container. From Step 9 on you run it with `docker compose exec mongodb mongosh …`, the same way on macOS and Linux.
 
-  ```bash
-  brew install mongosh
-  ```
-
-Check each tool, one command at a time. Docker:
+Check Docker, one command at a time:
 
 ```bash
 docker --version
@@ -224,14 +219,6 @@ docker compose version
 ```
 
 **Check:** prints `Docker Compose version` and a number.
-
-mongosh:
-
-```bash
-mongosh --version
-```
-
-**Check:** prints a version number such as `2.5.0`.
 
 ## Step 4 — Create an Anthropic API key
 
@@ -282,11 +269,25 @@ MONGODB_URI_RW=mongodb://course_rw:<password 2>@127.0.0.1:27017/course?authSourc
 MONGODB_URI=mongodb://course_ro:<password 3>@127.0.0.1:27017/course?authSource=admin&directConnection=true
 ```
 
-Rules: no `export`, no spaces around `=`, no quotes around values.
+Rules: no `export`, no spaces around `=`, no quotes around values, and press Enter after the last line so the file ends with a line break. Later modules add lines to the end of `.env`; without that final line break, a new line gets glued onto your last one and both settings break.
 
 - The plain `MONGODB_URI` is the **read-only** user, so the default is the safe one.
 - `authSource=admin` tells MongoDB where the users are stored.
 - `directConnection=true` is needed because the local MongoDB runs as a one-machine replica set.
+
+Make sure the file ends with a line break (this adds one only if it's missing, and prints nothing):
+
+```bash
+[ -z "$(tail -c1 .env)" ] || echo >> .env
+```
+
+Count the lines:
+
+```bash
+grep -c = .env
+```
+
+**Check:** prints `4`, one per setting.
 
 Now protect the file so only your user account can read it:
 
@@ -404,13 +405,23 @@ docker compose ps
 
 Output shows `mongodb` as **healthy**. If it says `starting`, wait and check again.
 
+Check that mongosh runs inside the container:
+
+```bash
+docker compose exec mongodb mongosh --version
+```
+
+**Check:** prints a version number such as `2.12.0`.
+
 ## Step 10 — Check the admin login
 
 **What you're doing:** logging in to MongoDB as the admin with password 1, to prove the database is running and the password from `.env` reached it. You'll need this login in the next step to create the users.
 
 ```bash
-mongosh "mongodb://admin@127.0.0.1:27017/admin?directConnection=true"
+docker compose exec mongodb mongosh "mongodb://admin@127.0.0.1:27017/admin?directConnection=true"
 ```
+
+`docker compose exec mongodb` runs mongosh inside the MongoDB container. There, `127.0.0.1` is the container itself, where MongoDB listens, so the same addresses as in `.env` work.
 
 When asked for a password, paste **password 1**. You should see a prompt like:
 
@@ -418,7 +429,7 @@ When asked for a password, paste **password 1**. You should see a prompt like:
 AtlasLocalDev mongodb [direct: primary] admin>
 ```
 
-Type `exit` to leave. The next step runs in your normal terminal, not inside mongosh.
+Type `exit` to leave mongosh and get your normal terminal back; the next step runs there.
 
 **Check:** you reached the prompt above without "Authentication failed".
 
@@ -433,7 +444,7 @@ This command reads passwords 2 and 3 from `.env` and creates both users. It firs
   get() { grep "^$1=" .env | cut -d= -f2- | tr -d '\r'; }
   pw()  { get "$1" | sed -E 's#^mongodb://[^:]+:([^@]+)@.*#\1#'; }
   export RW_PW="$(pw MONGODB_URI_RW)" RO_PW="$(pw MONGODB_URI)"
-  mongosh "mongodb://admin@127.0.0.1:27017/admin?directConnection=true" --quiet --eval '
+  docker compose exec -e RW_PW -e RO_PW mongodb mongosh "mongodb://admin@127.0.0.1:27017/admin?directConnection=true" --quiet --eval '
     for (const u of ["course_rw", "course_ro"]) {
       if (db.getUser(u)) { db.dropUser(u); print("dropped " + u); }
     }
@@ -451,7 +462,7 @@ How it works:
 
 1. `get` reads one line from `.env` and strips Windows line endings.
 2. `pw` cuts the password out of each connection string (between `user:` and `@`).
-3. The passwords reach mongosh as environment variables that exist only inside the brackets — never on screen or in a history file.
+3. The passwords reach mongosh as environment variables that exist only inside the brackets; `-e RW_PW -e RO_PW` passes them into the container. They never appear on screen or in a history file.
 
 > **Don't paste passwords into `passwordPrompt()` inside mongosh.** Terminals add hidden characters to pasted text, and MongoDB rejects the password with `U_STRINGPREP_PROHIBITED_ERROR`, however simple or strong it is.
 
@@ -469,7 +480,7 @@ What you now have:
 Log in as the read-only user (`MONGODB_URI`):
 
 ```bash
-mongosh "$(grep '^MONGODB_URI=' .env | cut -d= -f2-)" --quiet --eval "db.runCommand({connectionStatus: 1}).authInfo.authenticatedUserRoles"
+docker compose exec mongodb mongosh "$(grep '^MONGODB_URI=' .env | cut -d= -f2-)" --quiet --eval "db.runCommand({connectionStatus: 1}).authInfo.authenticatedUserRoles"
 ```
 
 **Check:** prints `[ { role: 'read', db: 'course' } ]`.
@@ -477,7 +488,7 @@ mongosh "$(grep '^MONGODB_URI=' .env | cut -d= -f2-)" --quiet --eval "db.runComm
 Log in as the read-write user (`MONGODB_URI_RW`):
 
 ```bash
-mongosh "$(grep '^MONGODB_URI_RW=' .env | cut -d= -f2-)" --quiet --eval "db.runCommand({connectionStatus: 1}).authInfo.authenticatedUserRoles"
+docker compose exec mongodb mongosh "$(grep '^MONGODB_URI_RW=' .env | cut -d= -f2-)" --quiet --eval "db.runCommand({connectionStatus: 1}).authInfo.authenticatedUserRoles"
 ```
 
 **Check:** prints `[ { role: 'readWrite', db: 'course' } ]`.

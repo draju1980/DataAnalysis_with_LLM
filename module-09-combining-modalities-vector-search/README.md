@@ -160,10 +160,10 @@ def create_chunk_index():
 python -c "print('\n'); from lib_claude_multimodal import create_chunk_index; print(create_chunk_index(), 'is ready')"
 ```
 
-If you get a "not authorized" error, create the index once as admin with mongosh (paste password 1), then run the command above again — it finds the index and waits for it:
+If you get a "not authorized" error, create the index once as admin with mongosh, which runs inside the MongoDB container (paste password 1), then run the command above again — it finds the index and waits for it:
 
 ```bash
-mongosh "mongodb://admin@127.0.0.1:27017/admin?directConnection=true" --quiet --eval '
+docker compose exec mongodb mongosh "mongodb://admin@127.0.0.1:27017/admin?directConnection=true" --quiet --eval '
   db.getSiblingDB("course").chunks.createSearchIndex("chunks_text", "search",
     {mappings: {dynamic: false, fields: {content: {type: "string"}, modality: {type: "token"}}}})'
 ```

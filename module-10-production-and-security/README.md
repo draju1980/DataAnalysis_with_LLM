@@ -75,7 +75,17 @@ print('invoices (M4):       ', db_ro.invoices.count_documents({}))" && test -f m
   grep -c "_DOCKER=" .env
   ```
 
-  If it shows more than 2, delete the extra lines by hand.
+  It should print `2`. If it prints anything else (for example `1`, because a line got glued onto the line above it), delete all `_DOCKER` lines:
+
+  ```bash
+  sed -i.bak '/_DOCKER=/d' .env
+  ```
+
+  Then rerun all of **Step 3**. `sed` keeps the old file as `.env.bak`; delete it once Step 3's Checks pass:
+
+  ```bash
+  rm .env.bak
+  ```
 - **Step 5 edits `ask()` instead of appending.** Do it once; the `jlog()` line above tells you it's done.
 - **Rebuild the image after changing `lib_claude_multimodal.py`**, or the container keeps running the old copy:
 
@@ -159,6 +169,14 @@ The build finishes without errors and its last lines mention `naming to docker.i
 
 **What you're doing:** giving the container its own way to reach MongoDB. Inside Docker's network, MongoDB is reached as `mongodb`, not `127.0.0.1`, so you copy your two connection strings with that one change. Run this step only once (see "Resuming safely").
 
+Make sure `.env` ends with a line break. Without one, the first new line gets glued onto the end of your last line, and that variable is lost:
+
+```bash
+[ -z "$(tail -c1 .env)" ] || echo >> .env
+```
+
+This prints nothing; it adds a line break only if one is missing.
+
 Create two extra lines from your existing ones:
 
 ```bash
@@ -178,7 +196,13 @@ List the new variable names:
 grep _DOCKER .env | cut -d= -f1
 ```
 
-**Check:** prints `MONGODB_URI_RW_DOCKER` and `MONGODB_URI_DOCKER`.
+**Check:** prints `MONGODB_URI_RW_DOCKER` and `MONGODB_URI_DOCKER`, each on its own line. Count them:
+
+```bash
+grep -c "_DOCKER=" .env
+```
+
+**Check:** prints `2`. If it prints `1` or more than `2`, use the fix in "Resuming safely" at the top of this page.
 
 ## Step 4 — Run the pipeline as a Compose job
 
@@ -596,7 +620,7 @@ mongorestore --uri "mongodb://admin@127.0.0.1:27017/?directConnection=true&authS
 Compare counts, then remove the test copy:
 
 ```bash
-mongosh "mongodb://admin@127.0.0.1:27017/admin?directConnection=true" --quiet --eval '
+docker compose exec mongodb mongosh "mongodb://admin@127.0.0.1:27017/admin?directConnection=true" --quiet --eval '
   for (const c of db.getSiblingDB("course").getCollectionNames())
     print(c, db.getSiblingDB("course")[c].countDocuments(), db.getSiblingDB("course_restore")[c].countDocuments());
   db.getSiblingDB("course_restore").dropDatabase();'
