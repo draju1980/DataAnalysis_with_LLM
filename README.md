@@ -47,6 +47,19 @@ You learn to get reliable answers and structured data out of six kinds of input 
 | Pace | 1–2 hours a day, about 8 weeks for Modules 0–9, then Module 10 and the capstone |
 | Environment | Local only: Python, Jupyter, and MongoDB (`mongodb-atlas-local`) in Docker |
 
+## Secure Enterprise AI Assistant
+
+Students may use:
+
+- ChatGPT
+- Claude
+- Gemini
+- Copilot
+- OpenWebUI
+- AnythingLLM
+- Ollama
+- Any AI Platform
+
 Two habits run through every module: **measure accuracy** against answers you know are right, and **track the cost** of every run.
 
 ## Learning outcomes
