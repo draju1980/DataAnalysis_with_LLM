@@ -79,15 +79,9 @@ print('chart_truth rows:', db_ro.chart_truth.count_documents({}), '(Step 8 wants
 
 ---
 
-## Step 1 — Install Pillow and collect 20 charts
+## Step 1 — Collect 20 charts
 
-**What you're doing:** setting up the image library and gathering 20 charts to test on. You need charts whose true numbers you know, because Step 9 compares Claude's readings against them.
-
-Install Pillow, the library that opens and resizes images:
-
-```bash
-pip install pillow
-```
+**What you're doing:** gathering 20 charts to test on. You need charts whose true numbers you know, because Step 9 compares Claude's readings against them. Pillow and matplotlib (the image libraries) are already installed in the Docker container.
 
 Create the folder for the charts:
 
@@ -97,11 +91,7 @@ mkdir -p data/m3/charts
 
 Put 20 chart screenshots (bar, line, pie; PNG or JPG) in `data/m3/charts/`. Pick charts whose true numbers you can find, e.g. from reports or dashboards you have the data for.
 
-**No charts of your own? Generate the course sample.** This draws 20 bar, line, pie and grouped-bar charts from fixed numbers, and saves those numbers in `data/m3/chart_source.csv`. That file is your source of truth in Step 7. Install matplotlib first, so the script runs and your editor can resolve its imports:
-
-```bash
-pip install matplotlib
-```
+**No charts of your own? Generate the course sample.** This draws 20 bar, line, pie and grouped-bar charts from fixed numbers, and saves those numbers in `data/m3/chart_source.csv`. That file is your source of truth in Step 7.
 
 Create `m03_make_charts.py`:
 

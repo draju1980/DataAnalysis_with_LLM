@@ -73,15 +73,9 @@ print('Module 1 ok')"
 
 ---
 
-## Step 1 — Install the tabular packages and add three files
+## Step 1 — Add three files
 
-**What you're doing:** installing the tools that read tabular files (DuckDB for SQL, openpyxl for Excel, pyarrow for Parquet) and putting three related files in `data/m6/`. Using three different formats shows that one SQL query can join them all.
-
-Install the packages:
-
-```bash
-pip install duckdb openpyxl pyarrow
-```
+**What you're doing:** putting three related files in different formats in `data/m6/`. Using three different formats shows that one SQL query can join them all. DuckDB (for SQL), openpyxl (for Excel), and pyarrow (for Parquet) are already installed in the Docker container.
 
 Make the folder:
 

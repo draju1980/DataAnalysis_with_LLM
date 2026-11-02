@@ -107,15 +107,9 @@ print('predictions:', db_ro.predictions.count_documents({}), '(Step 9 wants 600)
 
 ---
 
-## Step 1 — Install pandas and get 600 short texts
+## Step 1 — Get 600 short texts
 
-**What you're doing:** getting the raw material for this module: 600 short texts in one CSV file. pandas is the library you'll use to read and write that CSV.
-
-Install pandas:
-
-```bash
-pip install pandas
-```
+**What you're doing:** getting the raw material for this module: 600 short texts in one CSV file. pandas (for reading and writing CSV files) is already installed in the Docker container.
 
 Create the folder for this module's data:
 

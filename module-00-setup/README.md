@@ -2,10 +2,10 @@
 
 [Syllabus](../README.md) · [Next: Module 1 →](../module-01-claude-api-fundamentals/README.md)
 
-**You start with:** a GitHub account, a computer with git, Python 3.10+ and Docker.
-**You finish with:** a Python environment, secrets in `.env`, a tested Claude API key, a local MongoDB with a read-write user and a read-only user, and a notebook that proves all of it works.
+**You start with:** a GitHub account, a computer with git, and Docker.
+**You finish with:** secrets in `.env`, a tested Claude API key, a local MongoDB (via Docker) with a read-write user and a read-only user, and a notebook that proves all of it works.
 
-**What this lab is about.** Before you can analyse anything with Claude, you need a working toolbox on your own machine. In this module you make your own copy of the course repo, install Python packages, get an API key, and start a local MongoDB database with two users: one that can write and one that can only read. Every later module builds on this setup, so you finish by proving each piece works from Python.
+**What this lab is about.** Before you can analyse anything with Claude, you need a working toolbox on your own machine. In this module you make your own copy of the course repo, get an API key, and start a local MongoDB database via Docker with two users: one that can write and one that can only read. All Python dependencies are included in the Docker container. Every later module builds on this setup, so you finish by proving each piece works from the container.
 
 ## Key ideas (read once)
 
@@ -22,24 +22,22 @@ Setup can take more than one sitting: installing Docker or waiting for API credi
 cd DataAnalysis_with_LLM
 ```
 
-Then run this to see which steps are already done. It uses only the shell, so it works before the Python environment exists.
+Then run this to see which steps are already done. It uses only the shell, so it works before Docker containers are running.
 
 ```bash
 (
   step() { if eval "$2" >/dev/null 2>&1; then echo "done  $1"; else echo "todo  $1"; fi; }
   step "Step 0   origin is your fork"         'git remote get-url origin | grep -v draju1980'
-  step "Step 1   .gitignore protects .env"    'grep -qxF .env .gitignore'
-  step "Step 2   Python environment"          '.venv/bin/python -c "import anthropic, dotenv, pymongo"'
-  step "Step 3   Docker"                      'docker compose version'
-  step "Step 7   .env has all four values"    'test $(grep -cE "^(ANTHROPIC_API_KEY|MONGO_ROOT_PASSWORD|MONGODB_URI_RW|MONGODB_URI)=." .env) -eq 4 && test -f .env.example'
-  step "Step 9   MongoDB is healthy"          'docker compose ps mongodb | grep -q "(healthy)"'
-  step "Step 11  course_rw can log in"        'docker compose exec -T mongodb mongosh "$(grep "^MONGODB_URI_RW=" .env | cut -d= -f2-)&serverSelectionTimeoutMS=3000" --quiet --eval "quit(db.runCommand({connectionStatus: 1}).authInfo.authenticatedUsers.some(u => u.user === \"course_rw\") ? 0 : 1)"'
-  step "Step 11  course_ro can log in"        'docker compose exec -T mongodb mongosh "$(grep "^MONGODB_URI=" .env | cut -d= -f2-)&serverSelectionTimeoutMS=3000" --quiet --eval "quit(db.runCommand({connectionStatus: 1}).authInfo.authenticatedUsers.some(u => u.user === \"course_ro\") ? 0 : 1)"'
-  step "Step 13  notebook saved"              'test -f notebooks/m00_setup.ipynb'
+  step "Step 1   Docker"                      'docker compose version'
+  step "Step 4   .env has all four values"    'test $(grep -cE "^(ANTHROPIC_API_KEY|MONGO_ROOT_PASSWORD|MONGODB_URI_RW|MONGODB_URI)=." .env) -eq 4 && test -f .env.example'
+  step "Step 6   MongoDB is healthy"          'docker compose ps mongodb | grep -q "(healthy)"'
+  step "Step 8   course_rw can log in"        'docker compose exec -T mongodb mongosh "$(grep "^MONGODB_URI_RW=" .env | cut -d= -f2-)&serverSelectionTimeoutMS=3000" --quiet --eval "quit(db.runCommand({connectionStatus: 1}).authInfo.authenticatedUsers.some(u => u.user === \"course_rw\") ? 0 : 1)"'
+  step "Step 8   course_ro can log in"        'docker compose exec -T mongodb mongosh "$(grep "^MONGODB_URI=" .env | cut -d= -f2-)&serverSelectionTimeoutMS=3000" --quiet --eval "quit(db.runCommand({connectionStatus: 1}).authInfo.authenticatedUsers.some(u => u.user === \"course_ro\") ? 0 : 1)"'
+  step "Step 10  notebook saved"              'test -f notebooks/m00_setup.ipynb'
 )
 ```
 
-**Check:** resume at the first `todo` line. Steps 4–6 and 8 happen in the Anthropic Console or only print to the screen, so they have no line of their own: Step 7 being `done` means you finished them. If MongoDB was stopped, the Step 9 and 11 lines show `todo` until you start it, wait a minute, and run the block again:
+**Check:** resume at the first `todo` line. Steps 2–3 and 5 happen in the Anthropic Console or only print to the screen, so they have no line of their own: Step 4 being `done` means you finished them. If MongoDB was stopped, the Step 6 and 8 lines show `todo` until you start it, wait a minute, and run the block again:
 
 ```bash
 docker compose up -d
@@ -47,27 +45,22 @@ docker compose up -d
 
 **Resuming safely**
 
-- Once Step 2 is done, start every new terminal by activating the Python environment:
-
-  ```bash
-  source .venv/bin/activate
-  ```
-
-  Once Step 9 is done, also start MongoDB:
+- Once Step 1 is done, start every new terminal session with Docker:
 
   ```bash
   docker compose up -d
   ```
-- The API key is shown only once (Step 4). If you lost it before putting it in `.env`, create a new key and delete the old one in the Console.
-- Step 6 never overwrites an existing `.env`, so it's safe to rerun. Don't delete `.env` to get new passwords after Step 11: the database users keep the passwords they were created with.
-- Steps 9, 11 and 12 are safe to rerun. Step 11 drops and recreates both users.
-- **To stop for the day**, stop MongoDB (or leave it running; your data stays):
+
+- The API key is shown only once (Step 2). If you lost it before putting it in `.env`, create a new key and delete the old one in the Console.
+- Step 3 never overwrites an existing `.env`, so it's safe to rerun. Don't delete `.env` to get new passwords after Step 8: the database users keep the passwords they were created with.
+- Steps 6, 8 and 9 are safe to rerun. Step 8 drops and recreates both users.
+- **To stop for the day**, stop the Docker containers (or leave them running; your data stays):
 
   ```bash
   docker compose stop
   ```
 
-  Never run `docker compose down -v` to pause: `-v` deletes the database volumes, and you would have to redo Steps 9–12.
+  Never run `docker compose down -v` to pause: `-v` deletes the database volumes, and you would have to redo Steps 6–9.
 
 ---
 
@@ -103,9 +96,9 @@ git remote -v
 
 **Check:** shows `github.com/<your-username>/DataAnalysis_with_LLM` for `origin` (two lines, `fetch` and `push`).
 
-## Step 1 — Open the project folder and set up `.gitignore`
+## Step 1 — Open the project folder
 
-**What you're doing:** telling git which files must never be uploaded to GitHub: your secrets, the Python environment, and your data. Doing this first means a later `git add` can't leak them by accident.
+**What you're doing:** preparing the course repository to run inside Docker.
 
 All work happens in this repo's folder. Go there if you aren't already:
 
@@ -113,21 +106,7 @@ All work happens in this repo's folder. Go there if you aren't already:
 cd DataAnalysis_with_LLM
 ```
 
-Write the `.gitignore` file (the whole block is one command):
-
-```bash
-cat > .gitignore <<'EOF'
-.env
-.venv/
-.ipynb_checkpoints/
-__pycache__/
-data/
-backups/
-EOF
-```
-
-- `.env` will hold your secrets (Step 7).
-- `data/` will hold your own input files (invoices, recordings…), which may be private.
+The `.gitignore` file is already included in the repo to protect your secrets and data.
 
 **Check:**
 
@@ -135,89 +114,26 @@ EOF
 cat .gitignore
 ```
 
-Output shows the six lines above, from `.env` to `backups/`.
+Output shows that `.env`, `data/`, and other local files are ignored.
 
-Stage the file:
+## Step 2 — Install Docker
 
-```bash
-git add .gitignore
-```
+**What you're doing:** installing Docker, which runs all course code in containers. This means all Python packages and dependencies are pre-installed in the Docker image, so you don't install them on your local machine.
 
-Commit it:
+Install **Docker Desktop** for your operating system:
+- **macOS/Windows:** [Docker Desktop](https://www.docker.com/products/docker-desktop)
+- **Linux:** [Docker Engine](https://docs.docker.com/engine/install/)
 
-```bash
-git commit -m "Ignore secrets, virtualenv, data and backups"
-```
+Docker Compose comes bundled with Docker Desktop. If you installed Docker Engine on Linux, also install [Docker Compose](https://docs.docker.com/compose/install/).
 
-**Check:** prints `1 file changed, 6 insertions(+)` and `create mode 100644 .gitignore`. On a rerun, `nothing to commit` is fine.
-
-## Step 2 — Create the Python environment
-
-**What you're doing:** creating a private Python installation for this course (a *virtual environment*) and installing the packages it needs: the Claude SDK, a `.env` reader, the MongoDB driver and Jupyter. Keeping them separate means they can't clash with other Python projects on your machine.
-
-A virtual environment keeps this course's packages separate from the rest of your system. Create it:
-
-```bash
-python3 -m venv .venv
-```
-
-Activate it:
-
-```bash
-source .venv/bin/activate
-```
-
-**Check:** your prompt now starts with `(.venv)`.
-
-Update pip, the package installer:
-
-```bash
-pip install --upgrade pip
-```
-
-Install the course packages:
-
-```bash
-pip install anthropic python-dotenv pymongo jupyter
-```
-
-**Check:** the last line starts with `Successfully installed` (or every package says `Requirement already satisfied`).
-
-Run `source .venv/bin/activate` in every new terminal (see "Start of every session" in the syllabus). Later modules install more packages when they need them.
-
-**Check:**
-
-```bash
-python -c "print('\n'); import anthropic, dotenv, pymongo; print('ok')"
-```
-
-Output prints:
-
-```
-ok
-```
-
-## Step 3 — Install Docker
-
-**What you're doing:** installing Docker, which runs MongoDB in a container so you don't install the database directly on your system. Install Docker Desktop (macOS/Windows) or Docker Engine (Linux).
-
-You don't install **mongosh** (MongoDB's command-line shell, used in Steps 10–12) separately: it comes inside the MongoDB container. From Step 9 on you run it with `docker compose exec mongodb mongosh …`, the same way on macOS and Linux.
-
-Check Docker, one command at a time:
+Check Docker and Docker Compose:
 
 ```bash
 docker --version
-```
-
-**Check:** prints `Docker version` and a number.
-
-Docker Compose, which starts MongoDB from a config file in Step 9:
-
-```bash
 docker compose version
 ```
 
-**Check:** prints `Docker Compose version` and a number.
+**Check:** both commands print version numbers.
 
 ## Step 4 — Create an Anthropic API key
 
@@ -225,7 +141,7 @@ docker compose version
 
 1. Sign in at console.anthropic.com (separate from the Claude chat app).
 2. Add prepaid credit; $10–20 covers Modules 0–4 on Haiku.
-3. Create an API key. It starts with `sk-ant-` and is shown only once. Paste it somewhere temporary (a password manager) — you'll paste it into `.env` in Step 7.
+3. Create an API key. It starts with `sk-ant-` and is shown only once. Paste it somewhere temporary (a password manager) — you'll paste it into `.env` in Step 6.
 
 **Check:** the key shows as active in the Console.
 
@@ -237,18 +153,20 @@ In the Console's billing/limits settings, set a monthly limit slightly above you
 
 **Check:** the limit is visible in the Console.
 
-## Step 6 — Create `.env` with three database passwords
+## Step 6 — Create `.env` with your API key and database passwords
 
-**What you're doing:** creating `.env`, the one private file that holds your secrets, with three random passwords already in it: one for the MongoDB admin and one each for the read-write and read-only users. A command writes the file, so the format is always right and no password is typed or pasted by hand.
+**What you're doing:** creating `.env`, the one private file that holds your secrets: your Anthropic API key and three database passwords. A command writes the file, so the format is always right and no password is typed or pasted by hand.
 
-Run this in the project folder:
+Run this in the project folder. It will ask you to paste your API key from Step 4:
 
 ```bash
 (
   if [ -e .env ]; then echo ".env already exists, left unchanged"; exit; fi
+  printf 'Paste your API key (starts with sk-ant-), then press Enter: '
+  read -rs key; echo
   p1=$(openssl rand -hex 24); p2=$(openssl rand -hex 24); p3=$(openssl rand -hex 24)
   printf '%s\n' \
-    "ANTHROPIC_API_KEY=" \
+    "ANTHROPIC_API_KEY=$key" \
     "MONGO_ROOT_PASSWORD=$p1" \
     "MONGODB_URI_RW=mongodb://course_rw:$p2@127.0.0.1:27017/course?authSource=admin&directConnection=true" \
     "MONGODB_URI=mongodb://course_ro:$p3@127.0.0.1:27017/course?authSource=admin&directConnection=true" > .env
@@ -257,26 +175,28 @@ Run this in the project folder:
 )
 ```
 
-**Check:** prints `wrote .env`. If it prints `.env already exists, left unchanged`, you created `.env` before: keep it, because your database users (Step 11) use the passwords inside it.
+**Check:** prints `wrote .env`. If it prints `.env already exists, left unchanged`, you created `.env` before: keep it, because your database users use the passwords inside it.
 
 What the command does:
 
-- `openssl rand -hex 24` makes each password: 48 characters of `0-9` and `a-f`, strong and with no symbols that could break a connection string.
-- It writes four settings, one per line, ending with a line break. `ANTHROPIC_API_KEY` stays empty until Step 7.
+- Reads your API key from stdin and includes it directly in `.env`.
+- `openssl rand -hex 24` makes each database password: 48 characters of `0-9` and `a-f`, strong and with no symbols that could break a connection string.
+- Writes five settings, one per line, ending with a line break.
 - `chmod 600` lets only your user account read the file.
 - The brackets keep the passwords out of your shell once the command ends; they exist only in `.env`.
 
-| Setting | Password | Used for |
+| Setting | Value | Used for |
 | --- | --- | --- |
-| `MONGO_ROOT_PASSWORD` | password 1 | MongoDB admin account (only for creating users) |
-| `MONGODB_URI_RW` | password 2 | `course_rw`, the read-write user for your scripts |
-| `MONGODB_URI` | password 3 | `course_ro`, the read-only user for Claude's queries |
+| `ANTHROPIC_API_KEY` | Your API key from Step 4 | Claude API calls |
+| `MONGO_ROOT_PASSWORD` | Random password 1 | MongoDB admin account (only for creating users) |
+| `MONGODB_URI_RW` | Random password 2 | `course_rw`, the read-write user for your scripts |
+| `MONGODB_URI` | Random password 3 | `course_ro`, the read-only user for Claude's queries |
 
 - The plain `MONGODB_URI` is the **read-only** user, so the default is the safe one.
 - `authSource=admin` tells MongoDB where the users are stored.
-- `directConnection=true` is needed because the local MongoDB runs as a one-machine replica set.
+- `directConnection=true` is needed because MongoDB runs as a one-machine replica set.
 
-List the setting names (this shows names only, never the values):
+Verify the four names are in place:
 
 ```bash
 cut -d= -f1 .env
@@ -284,54 +204,11 @@ cut -d= -f1 .env
 
 **Check:** prints `ANTHROPIC_API_KEY`, `MONGO_ROOT_PASSWORD`, `MONGODB_URI_RW` and `MONGODB_URI`, one per line.
 
-## Step 7 — Add your API key to `.env`
-
-**What you're doing:** putting the API key from Step 4 into `.env`, and making an empty copy (`.env.example`) that is safe to commit. Your code reads the key from `.env` at start-up, so it stays out of your code and out of git.
-
-Run this, paste your key when asked, and press Enter. The key isn't shown while you paste:
-
-```bash
-(
-  printf 'Paste your API key (starts with sk-ant-), then press Enter: '
-  read -rs key; echo
-  sed -i.bak "s|^ANTHROPIC_API_KEY=.*|ANTHROPIC_API_KEY=$key|" .env && rm .env.bak && echo "key saved"
-)
-```
-
-**Check:** prints `key saved`.
-
-Confirm the key is in place (this counts the line, it doesn't print the key):
-
-```bash
-grep -c '^ANTHROPIC_API_KEY=sk-ant-' .env
-```
-
-**Check:** prints `1`. If it prints `0`, run the previous command again and paste the whole key.
-
-If you ever edit `.env` by hand: no `export`, no spaces around `=`, no quotes around values, and keep a line break after the last line. Later modules add lines to the end of `.env`, and without that line break a new line gets glued onto your last one.
-
 Make a template with the same names but no values, which you can commit:
 
 ```bash
 sed 's/=.*/=/' .env > .env.example
 ```
-
-Look at the template:
-
-```bash
-cat .env.example
-```
-
-**Check:** shows the four names, each with nothing after `=`:
-
-```
-ANTHROPIC_API_KEY=
-MONGO_ROOT_PASSWORD=
-MONGODB_URI_RW=
-MONGODB_URI=
-```
-
-Finally, delete the temporary copy of your API key from Step 4.
 
 Confirm git will never commit `.env`:
 
@@ -341,11 +218,11 @@ git check-ignore .env
 
 **Check:** prints `.env`.
 
-## Step 8 — Test the API key with curl
+## Step 7 — Test the API key with curl
 
-**What you're doing:** sending one tiny message to Claude with the simplest possible tool, to prove your key and credit work before any Python is involved.
+**What you're doing:** sending one tiny message to Claude with the simplest possible tool, to prove your key and credit work before any Docker containers are running.
 
-This sends one tiny request straight to the API using the key in `.env`, with no Python involved. If it works, any later problem is in your code, not your key.
+This sends one tiny request straight to the API using the key in `.env`, with no Docker involved. If it works, any later problem is in the container, not your key.
 
 ```bash
 (
@@ -370,47 +247,29 @@ The key is read from `.env`, so it never appears in your shell history; the brac
 
 **Check:** the reply is JSON with Claude's text and a `usage` block containing `input_tokens` and `output_tokens`.
 
-## Step 9 — Start MongoDB
+## Step 8 — Build and start the Docker containers
 
-**What you're doing:** describing the database container in a small config file and starting it. You get MongoDB plus its search engine running on your own machine, reachable only from your machine, with data that survives restarts.
+**What you're doing:** building the Python application container and starting both the Python app and MongoDB database. The containers read their configuration from `.env`.
 
-Create `docker-compose.yml` in the project folder:
+The `docker-compose.yml` file is included in the repo. It defines:
+- **mongodb**: The database with search engine (`mongot`)
+- **python_app**: Your Python environment with all course packages pre-installed
 
-```yaml
-services:
-  mongodb:
-    image: mongodb/mongodb-atlas-local:8.0
-    hostname: mongodb
-    environment:
-      MONGODB_INITDB_ROOT_USERNAME: admin
-      MONGODB_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
-    ports:
-      - "127.0.0.1:27017:27017"
-    volumes:
-      - db:/data/db
-      - configdb:/data/configdb
-      - mongot:/data/mongot
-volumes:
-  db:
-  configdb:
-  mongot:
-```
-
-Start it:
+Build and start the containers:
 
 ```bash
 docker compose up -d
 ```
 
-**Check:** the first time, Docker downloads the image (this takes a few minutes), then prints a line ending in `mongodb-1  Started`.
+**Check:** the first time, Docker downloads the MongoDB image and builds the Python image (this can take a few minutes). It prints lines ending with `mongodb-1  Started` and `python_app-1  Started`.
 
 What this does:
 
+- Builds the Python container with all dependencies from `requirements.txt` (anthropic, pymongo, pandas, etc.)
 - Runs MongoDB **and** its search engine (`mongot`, needed for full-text search in Module 9) in one container.
-- `8.0` pins the MongoDB version so the setup doesn't change under you.
-- `127.0.0.1:27017:27017` makes the database reachable **only from your machine**.
-- Compose reads `${MONGO_ROOT_PASSWORD}` from `.env` (Step 7); only that one value goes into the container.
-- The three volumes keep your data when the container restarts.
+- `MONGODB_INITDB_ROOT_PASSWORD` reads from `.env` (Step 6); only that one value goes into the container.
+- Volumes preserve your data and code when containers restart.
+- The Python app container mounts your project directory, so changes to code appear immediately inside the container.
 
 **Check:** wait about a minute, then run:
 
@@ -428,7 +287,7 @@ docker compose exec mongodb mongosh --version
 
 **Check:** prints a version number such as `2.12.0`.
 
-## Step 10 — Check the admin login
+## Step 9 — Check the admin login
 
 **What you're doing:** logging in to MongoDB as the admin with password 1, to prove the database is running and the password from `.env` reached it. You'll need this login in the next step to create the users.
 
@@ -458,7 +317,7 @@ Type `exit` to leave mongosh and get your normal terminal back; the next step ru
 
 **Check:** you reached the prompt above without "Authentication failed".
 
-## Step 11 — Create the two users
+## Step 10 — Create the two users
 
 **What you're doing:** creating the two database users your code will log in as: `course_rw`, which can read and write, and `course_ro`, which can only read. Keeping a read-only user is what later makes it safe to run queries that Claude writes.
 
@@ -481,7 +340,7 @@ This command reads passwords 2 and 3 from `.env` and creates both users. It firs
 )
 ```
 
-When asked, paste **password 1** (admin). Step 10 shows how to print it from `.env`.
+When asked, paste **password 1** (admin). Step 9 shows how to print it from `.env`.
 
 How it works:
 
@@ -498,7 +357,7 @@ What you now have:
 
 **Check:** the output ends with `users created`. On a rerun, `dropped course_rw` and `dropped course_ro` come first; that's expected.
 
-## Step 12 — Check both users
+## Step 11 — Check both users
 
 **What you're doing:** logging in with each connection string from `.env` and asking MongoDB what that user is allowed to do. This proves both passwords work and that the read-only user really is read-only.
 
@@ -520,7 +379,7 @@ docker compose exec mongodb mongosh "$(grep '^MONGODB_URI_RW=' .env | cut -d= -f
 
 If either says "Authentication failed": open `.env`, look for spaces or quotes around values, fix them, and repeat Step 11.
 
-## Step 13 — Prove everything from Python in a notebook
+## Step 12 — Prove everything from Python in a notebook
 
 **What you're doing:** checking from Python, the way every later module works, that the pieces fit together: the key in `.env` reaches Claude, the read-write user can save a document, the read-only user can read it, and the read-only user is blocked from writing. The notebook you save is your proof that setup is complete.
 
@@ -530,13 +389,13 @@ Make a folder for notebooks:
 mkdir -p notebooks
 ```
 
-Start Jupyter:
+Start Jupyter inside the Docker container:
 
 ```bash
-jupyter notebook
+docker compose exec python_app jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser
 ```
 
-**Check:** a browser tab opens showing the project folder. Jupyter keeps running in this terminal until you stop it: when you've saved the notebook, press Ctrl+C twice in the terminal (or open a second terminal for Step 14).
+**Check:** the output prints a URL starting with `http://127.0.0.1:8888/?token=`. Copy and paste it into your browser. Jupyter keeps running in this terminal until you stop it: when you've saved the notebook, press Ctrl+C twice in the terminal (or open a second terminal for Step 13).
 
 In the browser, open the `notebooks` folder, create a new notebook named `m00_setup`, and run these cells in order.
 
@@ -610,7 +469,7 @@ for name, attempt in attempts.items():
 - Cell 4 prints `['hello']` and `[{'msg': 'first document'}]`. If you ran Cell 3 more than once, the list has one entry per run; that's fine.
 - Cell 5 prints `blocked` twice.
 
-## Step 14 — Commit your setup files
+## Step 13 — Commit your setup files
 
 **What you're doing:** saving your setup files to your fork on GitHub, after checking that no secret is in them. From here on, every module ends with a commit like this one.
 
@@ -622,7 +481,7 @@ See what git would pick up:
 git status --short
 ```
 
-**Check:** lists `?? .env.example`, `?? docker-compose.yml` and `?? notebooks/`. `.env` must NOT be listed.
+**Check:** lists `?? .env.example` and `?? notebooks/`. `.env` and `docker-compose.yml` must NOT be listed (docker-compose.yml is already in the repo).
 
 Search the three files you are about to commit for an API key or a connection string with a password. Notebook outputs are saved inside the file, so this also catches a cell that printed a secret:
 
@@ -635,7 +494,7 @@ grep -n "sk-ant-\|mongodb://[^ ]*:[^ ]*@" docker-compose.yml .env.example notebo
 Stage the files:
 
 ```bash
-git add docker-compose.yml .env.example notebooks/m00_setup.ipynb
+git add .env.example notebooks/m00_setup.ipynb
 ```
 
 Commit them:

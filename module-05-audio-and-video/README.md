@@ -110,64 +110,9 @@ for r in db_ro.transcript_segments.aggregate([{'\$group': {'_id': '\$recording',
 
 ---
 
-## Step 1 — Install faster-whisper and ffmpeg, add a recording
+## Step 1 — Add a recording
 
-**What you're doing:** installing the two tools Claude can't replace here, Whisper (speech to text) and ffmpeg (converting audio and video), and getting a recording to work on. With the course sample you also build the one-hour test recording and the short video used in Step 10.
-
-**1. Install the packages**
-
-```bash
-pip install faster-whisper imageio-ffmpeg "av<19"
-```
-
-- `faster-whisper` is the local Whisper model that turns speech into text.
-- `"av<19"` holds back PyAV, the audio reader faster-whisper uses: PyAV 19 changed a function faster-whisper 1.2.1 calls, and `transcribe()` fails with `open() got an unexpected keyword argument 'metadata_errors'`.
-- `imageio-ffmpeg` ships a ready-built ffmpeg inside the pip package, so it works the same on macOS, Linux and Windows, with no `brew` or `apt`.
-
-**Check:** the last line starts with `Successfully installed` (or every package says `Requirement already satisfied`).
-
-**2. Put `ffmpeg` on your PATH**
-
-The pip package hides ffmpeg deep inside `.venv` under a long name. This copies it into `.venv`'s command folder as plain `ffmpeg`, so every `ffmpeg` command in this module finds it whenever the venv is active:
-
-```bash
-python -c "
-import imageio_ffmpeg, os, shutil, sysconfig
-dst = os.path.join(sysconfig.get_path('scripts'), 'ffmpeg' + ('.exe' if os.name == 'nt' else ''))
-shutil.copy(imageio_ffmpeg.get_ffmpeg_exe(), dst); os.chmod(dst, 0o755); print('ffmpeg ->', dst)"
-```
-
-**Check:** prints `ffmpeg -> …/.venv/bin/ffmpeg` (`…\.venv\Scripts\ffmpeg.exe` on Windows). Already have ffmpeg from `brew` or `apt`? That's fine; the copy in `.venv` takes priority while the venv is active.
-
-**3. Test both tools**
-
-If any of these three fails, fix it before going on: rerun sub-step 1 or 2, and make sure your prompt starts with `(.venv)`.
-
-Confirm faster-whisper imports:
-
-```bash
-python -c "import faster_whisper; print('faster-whisper', faster_whisper.__version__)"
-```
-
-**Check:** prints `faster-whisper 1.2.1` (or newer).
-
-Confirm the shell finds the `ffmpeg` copied into `.venv`:
-
-```bash
-command -v ffmpeg
-```
-
-**Check:** prints a path ending in `.venv/bin/ffmpeg`.
-
-Confirm ffmpeg runs:
-
-```bash
-ffmpeg -version | head -1
-```
-
-**Check:** prints `ffmpeg version 7.1 …` (or newer).
-
-**4. Add a recording**
+**What you're doing:** getting a recording to work on. With the course sample you also build the one-hour test recording and the short video used in Step 10. Faster-whisper (for speech-to-text) and ffmpeg (for audio/video conversion) are already installed in the Docker container.**
 
 Make the folder for recordings:
 

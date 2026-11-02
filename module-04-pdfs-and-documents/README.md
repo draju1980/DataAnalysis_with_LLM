@@ -88,17 +88,9 @@ print('injection stored: ', db_ro.invoices.count_documents({'source_file': 'zz_i
 
 ---
 
-## Step 1 — Install pypdf and prepare the PDF folder
+## Step 1 — Prepare the PDF folder
 
-**What you're doing:** setting up the test material for the whole module. You need a folder of real invoices, plus two awkward files on purpose: a scanned PDF with no text layer, and a broken PDF, so you can see how your code copes with both.
-
-Install pypdf, which reads page counts and splits PDFs:
-
-```bash
-pip install pypdf
-```
-
-**Check:** the last line starts with `Successfully installed` (or says `Requirement already satisfied`).
+**What you're doing:** setting up the test material for the whole module. You need a folder of real invoices, plus two awkward files on purpose: a scanned PDF with no text layer, and a broken PDF, so you can see how your code copes with both. pypdf (for reading page counts and splitting PDFs) and Pillow (for creating images) are already installed in the Docker container.
 
 Make the folder for the PDFs:
 
@@ -152,14 +144,6 @@ img = img.rotate(0.8, expand=False, fillcolor=(246, 244, 238)).filter(ImageFilte
 img.save("data/m4/pdfs/scanned_invoice.pdf", resolution=150)
 print("created data/m4/pdfs/scanned_invoice.pdf")
 ```
-
-Install Pillow (already installed if you did Module 3):
-
-```bash
-pip install pillow
-```
-
-**Check:** says `Requirement already satisfied` (or `Successfully installed pillow-…`).
 
 Make the scan:
 
