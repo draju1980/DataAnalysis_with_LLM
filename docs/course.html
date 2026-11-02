@@ -64,7 +64,7 @@
 <li><a href="#m10" class="nav-link ">Module 10</a></li>
 </ul></nav><main class="main"><div class="content"><section id="m0" class="module-section active"><h1>Module 0 — Setup (1 day)</h1>
 
-<a href="../README.md">Syllabus</a> · <a href="../module-01-claude-api-fundamentals/README.md">Next: Module 1 →</a>
+<a href="#intro">Syllabus</a> · <a href="#module-1">Next: Module 1 →</a>
 
 <strong>You start with:</strong> a GitHub account, a computer with git, and Docker.
 <strong>You finish with:</strong> secrets in <code>.env</code>, a tested Claude API key, a local MongoDB (via Docker) with a read-write user and a read-only user, and a notebook that proves all of it works.
@@ -458,10 +458,10 @@
 <li>[ ] Step 13: Cells 1–4 work and Cell 5 prints </code>blocked<code> twice.</li>
 <li>[ ] Step 14: no secrets found; setup files pushed; </code>.env` not in git.</li>
 
-<strong>Next:</strong> <a href="../module-01-claude-api-fundamentals/README.md">Module 1 — Claude API fundamentals</a>
+<strong>Next:</strong> <a href="#module-1">Module 1 — Claude API fundamentals</a>
 </section><section id="m1" class="module-section "><h1>Module 1 — Claude API fundamentals (2–3 days)</h1>
 
-<a href="../module-00-setup/README.md">← Module 0</a> · <a href="../README.md">Syllabus</a> · <a href="../module-02-text-analysis/README.md">Next: Module 2 →</a>
+<a href="#module-0">← Module 0</a> · <a href="#intro">Syllabus</a> · <a href="#module-2">Next: Module 2 →</a>
 
 <strong>You start with:</strong> Module 0 done — <code>.env</code>, MongoDB running, both users working.
 <strong>You finish with:</strong> <code>lib_claude_multimodal.py</code> containing <code>ask()</code>, <code>text_of()</code>, <code>cost_of()</code>, <code>log_call()</code> and a tool loop; a command-line chat (<code>m01_chat.py</code>) with a calculator tool; and every API call logged with its cost in MongoDB.
@@ -842,10 +842,10 @@
 <li>[ ] Step 11: the increase in </code>llm_calls` cost matches the chat's session cost.</li>
 <li>[ ] Step 7: you can explain why the same prompt gives different answers and name the levers that make it more consistent.</li>
 
-<strong>Next:</strong> <a href="../module-02-text-analysis/README.md">Module 2 — Text analysis</a>
+<strong>Next:</strong> <a href="#module-2">Module 2 — Text analysis</a>
 </section><section id="m2" class="module-section "><h1>Module 2 — Text analysis (1 week)</h1>
 
-<a href="../module-01-claude-api-fundamentals/README.md">← Module 1</a> · <a href="../README.md">Syllabus</a> · <a href="../module-03-images/README.md">Next: Module 3 →</a>
+<a href="#module-1">← Module 1</a> · <a href="#intro">Syllabus</a> · <a href="#module-3">Next: Module 3 →</a>
 
 <strong>You start with:</strong> Module 1 done — <code>ask()</code>, <code>tool_input()</code>, <code>cost_of()</code>, <code>log_call()</code> in <code>lib_claude_multimodal.py</code>.
 <strong>You finish with:</strong> <code>classify()</code>; a hand-labeled test set in MongoDB; an evaluation script you can rerun after any prompt change; a comparison of two prompt versions; and 500 texts classified with the Batches API at half price.
@@ -1260,10 +1260,10 @@
 <li>[ ] Step 9: all 600 texts classified via the Batches API.</li>
 <li>[ ] Step 11: your choice of prompt is written down with numbers.</li>
 
-<strong>Next:</strong> <a href="../module-03-images/README.md">Module 3 — Images</a>
+<strong>Next:</strong> <a href="#module-3">Module 3 — Images</a>
 </section><section id="m3" class="module-section "><h1>Module 3 — Images (4–5 days)</h1>
 
-<a href="../module-02-text-analysis/README.md">← Module 2</a> · <a href="../README.md">Syllabus</a> · <a href="../module-04-pdfs-and-documents/README.md">Next: Module 4 →</a>
+<a href="#module-2">← Module 2</a> · <a href="#intro">Syllabus</a> · <a href="#module-4">Next: Module 4 →</a>
 
 <strong>You start with:</strong> Module 2 done — <code>ask()</code>, <code>tool_input()</code> and the evaluation habit.
 <strong>You finish with:</strong> <code>image_block()</code> and <code>ask_image()</code>; numbers extracted from 20 charts into MongoDB; a measured error rate; and a written decision on which image tasks can run without a human check.
@@ -1628,10 +1628,10 @@
 <li>[ ] Step 9: error rate measured with one pipeline; worst misses inspected.</li>
 <li>[ ] Step 12: a written decision on unattended vs human-checked image tasks, backed by numbers.</li>
 
-<strong>Next:</strong> <a href="../module-04-pdfs-and-documents/README.md">Module 4 — PDFs and documents</a>
+<strong>Next:</strong> <a href="#module-4">Module 4 — PDFs and documents</a>
 </section><section id="m4" class="module-section "><h1>Module 4 — PDFs and documents (4–5 days)</h1>
 
-<a href="../module-03-images/README.md">← Module 3</a> · <a href="../README.md">Syllabus</a> · <a href="../module-05-audio-and-video/README.md">Next: Module 5 →</a>
+<a href="#module-3">← Module 3</a> · <a href="#intro">Syllabus</a> · <a href="#module-5">Next: Module 5 →</a>
 
 <strong>You start with:</strong> Module 3 done — <code>ask()</code>, <code>tool_input()</code>, <code>image_block()</code> and the pattern "extract → store → check with a query".
 <strong>You finish with:</strong> <code>ask_pdf()</code>, <code>extract_pdf_fields()</code> and <code>split_pdf()</code>; a folder of invoices turned into the <code>invoices</code> collection; bad files logged instead of crashing; an automatic totals check; prompt caching measured; and a prompt-injection test passed.
@@ -2030,10 +2030,10 @@
 <li>[ ] Step 10: the planted injection didn't change the extraction.</li>
 <li>[ ] Step 11: 10 rows spot-checked and correct.</li>
 
-<strong>Next:</strong> <a href="../module-05-audio-and-video/README.md">Module 5 — Audio and video</a>
+<strong>Next:</strong> <a href="#module-5">Module 5 — Audio and video</a>
 </section><section id="m5" class="module-section "><h1>Module 5 — Audio and video (4–5 days)</h1>
 
-<a href="../module-04-pdfs-and-documents/README.md">← Module 4</a> · <a href="../README.md">Syllabus</a> · <a href="../module-06-tabular-files/README.md">Next: Module 6 →</a>
+<a href="#module-4">← Module 4</a> · <a href="#intro">Syllabus</a> · <a href="#module-6">Next: Module 6 →</a>
 
 <strong>You start with:</strong> Module 4 done — <code>ask()</code>, <code>tool_input()</code>, <code>ask_image()</code> and the extract → store → check pattern.
 <strong>You finish with:</strong> <code>transcribe()</code>, <code>save_segments()</code>, <code>label_speakers()</code> and <code>analyze_audio()</code>; one command (<code>m05_process.py</code>) that turns a one-hour recording into a summary, action items with owners, and timestamped key moments; and a video example that combines frames with the transcript.
@@ -2517,10 +2517,10 @@
 <li>[ ] Step 8: three timestamps checked against the recording.</li>
 <li>[ ] Step 10: a video window answered from frames and transcript together.</li>
 
-<strong>Next:</strong> <a href="../module-06-tabular-files/README.md">Module 6 — Tabular files</a>
+<strong>Next:</strong> <a href="#module-6">Module 6 — Tabular files</a>
 </section><section id="m6" class="module-section "><h1>Module 6 — Tabular files: CSV, TSV, Excel, JSON, Parquet (1 week)</h1>
 
-<a href="../module-05-audio-and-video/README.md">← Module 5</a> · <a href="../README.md">Syllabus</a> · <a href="../module-07-semi-structured-text/README.md">Next: Module 7 →</a>
+<a href="#module-5">← Module 5</a> · <a href="#intro">Syllabus</a> · <a href="#module-7">Next: Module 7 →</a>
 
 <strong>You start with:</strong> Module 1 done — <code>ask()</code>, <code>run_with_tools()</code>, <code>text_of()</code> (Modules 2–5 aren't required for this one).
 <strong>You finish with:</strong> <code>load_tables()</code>, <code>describe_table()</code>, <code>run_sql()</code> and <code>ask_data()</code>; three files in different formats queryable together with SQL; and 10 questions answered by Claude, every number checked against your own result.
@@ -3008,10 +3008,10 @@
 <li>[ ] Step 10: all 10 answers match the results you calculated yourself.</li>
 <li>[ ] Step 10: Claude never states a number it didn't query.</li>
 
-<strong>Next:</strong> <a href="../module-07-semi-structured-text/README.md">Module 7 — Logs, XML, HTML, YAML</a>
+<strong>Next:</strong> <a href="#module-7">Module 7 — Logs, XML, HTML, YAML</a>
 </section><section id="m7" class="module-section "><h1>Module 7 — Semi-structured text: logs, XML, HTML, YAML (3–4 days)</h1>
 
-<a href="../module-06-tabular-files/README.md">← Module 6</a> · <a href="../README.md">Syllabus</a> · <a href="../module-08-mongodb/README.md">Next: Module 8 →</a>
+<a href="#module-6">← Module 6</a> · <a href="#intro">Syllabus</a> · <a href="#module-8">Next: Module 8 →</a>
 
 <strong>You start with:</strong> Module 6 done — <code>ask()</code>, <code>tool_input()</code>, the forced-tool pattern and the habit of checking counts.
 <strong>You finish with:</strong> <code>extract_log_records()</code> and <code>ask_text_file()</code>; a log file turned into the <code>log_events</code> collection; a record count that matches <code>grep</code>; 20 records spot-checked; and questions answered directly from small YAML/XML/HTML files.
@@ -3416,10 +3416,10 @@
 <li>[ ] Step 7: 20 spot-checked records are correct.</li>
 <li>[ ] Step 9: a question about a YAML/XML/HTML file answered correctly.</li>
 
-<strong>Next:</strong> <a href="../module-08-mongodb/README.md">Module 8 — MongoDB</a>
+<strong>Next:</strong> <a href="#module-8">Module 8 — MongoDB</a>
 </section><section id="m8" class="module-section "><h1>Module 8 — MongoDB (1 week)</h1>
 
-<a href="../module-07-semi-structured-text/README.md">← Module 7</a> · <a href="../README.md">Syllabus</a> · <a href="../module-09-combining-modalities-vector-search/README.md">Next: Module 9 →</a>
+<a href="#module-7">← Module 7</a> · <a href="#intro">Syllabus</a> · <a href="#module-9">Next: Module 9 →</a>
 
 <strong>You start with:</strong> Modules 1–7 done — MongoDB already holds <code>llm_calls</code>, <code>eval_items</code>, <code>eval_results</code>, <code>predictions</code>, <code>chart_values</code>, <code>chart_truth</code>, <code>invoices</code>, <code>file_errors</code>, <code>transcript_segments</code>, <code>action_items</code> and <code>log_events</code>.
 <strong>You finish with:</strong> <code>describe_mongo()</code>, <code>run_pipeline()</code> and <code>ask_mongo()</code>; Claude answering 10 cross-collection questions with aggregation pipelines it writes itself; and proof that writes are blocked twice — by your checker and by the database user.
@@ -3865,10 +3865,10 @@
 <li>[ ] Step 9: a write request through </code>ask_mongo()` is rejected by the checker.</li>
 <li>[ ] Step 10: the same write sent directly is rejected by the server.</li>
 
-<strong>Next:</strong> <a href="../module-09-combining-modalities-vector-search/README.md">Module 9 — Combining modalities and document search</a>
+<strong>Next:</strong> <a href="#module-9">Module 9 — Combining modalities and document search</a>
 </section><section id="m9" class="module-section "><h1>Module 9 — Combining modalities and document search (1 week)</h1>
 
-<a href="../module-08-mongodb/README.md">← Module 8</a> · <a href="../README.md">Syllabus</a> · <a href="../module-10-production-and-security/README.md">Next: Module 10 →</a>
+<a href="#module-8">← Module 8</a> · <a href="#intro">Syllabus</a> · <a href="#module-10">Next: Module 10 →</a>
 
 <strong>You start with:</strong> Modules 4, 5, 7 and 8 done — PDFs in <code>data/m4/pdfs</code>, <code>transcript_segments</code>, <code>log_events</code>, and <code>run_pipeline()</code>.
 <strong>You finish with:</strong> a <code>chunks</code> collection built from PDFs, transcripts and logs; a full-text search index in your local MongoDB; <code>search_chunks()</code> and <code>answer_with_sources()</code>; and an assistant that picks between searching documents and querying data, citing a source you can open for every answer.
@@ -4286,10 +4286,10 @@
 <li>[ ] Step 5: the assistant chooses between documents and database correctly.</li>
 <li>[ ] Step 8: you can say when retrieval beats sending the whole document.</li>
 
-<strong>Next:</strong> <a href="../module-10-production-and-security/README.md">Module 10 — Production and security</a>
+<strong>Next:</strong> <a href="#module-10">Module 10 — Production and security</a>
 </section><section id="m10" class="module-section "><h1>Module 10 — Production and security (ongoing)</h1>
 
-<a href="../module-09-combining-modalities-vector-search/README.md">← Module 9</a> · <a href="../README.md">Syllabus</a> · <a href="../capstone/README.md">Next: Capstone →</a>
+<a href="#module-9">← Module 9</a> · <a href="#intro">Syllabus</a> · <a href="#capstone">Next: Capstone →</a>
 
 <strong>You start with:</strong> Modules 0–9 done — especially the Module 4 folder pipeline, the Module 2 evaluation, <code>ask_mongo()</code> and <code>llm_calls</code>.
 <strong>You finish with:</strong> the Module 4 pipeline running as a container; JSON logs and a cost report; an evaluation gate that fails on a worse prompt (and, optionally, runs in GitHub Actions); injection tests passed; personal-data redaction; and a one-page threat model.
@@ -4991,7 +4991,7 @@
 <li>[ ] Step 12: both planted injections had no effect.</li>
 <li>[ ] Step 14: a one-page threat model with tested mitigations.</li>
 
-<strong>Next:</strong> <a href="../capstone/README.md">Capstone</a>
+<strong>Next:</strong> <a href="#capstone">Capstone</a>
 </section></div></main></div><script>
 const links = document.querySelectorAll('.nav-link');
 const sections = document.querySelectorAll('.module-section');
