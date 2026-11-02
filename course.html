@@ -55,6 +55,11 @@
         a:hover {text-decoration: underline;}
         hr {border: none; border-top: 1px solid var(--border-color); margin: 35px 0;}
     </style>
+
+        .checkbox {cursor: pointer; user-select: none; padding: 2px 6px; border-radius: 3px; transition: background 0.2s;}
+        .checkbox:hover {background: var(--code-bg);}
+        .checkbox.checked {color: var(--success);}
+
 </head>
 <body>
 <div class="container">
@@ -10211,5 +10216,40 @@ const hash = window.location.hash || '#intro';
 const activeLink = document.querySelector(`nav a[href="${hash}"]`);
 if (activeLink) activeLink.classList.add('active');
 </script>
+
+<script>
+// Make checkboxes interactive
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.querySelectorAll('li');
+    checkboxes.forEach(li => {
+        if (li.textContent.match(/^\s*\[\s*\]/)) {
+            li.style.cursor = 'pointer';
+            li.classList.add('checkbox');
+            
+            li.addEventListener('click', function(e) {
+                if (e.target === li || e.target.tagName === 'LI') {
+                    const isChecked = li.classList.toggle('checked');
+                    const text = li.innerHTML;
+                    if (isChecked) {
+                        li.innerHTML = text.replace(/\[\s*\]/, '[✓]');
+                    } else {
+                        li.innerHTML = text.replace(/\[✓\]/, '[  ]');
+                    }
+                    // Save to localStorage
+                    localStorage.setItem('checkbox_' + btoa(li.textContent.substring(0, 50)), isChecked);
+                }
+            });
+            
+            // Load saved state
+            const savedState = localStorage.getItem('checkbox_' + btoa(li.textContent.substring(0, 50)));
+            if (savedState === 'true') {
+                li.classList.add('checked');
+                li.innerHTML = li.innerHTML.replace(/\[\s*\]/, '[✓]');
+            }
+        }
+    });
+});
+</script>
+
 </body>
 </html>
