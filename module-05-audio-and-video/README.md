@@ -30,7 +30,6 @@ cd DataAnalysis_with_LLM
 Activate the Python environment:
 
 ```bash
-source .venv/bin/activate
 ```
 
 **Check:** your prompt now starts with `(.venv)`.

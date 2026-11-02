@@ -22,7 +22,7 @@ This module is ongoing: you'll come back to it over several sessions. Run these 
 
 ```bash
 cd DataAnalysis_with_LLM
-source .venv/bin/activate
+# Python env already in Docker
 git switch master
 docker compose up -d
 until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "MongoDB ready"

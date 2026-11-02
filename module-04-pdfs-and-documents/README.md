@@ -22,7 +22,6 @@ You'll likely spread this module over several sessions. Run these three blocks a
 
 ```bash
 cd DataAnalysis_with_LLM
-source .venv/bin/activate
 docker compose up -d
 until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "MongoDB ready"
 ```

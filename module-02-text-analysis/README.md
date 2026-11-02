@@ -21,7 +21,6 @@ This module takes about a week, so you'll stop and restart several times. Run th
 
 ```bash
 cd DataAnalysis_with_LLM
-source .venv/bin/activate
 docker compose up -d
 until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "MongoDB ready"
 ```
