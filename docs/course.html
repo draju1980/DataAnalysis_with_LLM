@@ -1,0 +1,847 @@
+<title>Multimodal Data Analysis with Claude - Full Course</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Complete self-paced course on multimodal data analysis with Claude API. All 11 modules with detailed instructions.">
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1a1a;
+    --fg-light: #666666;
+    --border: #e0e0e0;
+    --accent: #0066cc;
+    --accent-light: #e6f0ff;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --code-bg: #f5f5f5;
+    --code-fg: #1a1a1a;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1419;
+      --fg: #e8eaed;
+      --fg-light: #9ca3af;
+      --border: #2d3748;
+      --accent: #4a9eff;
+      --accent-light: #1e3a5f;
+      --code-bg: #1a202c;
+      --code-fg: #e8eaed;
+      color-scheme: dark;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0f1419;
+    --fg: #e8eaed;
+    --fg-light: #9ca3af;
+    --border: #2d3748;
+    --accent: #4a9eff;
+    --accent-light: #1e3a5f;
+    --code-bg: #1a202c;
+    --code-fg: #e8eaed;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.6;
+    font-size: 16px;
+  }
+
+  .wrapper { display: flex; min-height: 100vh; }
+
+  .sidebar {
+    width: 280px;
+    background: var(--code-bg);
+    border-right: 1px solid var(--border);
+    padding-top: 2rem;
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    padding-left: max(0px, env(safe-area-inset-left, 0px));
+  }
+
+  .sidebar-header {
+    padding: 0 1.5rem 2rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-header h2 {
+    margin: 0;
+    font-size: 1.1rem;
+  }
+
+  .sidebar-nav {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .sidebar-nav li { margin: 0; }
+
+  .sidebar-nav a {
+    display: block;
+    padding: 0.65rem 1.5rem;
+    color: var(--accent);
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    transition: all 0.2s;
+    font-size: 0.92rem;
+  }
+
+  .sidebar-nav a:hover {
+    background: var(--accent-light);
+    border-left-color: var(--accent);
+  }
+
+  .sidebar-nav a.active {
+    background: var(--accent-light);
+    border-left-color: var(--accent);
+    font-weight: 600;
+  }
+
+  .main {
+    flex: 1;
+    margin-left: 280px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+
+  .content {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 2rem 0;
+  }
+
+  .module-section { display: none; }
+  .module-section.active { display: block; }
+
+  h1 { font-size: 2.2rem; font-weight: 700; margin: 2rem 0 1rem; }
+  h2 { font-size: 1.6rem; font-weight: 600; margin: 2rem 0 1rem; }
+  h3 { font-size: 1.15rem; font-weight: 600; margin: 1.25rem 0 0.75rem; }
+  h4 { font-size: 1rem; font-weight: 600; margin: 1rem 0 0.5rem; }
+
+  p { margin: 1rem 0; }
+
+  a {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px solid currentColor;
+  }
+
+  a:hover { opacity: 0.8; }
+
+  code {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: "Monaco", "Menlo", "Courier New", monospace;
+    font-size: 0.9em;
+  }
+
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+    line-height: 1.5;
+  }
+
+  pre code {
+    background: none;
+    padding: 0;
+    border-radius: 0;
+  }
+
+  .info-box {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-light);
+    padding: 1rem;
+    border-radius: 4px;
+    margin: 1.5rem 0;
+  }
+
+  .info-box.warning {
+    border-left-color: var(--warning);
+    background: rgba(245, 158, 11, 0.1);
+  }
+
+  .info-box.success {
+    border-left-color: var(--success);
+    background: rgba(16, 185, 129, 0.1);
+  }
+
+  .check-box {
+    background: var(--code-bg);
+    border-left: 4px solid var(--success);
+    padding: 1rem;
+    border-radius: 4px;
+    margin: 1rem 0;
+    font-family: "Monaco", "Menlo", "Courier New", monospace;
+    font-size: 0.9rem;
+  }
+
+  .module-header {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+    margin: 2rem 0;
+  }
+
+  .stat-card {
+    background: var(--code-bg);
+    padding: 1rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+
+  .stat-label {
+    font-size: 0.8rem;
+    color: var(--fg-light);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+  }
+
+  .stat-value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  ul, ol {
+    margin: 1rem 0;
+    padding-left: 2rem;
+  }
+
+  li { margin: 0.5rem 0; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+  }
+
+  th, td {
+    border: 1px solid var(--border);
+    padding: 0.75rem;
+    text-align: left;
+  }
+
+  th {
+    background: var(--code-bg);
+    font-weight: 600;
+  }
+
+  .step-container {
+    margin: 2rem 0;
+    padding: 1.5rem;
+    background: var(--code-bg);
+    border-radius: 6px;
+  }
+
+  .step-number {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 2rem;
+    font-weight: 700;
+    margin-right: 0.5rem;
+  }
+
+  .step-title {
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+  }
+
+  @media (max-width: 768px) {
+    .wrapper { flex-direction: column; }
+
+    .sidebar {
+      width: 100%;
+      height: auto;
+      position: static;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      max-height: 350px;
+    }
+
+    .main { margin-left: 0; }
+
+    h1 { font-size: 1.6rem; }
+    h2 { font-size: 1.2rem; }
+
+    .module-header {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+</style>
+
+<div class="wrapper">
+  <nav class="sidebar">
+    <div class="sidebar-header">
+      <h2>📚 Course</h2>
+    </div>
+    <ul class="sidebar-nav">
+      <li><a href="#intro" class="nav-link active">Introduction</a></li>
+      <li><a href="#module-0" class="nav-link">Module 0: Setup</a></li>
+      <li><a href="#module-1" class="nav-link">Module 1: API</a></li>
+      <li><a href="#module-2" class="nav-link">Module 2: Text</a></li>
+      <li><a href="#module-3" class="nav-link">Module 3: Images</a></li>
+      <li><a href="#module-4" class="nav-link">Module 4: PDFs</a></li>
+      <li><a href="#module-5" class="nav-link">Module 5: Audio</a></li>
+      <li><a href="#module-6" class="nav-link">Module 6: Tabular</a></li>
+      <li><a href="#module-7" class="nav-link">Module 7: Logs</a></li>
+      <li><a href="#module-8" class="nav-link">Module 8: MongoDB</a></li>
+      <li><a href="#module-9" class="nav-link">Module 9: Search</a></li>
+      <li><a href="#module-10" class="nav-link">Module 10: Prod</a></li>
+    </ul>
+  </nav>
+
+  <main class="main">
+    <div class="content">
+
+      <!-- INTRODUCTION -->
+      <section id="intro" class="module-section active">
+        <h1>Multimodal Data Analysis with Claude</h1>
+
+        <div class="module-header">
+          <div class="stat-card">
+            <div class="stat-label">Duration</div>
+            <div class="stat-value">8 weeks</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Modules</div>
+            <div class="stat-value">11</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Pace</div>
+            <div class="stat-value">1-2 hrs/day</div>
+          </div>
+        </div>
+
+        <p>An 11-module, self-paced course on analyzing text, images, PDFs, audio, tabular files and logs with Claude, using a local MongoDB as the workbench. About 8 weeks at 1–2 hours a day, plus a capstone.</p>
+
+        <h2>Prerequisites</h2>
+        <ul>
+          <li><strong>Docker</strong> – All development happens in containers</li>
+          <li><strong>Git</strong> – For version control</li>
+          <li><strong>GitHub account</strong> – To fork the repository</li>
+          <li><strong>Anthropic API key</strong> – $10–20 covers Modules 0–4</li>
+        </ul>
+
+        <h2>How to Follow</h2>
+        <ul>
+          <li><strong>Fork first.</strong> Make your own copy of the repo on GitHub</li>
+          <li><strong>Do modules in order.</strong> Each step builds on previous ones</li>
+          <li><strong>One shared library.</strong> All functions go in <code>lib_claude_multimodal.py</code></li>
+          <li><strong>Each module has a check.</strong> Prove your work at the end of each module</li>
+        </ul>
+
+        <h2>Start of Every Session</h2>
+        <pre><code>cd DataAnalysis_with_LLM
+docker compose up -d
+until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done
+echo "MongoDB ready"</code></pre>
+
+        <h2>Learning Outcomes</h2>
+        <ol>
+          <li>Call Claude with tools, streaming, and error handling. Track every call's cost.</li>
+          <li>Turn six input types into structured, validated data.</li>
+          <li>Build evaluation sets and measure accuracy with evidence.</li>
+          <li>Decide which tasks can run unattended based on error rates.</li>
+          <li>Let Claude answer by writing SQL without inventing numbers.</li>
+          <li>Combine formats with full-text search and citations.</li>
+          <li>Guard against prompt injection with least-privilege users.</li>
+          <li>Package for production with secrets, logging, and CI gates.</li>
+        </ol>
+      </section>
+
+      <!-- MODULE 0 -->
+      <section id="module-0" class="module-section">
+        <h1>Module 0: Setup</h1>
+
+        <div class="module-header">
+          <div class="stat-card">
+            <div class="stat-label">Duration</div>
+            <div class="stat-value">1 day</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Prerequisites</div>
+            <div class="stat-value">—</div>
+          </div>
+        </div>
+
+        <p><strong>You finish with:</strong> secrets in <code>.env</code>, a tested Claude API key, local MongoDB with two users, and a working notebook.</p>
+
+        <h2>What This Lab Is About</h2>
+        <p>Get your toolbox ready. Fork the repo, set up Docker, create your API key, and prove everything works together.</p>
+
+        <div class="step-container">
+          <div class="step-number">1</div>
+          <div class="step-title">Fork the Repository</div>
+          <ol>
+            <li>Go to <a href="https://github.com/draju1980/DataAnalysis_with_LLM">the course repo</a></li>
+            <li>Click Fork (top right) and create your copy</li>
+            <li>Clone your fork: <code>git clone https://github.com/&lt;your-username&gt;/DataAnalysis_with_LLM.git</code></li>
+            <li><code>cd DataAnalysis_with_LLM</code></li>
+          </ol>
+          <div class="check-box">Check: <code>git remote -v</code> shows your fork URL</div>
+        </div>
+
+        <div class="step-container">
+          <div class="step-number">2</div>
+          <div class="step-title">Create .env With Secrets</div>
+          <pre><code>(
+  if [ -e .env ]; then echo ".env already exists"; exit; fi
+  printf 'Paste API key (sk-ant-...): '
+  read -rs key; echo
+  p1=$(openssl rand -hex 24)
+  p2=$(openssl rand -hex 24)
+  p3=$(openssl rand -hex 24)
+  printf '%s\n' \
+    "ANTHROPIC_API_KEY=$key" \
+    "MONGO_ROOT_PASSWORD=$p1" \
+    "MONGODB_URI_RW=mongodb://course_rw:$p2@127.0.0.1:27017/course?authSource=admin&directConnection=true" \
+    "MONGODB_URI=mongodb://course_ro:$p3@127.0.0.1:27017/course?authSource=admin&directConnection=true" > .env
+  chmod 600 .env
+  echo "wrote .env"
+)</code></pre>
+          <div class="check-box">Check: <code>cut -d= -f1 .env</code> shows 4 settings</div>
+        </div>
+
+        <div class="step-container">
+          <div class="step-number">3</div>
+          <div class="step-title">Get Your API Key</div>
+          <ol>
+            <li>Sign in at <a href="https://console.anthropic.com">console.anthropic.com</a></li>
+            <li>Add $10–20 prepaid credit</li>
+            <li>Create an API key and paste it into the command above</li>
+          </ol>
+        </div>
+
+        <div class="step-container">
+          <div class="step-number">4</div>
+          <div class="step-title">Build and Start Docker</div>
+          <pre><code>docker compose up -d</code></pre>
+          <div class="info-box warning">First time: Docker downloads and builds images (a few minutes). Subsequent: faster.</div>
+          <div class="check-box">Check: <code>docker compose ps</code> shows mongodb as (healthy)</div>
+        </div>
+
+        <div class="step-container">
+          <div class="step-number">5</div>
+          <div class="step-title">Create MongoDB Users</div>
+          <pre><code>(
+  get() { grep "^$1=" .env | cut -d= -f2- | tr -d '\r'; }
+  pw()  { get "$1" | sed -E 's#^mongodb://[^:]+:([^@]+)@.*#\1#'; }
+  export RW_PW="$(pw MONGODB_URI_RW)" RO_PW="$(pw MONGODB_URI)"
+  docker compose exec -e RW_PW -e RO_PW mongodb mongosh "mongodb://admin@127.0.0.1:27017/admin?directConnection=true" --quiet --eval '
+    for (const u of ["course_rw", "course_ro"]) {
+      if (db.getUser(u)) { db.dropUser(u); }
+    }
+    db.createUser({user: "course_rw", pwd: process.env.RW_PW,
+                   roles: [{role: "readWrite", db: "course"}]});
+    db.createUser({user: "course_ro", pwd: process.env.RO_PW,
+                   roles: [{role: "read", db: "course"}]});
+    print("users created");'
+)</code></pre>
+          <div class="check-box">Check: Output ends with "users created"</div>
+        </div>
+
+        <div class="step-container">
+          <div class="step-number">6</div>
+          <div class="step-title">Test Everything in a Notebook</div>
+          <pre><code>docker compose exec python_app jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser</code></pre>
+          <p>Copy the URL and open in your browser. Create a notebook with these cells:</p>
+
+          <h4>Cell 1: Load secrets</h4>
+          <pre><code>from dotenv import load_dotenv
+load_dotenv(".env")</code></pre>
+
+          <h4>Cell 2: Talk to Claude</h4>
+          <pre><code>import anthropic
+client = anthropic.Anthropic()
+resp = client.messages.create(
+    model="claude-haiku-4-5-20251001",
+    max_tokens=512,
+    messages=[{"role": "user", "content": "hello"}],
+)
+print(resp.content[0].text)
+print(resp.usage)</code></pre>
+
+          <h4>Cell 3: Write to MongoDB</h4>
+          <pre><code>import os
+from pymongo import MongoClient
+
+rw = MongoClient(os.environ["MONGODB_URI_RW"]).course
+rw.hello.insert_one({"msg": "first document"})</code></pre>
+
+          <h4>Cell 4: Read from MongoDB</h4>
+          <pre><code>ro = MongoClient(os.environ["MONGODB_URI"]).course
+print(ro.list_collection_names())
+print(list(ro.hello.find({}, {"_id": 0})))</code></pre>
+
+          <div class="check-box">
+            Check:
+            <ul style="margin: 0; padding-left: 1.5rem;">
+              <li>Cell 2: greeting + Usage(...)</li>
+              <li>Cell 3: InsertOneResult(...)</li>
+              <li>Cell 4: ['hello'] and [{'msg': 'first document'}]</li>
+            </ul>
+          </div>
+
+          <p>Save the notebook. <strong>Module 0 complete!</strong></p>
+        </div>
+      </section>
+
+      <!-- MODULE 1 -->
+      <section id="module-1" class="module-section">
+        <h1>Module 1: Claude API Fundamentals</h1>
+
+        <div class="module-header">
+          <div class="stat-card">
+            <div class="stat-label">Duration</div>
+            <div class="stat-value">2–3 days</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Builds on</div>
+            <div class="stat-value">Module 0</div>
+          </div>
+        </div>
+
+        <p><strong>You finish with:</strong> <code>ask()</code>, <code>log_call()</code>, tool loop, and cost tracking in your shared library.</p>
+
+        <h2>Key Ideas</h2>
+        <ul>
+          <li><strong>Streaming:</strong> See words as they arrive, not all at once</li>
+          <li><strong>Tools:</strong> Claude calls functions, you handle results, loop until done</li>
+          <li><strong>Cost tracking:</strong> Log tokens and calculate per-call cost</li>
+          <li><strong>One library:</strong> Every module imports from <code>lib_claude_multimodal.py</code></li>
+        </ul>
+
+        <h2>Before You Start</h2>
+        <pre><code>cd DataAnalysis_with_LLM
+docker compose up -d
+until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done; echo "MongoDB ready"</code></pre>
+
+        <div class="step-container">
+          <div class="step-number">1</div>
+          <div class="step-title">Create the Shared Library</div>
+          <p>Create <code>lib_claude_multimodal.py</code> at the project root with the core <code>ask()</code> function:</p>
+          <pre><code>"""Shared helpers for the Multimodal Data Analysis with Claude course."""
+import anthropic
+import json
+import os
+from datetime import datetime
+from pymongo import MongoClient
+
+# Initialize clients
+client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+db_rw = MongoClient(os.environ.get("MONGODB_URI_RW")).course
+db_ro = MongoClient(os.environ.get("MONGODB_URI")).course
+
+# Cost per million tokens (as of knowledge cutoff)
+COST_PER_MTK_INPUT = 0.80
+COST_PER_MTK_OUTPUT = 2.40
+
+def log_call(model, messages, response, tools=None):
+    """Log API call to MongoDB."""
+    cost_input = (response.usage.input_tokens / 1_000_000) * COST_PER_MTK_INPUT
+    cost_output = (response.usage.output_tokens / 1_000_000) * COST_PER_MTK_OUTPUT
+    cost_total = cost_input + cost_output
+
+    call_doc = {
+        "timestamp": datetime.utcnow(),
+        "model": model,
+        "input_tokens": response.usage.input_tokens,
+        "output_tokens": response.usage.output_tokens,
+        "cost_input": cost_input,
+        "cost_output": cost_output,
+        "cost_total": cost_total,
+        "messages_count": len(messages),
+    }
+
+    if tools:
+        call_doc["tools_count"] = len(tools)
+
+    db_rw.llm_calls.insert_one(call_doc)
+    return cost_total
+
+def ask(prompt, model="claude-haiku-4-5-20251001", system=None, tools=None, max_tokens=512):
+    """Call Claude and log the cost."""
+    messages = [{"role": "user", "content": prompt}]
+
+    kwargs = {
+        "model": model,
+        "max_tokens": max_tokens,
+        "messages": messages,
+    }
+
+    if system:
+        kwargs["system"] = system
+
+    if tools:
+        kwargs["tools"] = tools
+
+    response = client.messages.create(**kwargs)
+
+    log_call(model, messages, response, tools)
+
+    # Return just the text content
+    return response.content[0].text
+
+def cost_of(input_tokens, output_tokens):
+    """Calculate cost of a call."""
+    cost_input = (input_tokens / 1_000_000) * COST_PER_MTK_INPUT
+    cost_output = (output_tokens / 1_000_000) * COST_PER_MTK_OUTPUT
+    return cost_input + cost_output</code></pre>
+
+          <div class="check-box">
+            Check: Run <code>python -c "from lib_claude_multimodal import ask; print('ok')"</code>
+          </div>
+        </div>
+
+        <div class="step-container">
+          <div class="step-number">2</div>
+          <div class="step-title">Create Your First Script</div>
+          <p>Create <code>m01_chat.py</code>:</p>
+          <pre><code>#!/usr/bin/env python3
+"""Simple chat with Claude that logs cost."""
+from lib_claude_multimodal import ask, db_ro
+
+print("Chat with Claude. Type 'quit' to stop.\n")
+
+while True:
+    prompt = input("You: ").strip()
+    if prompt.lower() == 'quit':
+        break
+
+    if not prompt:
+        continue
+
+    response = ask(prompt)
+    print(f"Claude: {response}\n")
+
+# Show costs
+calls = list(db_ro.llm_calls.find({}))
+total_cost = sum(c['cost_total'] for c in calls)
+print(f"\nTotal calls: {len(calls)}")
+print(f"Total cost: ${total_cost:.4f}")</code></pre>
+
+          <div class="check-box">
+            Check: Run <code>python m01_chat.py</code> and chat a bit, then check MongoDB
+          </div>
+        </div>
+
+        <p><strong>Module 1 complete!</strong> You now have a chat with built-in cost tracking.</p>
+      </section>
+
+      <!-- MODULE 2-10 SUMMARY -->
+      <section id="module-2" class="module-section">
+        <h1>Modules 2–10: Overview</h1>
+
+        <div class="info-box">
+          <h3 style="margin-top: 0;">Full Course Available on GitHub</h3>
+          <p>
+            Each of the remaining modules (2–10) includes complete step-by-step instructions,
+            code examples, and checks. Access the full course materials at:
+          </p>
+          <p style="margin: 1rem 0;">
+            <strong><a href="https://github.com/draju1980/DataAnalysis_with_LLM">draju1980/DataAnalysis_with_LLM</a></strong>
+          </p>
+        </div>
+
+        <h2>What Each Module Covers</h2>
+
+        <table>
+          <tr>
+            <th>Module</th>
+            <th>Topic</th>
+            <th>Duration</th>
+            <th>You Build</th>
+          </tr>
+          <tr>
+            <td><strong>2</strong></td>
+            <td>Text Analysis</td>
+            <td>1 week</td>
+            <td>Text classifier, evaluation, Batches API</td>
+          </tr>
+          <tr>
+            <td><strong>3</strong></td>
+            <td>Images</td>
+            <td>4–5 days</td>
+            <td>Image blocks, OCR, chart extraction with error measurement</td>
+          </tr>
+          <tr>
+            <td><strong>4</strong></td>
+            <td>PDFs and Documents</td>
+            <td>4–5 days</td>
+            <td>ask_pdf(), field extraction, prompt caching, injection tests</td>
+          </tr>
+          <tr>
+            <td><strong>5</strong></td>
+            <td>Audio and Video</td>
+            <td>4–5 days</td>
+            <td>Transcription, speaker labeling, action items, video analysis</td>
+          </tr>
+          <tr>
+            <td><strong>6</strong></td>
+            <td>Tabular Files</td>
+            <td>1 week</td>
+            <td>DuckDB SQL, ask_data(), CSV/Excel/JSON queries</td>
+          </tr>
+          <tr>
+            <td><strong>7</strong></td>
+            <td>Semi-Structured Text</td>
+            <td>3–4 days</td>
+            <td>Log parsing, XML/HTML/YAML extraction, event extraction</td>
+          </tr>
+          <tr>
+            <td><strong>8</strong></td>
+            <td>MongoDB</td>
+            <td>1 week</td>
+            <td>Aggregation pipelines, MongoDB queries, write blocking</td>
+          </tr>
+          <tr>
+            <td><strong>9</strong></td>
+            <td>Combining Modalities</td>
+            <td>1 week</td>
+            <td>Full-text search, chunks, citations, multi-format answers</td>
+          </tr>
+          <tr>
+            <td><strong>10</strong></td>
+            <td>Production & Security</td>
+            <td>Ongoing</td>
+            <td>Docker container, CI gates, threat model, prompt injection tests</td>
+          </tr>
+        </table>
+
+        <h2>Capstone Project</h2>
+
+        <p>
+          After Module 10, complete a real multi-format project using everything you learned.
+          Document your accuracy, cost, and threat model.
+        </p>
+
+        <h2>Getting the Full Materials</h2>
+
+        <p>Each module in the GitHub repository includes:</p>
+
+        <ul>
+          <li>Complete step-by-step instructions</li>
+          <li>Code examples ready to copy and paste</li>
+          <li>Check commands with expected outputs</li>
+          <li>Before/resume sections for restarting</li>
+          <li>Key ideas and learning goals</li>
+          <li>Sample data (included or generated)</li>
+        </ul>
+
+        <h2>Important Notes for All Modules</h2>
+
+        <div class="info-box">
+          <h3 style="margin-top: 0;">Start Each Session With</h3>
+          <pre><code>cd DataAnalysis_with_LLM
+docker compose up -d
+until docker compose ps mongodb | grep -q "(healthy)"; do sleep 3; done</code></pre>
+        </div>
+
+        <div class="info-box warning">
+          <h3 style="margin-top: 0;">Never Use</h3>
+          <pre><code>docker compose down -v</code></pre>
+          <p>The <code>-v</code> flag deletes the database. Use <code>docker compose stop</code> instead.</p>
+        </div>
+
+        <div class="info-box success">
+          <h3 style="margin-top: 0;">To Stop for the Day</h3>
+          <pre><code>docker compose stop</code></pre>
+        </div>
+
+        <h2>Access Full Course</h2>
+
+        <p>
+          <a href="https://github.com/draju1980/DataAnalysis_with_LLM" style="font-size: 1.1rem; font-weight: 600;">
+            → View Full Course on GitHub
+          </a>
+        </p>
+
+        <p>Fork the repository and follow each module's README for complete instructions.</p>
+      </section>
+
+      <!-- More module sections would follow similar pattern... -->
+      <section id="module-3" class="module-section">
+        <h1>Module 3: Images</h1>
+        <p>See GitHub for full Module 3 instructions: <a href="https://github.com/draju1980/DataAnalysis_with_LLM/tree/master/module-03-images">Module 3 – Images</a></p>
+      </section>
+
+      <section id="module-4" class="module-section">
+        <h1>Module 4: PDFs and Documents</h1>
+        <p>See GitHub for full Module 4 instructions: <a href="https://github.com/draju1980/DataAnalysis_with_LLM/tree/master/module-04-pdfs-and-documents">Module 4 – PDFs and Documents</a></p>
+      </section>
+
+      <section id="module-5" class="module-section">
+        <h1>Module 5: Audio and Video</h1>
+        <p>See GitHub for full Module 5 instructions: <a href="https://github.com/draju1980/DataAnalysis_with_LLM/tree/master/module-05-audio-and-video">Module 5 – Audio and Video</a></p>
+      </section>
+
+      <section id="module-6" class="module-section">
+        <h1>Module 6: Tabular Files</h1>
+        <p>See GitHub for full Module 6 instructions: <a href="https://github.com/draju1980/DataAnalysis_with_LLM/tree/master/module-06-tabular-files">Module 6 – Tabular Files</a></p>
+      </section>
+
+      <section id="module-7" class="module-section">
+        <h1>Module 7: Semi-Structured Text</h1>
+        <p>See GitHub for full Module 7 instructions: <a href="https://github.com/draju1980/DataAnalysis_with_LLM/tree/master/module-07-semi-structured-text">Module 7 – Semi-Structured Text</a></p>
+      </section>
+
+      <section id="module-8" class="module-section">
+        <h1>Module 8: MongoDB</h1>
+        <p>See GitHub for full Module 8 instructions: <a href="https://github.com/draju1980/DataAnalysis_with_LLM/tree/master/module-08-mongodb">Module 8 – MongoDB</a></p>
+      </section>
+
+      <section id="module-9" class="module-section">
+        <h1>Module 9: Combining Modalities</h1>
+        <p>See GitHub for full Module 9 instructions: <a href="https://github.com/draju1980/DataAnalysis_with_LLM/tree/master/module-09-combining-modalities-vector-search">Module 9 – Combining Modalities + Vector Search</a></p>
+      </section>
+
+      <section id="module-10" class="module-section">
+        <h1>Module 10: Production and Security</h1>
+        <p>See GitHub for full Module 10 instructions: <a href="https://github.com/draju1980/DataAnalysis_with_LLM/tree/master/module-10-production-and-security">Module 10 – Production and Security</a></p>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<script>
+  const navLinks = document.querySelectorAll('.nav-link');
+  const sections = document.querySelectorAll('.module-section');
+
+  navLinks.forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const target = link.getAttribute('href').substring(1);
+
+      sections.forEach(s => s.classList.remove('active'));
+      document.getElementById(target).classList.add('active');
+
+      navLinks.forEach(l => l.classList.remove('active'));
+      link.classList.add('active');
+
+      window.scrollTo(0, 0);
+    });
+  });
+</script>
