@@ -473,7 +473,6 @@ for name, attempt in attempts.items():
             <li>[ ] Step 12: `course_ro` has `read` and `course_rw` has `readWrite` on `course`.</li>
             <li>[ ] Step 13: Cells 1–4 work and Cell 5 prints `blocked` twice.</li>
             <li>[ ] Step 14: no secrets found; setup files pushed; `.env` not in git.</li>
-            <p><strong>Next:</strong> <a href="../module-01-claude-api-fundamentals/README.md">Module 1 — Claude API fundamentals</a></p>
         </div>
 
         <hr>
@@ -1118,7 +1117,6 @@ def run_with_tools(history, tools, handlers, *, module, model=HAIKU, system=None
             <li>[ ] Step 10: the chat calls the calculator when needed and prints a running cost.</li>
             <li>[ ] Step 11: the increase in `llm_calls` cost matches the chat's session cost.</li>
             <li>[ ] Step 7: you can explain why the same prompt gives different answers and name the levers that make it more consistent.</li>
-            <p><strong>Next:</strong> <a href="../module-02-text-analysis/README.md">Module 2 — Text analysis</a></p>
         </div>
 
         <hr>
@@ -1794,7 +1792,6 @@ def classify(text, labels, *, model=HAIKU, prompt_version="v1", module="m2"):
             <li>[ ] Step 8: you changed the prompt and measured the effect instead of judging by eye.</li>
             <li>[ ] Step 9: all 600 texts classified via the Batches API.</li>
             <li>[ ] Step 11: your choice of prompt is written down with numbers.</li>
-            <p><strong>Next:</strong> <a href="../module-03-images/README.md">Module 3 — Images</a></p>
         </div>
 
         <hr>
@@ -2509,7 +2506,6 @@ CHART_PROMPT = ("Extract every data point shown in this chart. Use series names 
             <h2>Done when</h2>
             <li>[ ] Step 9: error rate measured with one pipeline; worst misses inspected.</li>
             <li>[ ] Step 12: a written decision on unattended vs human-checked image tasks, backed by numbers.</li>
-            <p><strong>Next:</strong> <a href="../module-04-pdfs-and-documents/README.md">Module 4 — PDFs and documents</a></p>
         </div>
 
         <hr>
@@ -3333,7 +3329,6 @@ def split_pdf(path, pages_per_part=50, out_dir="data/m4/parts"):
             <li>[ ] Step 7: the totals check lists only real problems.</li>
             <li>[ ] Step 10: the planted injection didn't change the extraction.</li>
             <li>[ ] Step 11: 10 rows spot-checked and correct.</li>
-            <p><strong>Next:</strong> <a href="../module-05-audio-and-video/README.md">Module 5 — Audio and video</a></p>
         </div>
 
         <hr>
@@ -4348,7 +4343,6 @@ def analyze_audio(recording, chunk_minutes=10, model=HAIKU, max_tokens=2048):
             <li>[ ] Step 8: `python m05_process.py <recording>` processes the full hour end to end in one command.</li>
             <li>[ ] Step 8: three timestamps checked against the recording.</li>
             <li>[ ] Step 10: a video window answered from frames and transcript together.</li>
-            <p><strong>Next:</strong> <a href="../module-06-tabular-files/README.md">Module 6 — Tabular files</a></p>
         </div>
 
         <hr>
@@ -5456,7 +5450,6 @@ if __name__ == "__main__":
             <h2>Done when</h2>
             <li>[ ] Step 10: all 10 answers match the results you calculated yourself.</li>
             <li>[ ] Step 10: Claude never states a number it didn't query.</li>
-            <p><strong>Next:</strong> <a href="../module-07-semi-structured-text/README.md">Module 7 — Logs, XML, HTML, YAML</a></p>
         </div>
 
         <hr>
@@ -6396,7 +6389,6 @@ def ask_text_file(path, question, *, model=HAIKU, max_chars=200_000):
             <li>[ ] Step 6: the record count matches the `grep` count.</li>
             <li>[ ] Step 7: 20 spot-checked records are correct.</li>
             <li>[ ] Step 9: a question about a YAML/XML/HTML file answered correctly.</li>
-            <p><strong>Next:</strong> <a href="../module-08-mongodb/README.md">Module 8 — MongoDB</a></p>
         </div>
 
         <hr>
@@ -7549,7 +7541,6 @@ def ask_mongo(question, *, model=HAIKU):
             <li>[ ] Step 8: all 10 answers verified against your own pipelines.</li>
             <li>[ ] Step 9: a write request through `ask_mongo()` is rejected by the checker.</li>
             <li>[ ] Step 10: the same write sent directly is rejected by the server.</li>
-            <p><strong>Next:</strong> <a href="../module-09-combining-modalities-vector-search/README.md">Module 9 — Combining modalities and document search</a></p>
         </div>
 
         <hr>
@@ -8693,7 +8684,6 @@ def answer_with_sources(question, modality=None, k=8, model=HAIKU):
             <li>[ ] Step 7: on 10 test questions, every answer cites a source you opened and confirmed.</li>
             <li>[ ] Step 5: the assistant chooses between documents and database correctly.</li>
             <li>[ ] Step 8: you can say when retrieval beats sending the whole document.</li>
-            <p><strong>Next:</strong> <a href="../module-10-production-and-security/README.md">Module 10 — Production and security</a></p>
         </div>
 
         <hr>
@@ -10191,7 +10181,6 @@ volumes:
             <li>[ ] Optional, Steps 10–11: CI is green on your prompt and red on the broken one.</li>
             <li>[ ] Step 12: both planted injections had no effect.</li>
             <li>[ ] Step 14: a one-page threat model with tested mitigations.</li>
-            <p><strong>Next:</strong> <a href="../capstone/README.md">Capstone</a></p>
         </div>
 
     </main>
