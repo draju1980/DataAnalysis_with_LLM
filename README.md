@@ -2,6 +2,8 @@
 
 An 11-module, self-paced course on analyzing text, images, PDFs, audio, tabular files and logs with Claude, using a local MongoDB as the workbench. About 8 weeks at 1–2 hours a day, plus a capstone.
 
+**📖 Interactive Course Page: [Start learning here](course.html)** — Complete course guide with Module 0–1 full instructions, code examples, and navigation to all 11 modules. Works on desktop and mobile with dark mode support.
+
 **Start here → [Module 0 — Setup](module-00-setup/README.md)**
 
 > **Before you start: fork this repo.** Click **Fork** on https://github.com/draju1980/DataAnalysis_with_LLM to make your own copy, then clone your fork (`git clone https://github.com/<your-username>/DataAnalysis_with_LLM.git`). All your course work is committed to your fork. Don't clone the original repo directly: you can't push to it. [Module 0, Step 0](module-00-setup/README.md#step-0--fork-the-course-repo-to-your-github-account) walks through it.
@@ -23,9 +25,10 @@ The core of it, every time you open a new terminal:
 
 ```bash
 cd DataAnalysis_with_LLM
-source .venv/bin/activate
 docker compose up -d
 ```
+
+All Python dependencies (pandas, Pillow, ffmpeg, etc.) are included in the Docker container — no local Python setup needed.
 
 To stop for the day, stop MongoDB (or leave it running; your data stays):
 
@@ -42,10 +45,10 @@ You learn to get reliable answers and structured data out of six kinds of input 
 | | |
 | --- | --- |
 | Audience | Engineers new to data analysis and AI who are comfortable with the command line, git and Docker |
-| Prerequisites | Python basics, git, Docker; a GitHub account (to fork this repo); an Anthropic API account with $10–20 credit |
+| Prerequisites | Docker; a GitHub account (to fork this repo); an Anthropic API account with $10–20 credit |
 | Format | Self-paced; each module is a numbered sequence of steps, each with a **Check** |
 | Pace | 1–2 hours a day, about 8 weeks for Modules 0–9, then Module 10 and the capstone |
-| Environment | Local only: Python, Jupyter, and MongoDB (`mongodb-atlas-local`) in Docker |
+| Environment | Docker-only: Python, Jupyter, MongoDB, and all dependencies run in containers. No local Python installation needed. |
 
 ## Secure Enterprise AI Assistant
 
