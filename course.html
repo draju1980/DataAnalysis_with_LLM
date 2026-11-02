@@ -111,7 +111,7 @@
             <section id="module-0" class="module-section">
 <h1>Module 0 — Setup (1 day)</h1>
 
-<a href="../README.md">Syllabus</a> · <a href="../module-01-claude-api-fundamentals/README.md">Next: Module 1 →</a>
+<a href="../README.md">Syllabus</a> · <a href="#module-1">Next: Module 1 →</a>
 
 <strong>You start with:</strong> a GitHub account, a computer with git, and Docker.
 <strong>You finish with:</strong> secrets in <code>.env</code>, a tested Claude API key, a local MongoDB (via Docker) with a read-write user and a read-only user, and a notebook that proves all of it works.
@@ -596,7 +596,7 @@ git push
 - [ ] Step 13: Cells 1–4 work and Cell 5 prints </code>blocked<code> twice.
 - [ ] Step 14: no secrets found; setup files pushed; </code>.env` not in git.
 
-<strong>Next:</strong> <a href="../module-01-claude-api-fundamentals/README.md">Module 1 — Claude API fundamentals</a>
+<strong>Next:</strong> <a href="#module-1">Module 1 — Claude API fundamentals</a>
 
             </section>
 
@@ -640,7 +640,7 @@ for name in ('MONGODB_URI_RW', 'MONGODB_URI'):
     MongoClient(os.environ[name], serverSelectionTimeoutMS=5000).course.command('ping')
 print('Module 0: .env and both database users ok')"</code></pre>
 
-<strong>Check:</strong> prints <code>Module 0: … ok</code>. If not, run the "Before you start or resume" check in <a href="../module-00-setup/README.md#before-you-start-or-resume">Module 0</a>.
+<strong>Check:</strong> prints <code>Module 0: … ok</code>. If not, run the "Before you start or resume" check in <a href="#module-0">Module 0</a>.
 
 <strong>3. Find where you stopped</strong>
 
@@ -1313,7 +1313,7 @@ def run_with_tools(history, tools, handlers, *, module, model=HAIKU, system=None
 - [ ] Step 11: the increase in </code>llm_calls` cost matches the chat's session cost.
 - [ ] Step 7: you can explain why the same prompt gives different answers and name the levers that make it more consistent.
 
-<strong>Next:</strong> <a href="../module-02-text-analysis/README.md">Module 2 — Text analysis</a>
+<strong>Next:</strong> <a href="#module-2">Module 2 — Text analysis</a>
 
             </section>
 
@@ -2080,7 +2080,7 @@ def classify(text, labels, *, model=HAIKU, prompt_version="v1", module="m2"):
 - [ ] Step 9: all 600 texts classified via the Batches API.
 - [ ] Step 11: your choice of prompt is written down with numbers.
 
-<strong>Next:</strong> <a href="../module-03-images/README.md">Module 3 — Images</a>
+<strong>Next:</strong> <a href="#module-3">Module 3 — Images</a>
 
             </section>
 
@@ -2856,7 +2856,7 @@ CHART_PROMPT = ("Extract every data point shown in this chart. Use series names 
 - [ ] Step 9: error rate measured with one pipeline; worst misses inspected.
 - [ ] Step 12: a written decision on unattended vs human-checked image tasks, backed by numbers.
 
-<strong>Next:</strong> <a href="../module-04-pdfs-and-documents/README.md">Module 4 — PDFs and documents</a>
+<strong>Next:</strong> <a href="#module-4">Module 4 — PDFs and documents</a>
 
             </section>
 
@@ -3747,7 +3747,7 @@ def split_pdf(path, pages_per_part=50, out_dir="data/m4/parts"):
 - [ ] Step 10: the planted injection didn't change the extraction.
 - [ ] Step 11: 10 rows spot-checked and correct.
 
-<strong>Next:</strong> <a href="../module-05-audio-and-video/README.md">Module 5 — Audio and video</a>
+<strong>Next:</strong> <a href="#module-5">Module 5 — Audio and video</a>
 
             </section>
 
@@ -4838,7 +4838,7 @@ def analyze_audio(recording, chunk_minutes=10, model=HAIKU, max_tokens=2048):
 - [ ] Step 8: three timestamps checked against the recording.
 - [ ] Step 10: a video window answered from frames and transcript together.
 
-<strong>Next:</strong> <a href="../module-06-tabular-files/README.md">Module 6 — Tabular files</a>
+<strong>Next:</strong> <a href="#module-6">Module 6 — Tabular files</a>
 
             </section>
 
@@ -6037,7 +6037,7 @@ if <strong>name</strong> == "<strong>main</strong>":
 - [ ] Step 10: all 10 answers match the results you calculated yourself.
 - [ ] Step 10: Claude never states a number it didn't query.
 
-<strong>Next:</strong> <a href="../module-07-semi-structured-text/README.md">Module 7 — Logs, XML, HTML, YAML</a>
+<strong>Next:</strong> <a href="#module-7">Module 7 — Logs, XML, HTML, YAML</a>
 
             </section>
 
@@ -7040,7 +7040,7 @@ def ask_text_file(path, question, *, model=HAIKU, max_chars=200_000):
 - [ ] Step 7: 20 spot-checked records are correct.
 - [ ] Step 9: a question about a YAML/XML/HTML file answered correctly.
 
-<strong>Next:</strong> <a href="../module-08-mongodb/README.md">Module 8 — MongoDB</a>
+<strong>Next:</strong> <a href="#module-8">Module 8 — MongoDB</a>
 
             </section>
 
@@ -8257,7 +8257,7 @@ def ask_mongo(question, *, model=HAIKU):
 - [ ] Step 9: a write request through </code>ask_mongo()` is rejected by the checker.
 - [ ] Step 10: the same write sent directly is rejected by the server.
 
-<strong>Next:</strong> <a href="../module-09-combining-modalities-vector-search/README.md">Module 9 — Combining modalities and document search</a>
+<strong>Next:</strong> <a href="#module-9">Module 9 — Combining modalities and document search</a>
 
             </section>
 
@@ -9456,14 +9456,14 @@ def answer_with_sources(question, modality=None, k=8, model=HAIKU):
 - [ ] Step 5: the assistant chooses between documents and database correctly.
 - [ ] Step 8: you can say when retrieval beats sending the whole document.
 
-<strong>Next:</strong> <a href="../module-10-production-and-security/README.md">Module 10 — Production and security</a>
+<strong>Next:</strong> <a href="#module-10">Module 10 — Production and security</a>
 
             </section>
 
             <section id="module-10" class="module-section">
 <h1>Module 10 — Production and security (ongoing)</h1>
 
-<a href="../module-09-combining-modalities-vector-search/README.md">← Module 9</a> · <a href="../README.md">Syllabus</a> · <a href="../capstone/README.md">Next: Capstone →</a>
+<a href="#module-9">← Module 9</a> · <a href="../README.md">Syllabus</a> · <a href="../capstone/README.md">Next: Capstone →</a>
 
 <strong>You start with:</strong> Modules 0–9 done — especially the Module 4 folder pipeline, the Module 2 evaluation, <code>ask_mongo()</code> and <code>llm_calls</code>.
 <strong>You finish with:</strong> the Module 4 pipeline running as a container; JSON logs and a cost report; an evaluation gate that fails on a worse prompt (and, optionally, runs in GitHub Actions); injection tests passed; personal-data redaction; and a one-page threat model.
