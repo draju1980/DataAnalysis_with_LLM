@@ -111,7 +111,7 @@
             <section id="module-0" class="module-section">
 <h1>Module 0 — Setup (1 day)</h1>
 
-<a href="../README.md">Syllabus</a> · <a href="#module-1">Next: Module 1 →</a>
+<a href="#intro">Syllabus</a> · <a href="#module-1">Next: Module 1 →</a>
 
 <strong>You start with:</strong> a GitHub account, a computer with git, and Docker.
 <strong>You finish with:</strong> secrets in <code>.env</code>, a tested Claude API key, a local MongoDB (via Docker) with a read-write user and a read-only user, and a notebook that proves all of it works.
@@ -671,7 +671,7 @@ print('Module 0: .env and both database users ok')"</code></pre>
   ``<code>
 - Steps 4–7 and 10 call the API again when rerun. Each call costs a fraction of a cent and adds a row to </code>llm_calls<code>, which is fine.
 - Step 11 compares the cost before and after one chat session. Do the "before", the chat, and the "after" in the same sitting.
-- Not sure your </code>lib_claude_multimodal.py<code> is right after a break? Compare it with the <a href="#complete-lib_claude_multimodalpy-after-module-1">complete file for this module</a> at the end of the page.
+- Not sure your </code>lib_claude_multimodal.py<code> is right after a break? Compare it with the <a  at the end of the page.
 - <strong>To stop for the day</strong>, stop MongoDB (or leave it running; your data stays):
 
   </code>`<code>bash
@@ -944,7 +944,7 @@ def calc(expression):
             left, right = ev(node.left), ev(node.right)
             if isinstance(node.op, ast.Pow) and abs(right) > 100:
                 raise ValueError("exponent too large")
-            return _OPS<a href="left, right">type(node.op)</a>
+            return _OPS<a href="#">type(node.op)</a>
         if isinstance(node, ast.UnaryOp) and type(node.op) in _OPS:
             return _OPS<a href="ev(node.operand">type(node.op)</a>)
         raise ValueError("only numbers and + - * / % ** are allowed")
@@ -1251,7 +1251,7 @@ def calc(expression):
             left, right = ev(node.left), ev(node.right)
             if isinstance(node.op, ast.Pow) and abs(right) > 100:
                 raise ValueError("exponent too large")
-            return _OPS<a href="left, right">type(node.op)</a>
+            return _OPS<a href="#">type(node.op)</a>
         if isinstance(node, ast.UnaryOp) and type(node.op) in _OPS:
             return _OPS<a href="ev(node.operand">type(node.op)</a>)
         raise ValueError("only numbers and + - * / % ** are allowed")
@@ -1411,7 +1411,7 @@ print('predictions:', db_ro.predictions.count_documents({}), '(Step 9 wants 600)
 
   <strong>Check:</strong> up to five lines of </code>msgbatch_… &lt;status&gt; &lt;date&gt;<code>; the newest is listed first. Use the one with the date of your Step 9 run.
 
-- Not sure your </code>lib_claude_multimodal.py<code> is right after a break? Compare it with the <a href="#complete-lib_claude_multimodalpy-after-module-2">complete file for this module</a> at the end of the page.
+- Not sure your </code>lib_claude_multimodal.py<code> is right after a break? Compare it with the <a  at the end of the page.
 - <strong>To stop for the day</strong>, stop MongoDB (or leave it running; your data stays):
 
   </code>`<code>bash
@@ -1981,7 +1981,7 @@ def calc(expression):
             left, right = ev(node.left), ev(node.right)
             if isinstance(node.op, ast.Pow) and abs(right) > 100:
                 raise ValueError("exponent too large")
-            return _OPS<a href="left, right">type(node.op)</a>
+            return _OPS<a href="#">type(node.op)</a>
         if isinstance(node, ast.UnaryOp) and type(node.op) in _OPS:
             return _OPS<a href="ev(node.operand">type(node.op)</a>)
         raise ValueError("only numbers and + - * / % ** are allowed")
@@ -2150,7 +2150,7 @@ print('chart_truth rows:', db_ro.chart_truth.count_documents({}), '(Step 8 wants
 - <strong>Never rerun <code>m03_export_truth.py</code> after you've typed in true values.</strong> It overwrites <code>data/m3/truth.csv</code> and erases your corrections. If you need to export again, rename the old file first.
 - <code>m03_extract.py</code> is safe to rerun: it replaces each chart's values instead of adding to them. It does call the API for all 20 charts again.
 - Step 8 is safe to rerun: it empties <code>chart_truth</code> before loading.
-- Not sure your <code>lib_claude_multimodal.py</code> is right after a break? Compare it with the <a href="#complete-lib_claude_multimodalpy-after-module-3">complete file for this module</a> at the end of the page.
+- Not sure your <code>lib_claude_multimodal.py</code> is right after a break? Compare it with the <a  at the end of the page.
 - <strong>To stop for the day</strong>, stop MongoDB (or leave it running; your data stays):
 
   <button class="copy-btn" onclick="copyCode(this)">Copy</button>
@@ -2697,7 +2697,7 @@ def calc(expression):
             left, right = ev(node.left), ev(node.right)
             if isinstance(node.op, ast.Pow) and abs(right) > 100:
                 raise ValueError("exponent too large")
-            return _OPS<a href="left, right">type(node.op)</a>
+            return _OPS<a href="#">type(node.op)</a>
         if isinstance(node, ast.UnaryOp) and type(node.op) in _OPS:
             return _OPS<a href="ev(node.operand">type(node.op)</a>)
         raise ValueError("only numbers and + - * / % ** are allowed")
@@ -2935,7 +2935,7 @@ print('injection stored: ', db_ro.invoices.count_documents({'source_file': 'zz_i
 - Every rerun of </code>m04_extract_folder.py<code> calls the API once per PDF. Step 10 reruns it on purpose.
 - Step 9 needs the three questions in one run: the cache lasts about five minutes, so a break between them shows no cache reads.
 - Step 11 can span sessions: the CSV stays in </code>data/m4/<code> until you export again, so note which rows you've already checked.
-- Not sure your </code>lib_claude_multimodal.py<code> is right after a break? Compare it with the <a href="#complete-lib_claude_multimodalpy-after-module-4">complete file for this module</a> at the end of the page.
+- Not sure your </code>lib_claude_multimodal.py<code> is right after a break? Compare it with the <a  at the end of the page.
 - <strong>To stop for the day</strong>, stop MongoDB (or leave it running; your data stays):
 
   </code>`<code>bash
@@ -3503,7 +3503,7 @@ def calc(expression):
             left, right = ev(node.left), ev(node.right)
             if isinstance(node.op, ast.Pow) and abs(right) > 100:
                 raise ValueError("exponent too large")
-            return _OPS<a href="left, right">type(node.op)</a>
+            return _OPS<a href="#">type(node.op)</a>
         if isinstance(node, ast.UnaryOp) and type(node.op) in _OPS:
             return _OPS<a href="ev(node.operand">type(node.op)</a>)
         raise ValueError("only numbers and + - * / % ** are allowed")
@@ -3845,7 +3845,7 @@ for r in db_ro.transcript_segments.aggregate([{'\$group': {'_id': '\$recording',
 - If Step 8 stops during "2/5 transcribing", nothing was saved for that recording yet; run the same command again.
 - </code>label_speakers()<code> and </code>analyze_audio()<code> are safe to rerun: they overwrite speaker labels and replace the recording's action items. Each rerun calls the API again.
 - The first </code>transcribe()<code> downloads the Whisper model once; later sessions reuse it.
-- Not sure your </code>lib_claude_multimodal.py<code> is right after a break? Compare it with the <a href="#complete-lib_claude_multimodalpy-after-module-5">complete file for this module</a> at the end of the page.
+- Not sure your </code>lib_claude_multimodal.py<code> is right after a break? Compare it with the <a  at the end of the page.
 - <strong>To stop for the day</strong>, stop MongoDB (or leave it running; your data stays):
 
   </code>`<code>bash
@@ -4463,7 +4463,7 @@ def calc(expression):
             left, right = ev(node.left), ev(node.right)
             if isinstance(node.op, ast.Pow) and abs(right) > 100:
                 raise ValueError("exponent too large")
-            return _OPS<a href="left, right">type(node.op)</a>
+            return _OPS<a href="#">type(node.op)</a>
         if isinstance(node, ast.UnaryOp) and type(node.op) in _OPS:
             return _OPS<a href="ev(node.operand">type(node.op)</a>)
         raise ValueError("only numbers and + - * / % ** are allowed")
@@ -4902,7 +4902,7 @@ print('Module 1 ok')"</code></pre>
 - Nothing in this module is stored between sessions: DuckDB runs in memory and <code>open_tables()</code> re-reads the files each time. Resuming is just rerunning the script you were on.
 - Step 8 can span sessions: add questions to <code>m06_my_answers.py</code> as you write them. Each run rewrites <code>data/m6/questions.txt</code> and <code>notes/m06_answers.md</code>.
 - <code>m06_ask.py</code> asks all 10 questions again and overwrites <code>notes/m06_results.md</code> on every run. That's what Step 10 wants after each fix.
-- Not sure your <code>lib_claude_multimodal.py</code> is right after a break? Compare it with the <a href="#complete-lib_claude_multimodalpy-after-module-6">complete file for this module</a> at the end of the page.
+- Not sure your <code>lib_claude_multimodal.py</code> is right after a break? Compare it with the <a  at the end of the page.
 - <strong>To stop for the day</strong>, stop MongoDB (or leave it running; your data stays):
 
   <button class="copy-btn" onclick="copyCode(this)">Copy</button>
@@ -5554,7 +5554,7 @@ def calc(expression):
             left, right = ev(node.left), ev(node.right)
             if isinstance(node.op, ast.Pow) and abs(right) > 100:
                 raise ValueError("exponent too large")
-            return _OPS<a href="left, right">type(node.op)</a>
+            return _OPS<a href="#">type(node.op)</a>
         if isinstance(node, ast.UnaryOp) and type(node.op) in _OPS:
             return _OPS<a href="ev(node.operand">type(node.op)</a>)
         raise ValueError("only numbers and + - * / % ** are allowed")
@@ -6104,7 +6104,7 @@ for r in db_ro.log_events.aggregate([{'\$group': {'_id': '\$source_file', 'n': {
 - Step 6 compares against the number you saved in <code>notes/m07_grep_count.txt</code> (Step 3), so you don't need to redo the grep.
 - If <code>m07_extract.py</code> stops partway, just rerun it on the same file: it first deletes that file's records, so you never get duplicates. Each rerun calls the API for every chunk again.
 - The optional full-log run in Step 10 can take a long time; it's safe to stop and restart the same way.
-- Not sure your <code>lib_claude_multimodal.py</code> is right after a break? Compare it with the <a href="#complete-lib_claude_multimodalpy-after-module-7">complete file for this module</a> at the end of the page.
+- Not sure your <code>lib_claude_multimodal.py</code> is right after a break? Compare it with the <a  at the end of the page.
 - <strong>To stop for the day</strong>, stop MongoDB (or leave it running; your data stays):
 
   <button class="copy-btn" onclick="copyCode(this)">Copy</button>
@@ -6546,7 +6546,7 @@ def calc(expression):
             left, right = ev(node.left), ev(node.right)
             if isinstance(node.op, ast.Pow) and abs(right) > 100:
                 raise ValueError("exponent too large")
-            return _OPS<a href="left, right">type(node.op)</a>
+            return _OPS<a href="#">type(node.op)</a>
         if isinstance(node, ast.UnaryOp) and type(node.op) in _OPS:
             return _OPS<a href="ev(node.operand">type(node.op)</a>)
         raise ValueError("only numbers and + - * / % ** are allowed")
@@ -7107,7 +7107,7 @@ print('missing collections:', [c for c in want if c not in have] or 'none')"</co
 - Step 6 can span sessions: edit <code>QUESTIONS</code> in <code>m08_my_answers.py</code> and rerun it. Each run rewrites <code>data/m8/questions.txt</code> and <code>notes/m08_answers.md</code>.
 - <code>m08_ask.py</code> asks all 10 questions again and overwrites <code>notes/m08_results.md</code>. That's what Step 8 wants after each fix.
 - If <code>python m08_inventory.py</code> (the script you create in Step 1) ever shows an <code>error_archive</code> collection, a write got through: stop and recheck Module 0 Step 12 before going on.
-- Not sure your <code>lib_claude_multimodal.py</code> is right after a break? Compare it with the <a href="#complete-lib_claude_multimodalpy-after-module-8">complete file for this module</a> at the end of the page.
+- Not sure your <code>lib_claude_multimodal.py</code> is right after a break? Compare it with the <a  at the end of the page.
 - <strong>To stop for the day</strong>, stop MongoDB (or leave it running; your data stays):
 
   <button class="copy-btn" onclick="copyCode(this)">Copy</button>
@@ -7664,7 +7664,7 @@ def calc(expression):
             left, right = ev(node.left), ev(node.right)
             if isinstance(node.op, ast.Pow) and abs(right) > 100:
                 raise ValueError("exponent too large")
-            return _OPS<a href="left, right">type(node.op)</a>
+            return _OPS<a href="#">type(node.op)</a>
         if isinstance(node, ast.UnaryOp) and type(node.op) in _OPS:
             return _OPS<a href="ev(node.operand">type(node.op)</a>)
         raise ValueError("only numbers and + - * / % ** are allowed")
@@ -8326,7 +8326,7 @@ for i in db_rw.chunks.list_search_indexes(): print('index:   ', i['name'], 'read
 
 - <strong><code>build_chunks()</code> deletes every chunk and rebuilds them.</strong> It's free and quick, so rerun Step 1 whenever your sources change. The search index stays and picks up the new chunks by itself.
 - Step 6 writes all 10 answers to <code>notes/m09_results.md</code> in one run. Rerunning <code>m09_ask.py</code> overwrites that file, so don't rerun it after you've started marking answers ✅ or ❌ in Step 7.
-- Not sure your <code>lib_claude_multimodal.py</code> is right after a break? Compare it with the <a href="#complete-lib_claude_multimodalpy-after-module-9">complete file for this module</a> at the end of the page.
+- Not sure your <code>lib_claude_multimodal.py</code> is right after a break? Compare it with the <a  at the end of the page.
 - <strong>To stop for the day</strong>, stop MongoDB (or leave it running; your data stays):
 
   <button class="copy-btn" onclick="copyCode(this)">Copy</button>
@@ -8783,7 +8783,7 @@ def calc(expression):
             left, right = ev(node.left), ev(node.right)
             if isinstance(node.op, ast.Pow) and abs(right) > 100:
                 raise ValueError("exponent too large")
-            return _OPS<a href="left, right">type(node.op)</a>
+            return _OPS<a href="#">type(node.op)</a>
         if isinstance(node, ast.UnaryOp) and type(node.op) in _OPS:
             return _OPS<a href="ev(node.operand">type(node.op)</a>)
         raise ValueError("only numbers and + - * / % ** are allowed")
@@ -9463,7 +9463,7 @@ def answer_with_sources(question, modality=None, k=8, model=HAIKU):
             <section id="module-10" class="module-section">
 <h1>Module 10 — Production and security (ongoing)</h1>
 
-<a href="#module-9">← Module 9</a> · <a href="../README.md">Syllabus</a> · <a href="../capstone/README.md">Next: Capstone →</a>
+<a href="#module-9">← Module 9</a> · <a href="#intro">Syllabus</a> · <a href="#intro">Next: Capstone →</a>
 
 <strong>You start with:</strong> Modules 0–9 done — especially the Module 4 folder pipeline, the Module 2 evaluation, <code>ask_mongo()</code> and <code>llm_calls</code>.
 <strong>You finish with:</strong> the Module 4 pipeline running as a container; JSON logs and a cost report; an evaluation gate that fails on a worse prompt (and, optionally, runs in GitHub Actions); injection tests passed; personal-data redaction; and a one-page threat model.
@@ -9541,7 +9541,7 @@ print('invoices (M4):       ', db_ro.invoices.count_documents({}))" &amp;&amp; t
   docker compose --profile jobs build pdf-extractor
   </code>`<code>
 - <strong>Step 11:</strong> if you stopped on the </code>test-bad-prompt<code> branch, the </code>git switch master<code> above brought you back. Finish the cleanup commands in Step 11 so the branch with the bad prompt doesn't linger.
-- Not sure your </code>lib_claude_multimodal.py<code> is right after a break? Compare it with the <a href="#complete-lib_claude_multimodalpy-after-module-10">complete file for this module</a> at the end of the page.
+- Not sure your </code>lib_claude_multimodal.py<code> is right after a break? Compare it with the <a  at the end of the page.
 - <strong>To stop for the day</strong>, stop MongoDB (or leave it running; your data stays):
 
   </code>`<code>bash
@@ -10313,7 +10313,7 @@ def calc(expression):
             left, right = ev(node.left), ev(node.right)
             if isinstance(node.op, ast.Pow) and abs(right) > 100:
                 raise ValueError("exponent too large")
-            return _OPS<a href="left, right">type(node.op)</a>
+            return _OPS<a href="#">type(node.op)</a>
         if isinstance(node, ast.UnaryOp) and type(node.op) in _OPS:
             return _OPS<a href="ev(node.operand">type(node.op)</a>)
         raise ValueError("only numbers and + - * / % ** are allowed")
@@ -11055,7 +11055,7 @@ volumes:
 - [ ] Step 12: both planted injections had no effect.
 - [ ] Step 14: a one-page threat model with tested mitigations.
 
-<strong>Next:</strong> <a href="../capstone/README.md">Capstone</a>
+<strong>Next:</strong> <a href="#intro">Capstone</a>
 
             </section>
         </div>
