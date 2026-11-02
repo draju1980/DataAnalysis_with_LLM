@@ -10217,39 +10217,45 @@ const activeLink = document.querySelector(`nav a[href="${hash}"]`);
 if (activeLink) activeLink.classList.add('active');
 </script>
 
+
+
 <script>
 // Make checkboxes interactive
 document.addEventListener('DOMContentLoaded', function() {
     const checkboxes = document.querySelectorAll('li');
     checkboxes.forEach(li => {
-        if (li.textContent.match(/^\s*\[\s*\]/)) {
+        const html = li.innerHTML;
+        if (html.includes('[ ]') || html.includes('[  ]')) {
             li.style.cursor = 'pointer';
             li.classList.add('checkbox');
             
             li.addEventListener('click', function(e) {
-                if (e.target === li || e.target.tagName === 'LI') {
-                    const isChecked = li.classList.toggle('checked');
-                    const text = li.innerHTML;
-                    if (isChecked) {
-                        li.innerHTML = text.replace(/\[\s*\]/, '[✓]');
-                    } else {
-                        li.innerHTML = text.replace(/\[✓\]/, '[  ]');
-                    }
-                    // Save to localStorage
-                    localStorage.setItem('checkbox_' + btoa(li.textContent.substring(0, 50)), isChecked);
+                e.stopPropagation();
+                const isChecked = li.classList.toggle('checked');
+                const text = li.innerHTML;
+                if (isChecked) {
+                    li.innerHTML = text.replace(/\[\s*\]/g, '[✓]');
+                    li.style.color = 'var(--success)';
+                } else {
+                    li.innerHTML = text.replace(/\[✓\]/g, '[  ]');
+                    li.style.color = 'inherit';
                 }
+                // Save to localStorage
+                const key = 'checkbox_' + btoa(li.textContent.substring(0, 50));
+                localStorage.setItem(key, isChecked);
             });
             
             // Load saved state
-            const savedState = localStorage.getItem('checkbox_' + btoa(li.textContent.substring(0, 50)));
+            const key = 'checkbox_' + btoa(li.textContent.substring(0, 50));
+            const savedState = localStorage.getItem(key);
             if (savedState === 'true') {
                 li.classList.add('checked');
-                li.innerHTML = li.innerHTML.replace(/\[\s*\]/, '[✓]');
+                li.innerHTML = li.innerHTML.replace(/\[\s*\]/g, '[✓]');
+                li.style.color = 'var(--success)';
             }
         }
     });
 });
 </script>
-
 </body>
 </html>
