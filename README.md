@@ -3,8 +3,8 @@
 An 11-module, self-paced course on analyzing text, images, PDFs, audio, tabular files and logs with Claude, using a local MongoDB as the workbench. About 8 weeks at 1–2 hours a day, plus a capstone.
 
 **📖 Interactive Course Page:** 
-- **[View Online](https://draju1980.github.io/DataAnalysis_with_LLM/course.html)** — Complete course guide hosted on GitHub Pages
-- **[Local Version](course.html)** — Run `python -m http.server 8000` and open http://localhost:8000/course.html
+- **[View Online](https://draju1980.github.io/DataAnalysis_with_LLM/index.html)** — Complete course guide hosted on GitHub Pages
+- **[Local Version](index.html)** — Run `python -m http.server 8000` and open http://localhost:8000/
 
 Complete course with all 11 modules' full step-by-step instructions, code examples, and navigation. Works on desktop and mobile with dark mode support.
 
